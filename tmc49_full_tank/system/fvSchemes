@@ -1,0 +1,32 @@
+/*--------------------------------*- C++ -*----------------------------------*/
+FoamFile { version 2.0; format ascii; class dictionary; object fvSchemes; }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+
+ddtSchemes      { default Euler; }
+gradSchemes     { default Gauss linear; }
+
+divSchemes
+{
+    default                  Gauss upwind;
+    "div\(phi,alpha.*\)"     Gauss vanLeer;
+    "div\(phirb,alpha.*\)"   Gauss linear;
+    div(rhoPhi,U)            Gauss linearUpwind grad(U);
+    "div\(rhoPhi,(e|h|K)\)"  Gauss upwind;
+    div(phi,T)               Gauss limitedLinear 1;   // TVD — 층화 보존 (공식 튜토리얼 upwind 대비 개선)
+    "div\(phi,(e|h)\)"      Gauss upwind;
+    div(((rho*nuEff)*dev2(T(grad(U))))) Gauss linear;
+}
+
+laplacianSchemes { default Gauss linear corrected; }
+interpolationSchemes { default linear; }
+snGradSchemes   { default corrected; }
+
+// MULESCorr(암시적 alpha)·압력 보정이 면 플럭스 재구성을 요구하는 장 목록
+fluxRequired
+{
+    default         no;
+    p_rgh;
+    pcorr;
+    "alpha.*";
+}

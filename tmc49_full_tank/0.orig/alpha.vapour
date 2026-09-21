@@ -1,0 +1,15 @@
+/*--------------------------------*- C++ -*----------------------------------*/
+FoamFile { version 2.0; format ascii; class volScalarField; object alpha.vapour; }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// config.json 자동 생성 — 직접 수정 금지 (build_case.py가 매 실행 덮어씀)
+dimensions [0 0 0 0 0 0 0];
+internalField uniform 0;
+
+boundaryField
+{
+    cpu          { type zeroGradient; }
+    board        { type zeroGradient; }
+    coil         { type zeroGradient; }
+    outerWalls   { type zeroGradient; }
+    top          { type inletOutlet; inletValue uniform 0; value uniform 0; }
+}

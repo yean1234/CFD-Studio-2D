@@ -1,0 +1,40 @@
+/*--------------------------------*- C++ -*----------------------------------*/
+FoamFile { version 2.0; format ascii; class dictionary; object fvSolution; }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+
+solvers
+{
+    "alpha.*"
+    {
+        nAlphaCorr      2;
+        nAlphaSubCycles 2;
+        // 상 쌍별 계면 압축계수 (multiphaseInter 계열은 복수형 cAlphas 요구)
+        cAlphas         ( (liquid and vapour) 1  (liquid and water) 1  (vapour and water) 1 );
+        MULESCorr       yes;
+        nLimiterIter    5;      // 강한 상변화 소스 대비 (전문 관행)
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        tolerance       1e-8;
+        relTol          0;
+    }
+    "pcorr.*"   { solver PCG; preconditioner DIC; tolerance 1e-5; relTol 0; }
+    // CFD_STUDIO_PRESSURE_BEGIN
+    p_rgh       { solver GAMG; smoother DIC; tolerance 1e-7; relTol 0.01; }
+    p_rghFinal  { $p_rgh; relTol 0; }
+    // CFD_STUDIO_PRESSURE_END
+    "(U|T|e|h).*" { solver PBiCGStab; preconditioner DILU; tolerance 1e-8; relTol 0; }   // 공식 튜토리얼 계열
+}
+
+PIMPLE
+{
+    momentumPredictor   no;
+    nOuterCorrectors    1;
+    nCorrectors         3;
+    nNonOrthogonalCorrectors 0;
+    // 밀폐 수조(모든 경계 벽) → 압력 기준점 필수. 좌상단 DI수 영역의 안정 지점
+    pRefPoint           (0.02 0.79 0.035);   // 2D 축소형에서는 z를 0.0005로
+    pRefValue           101325;
+}
+
+relaxationFactors { equations { ".*" 1; } }

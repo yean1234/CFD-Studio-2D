@@ -1,0 +1,25 @@
+/*--------------------------------*- C++ -*----------------------------------*/
+FoamFile { version 2.0; format ascii; class dictionary; object setFieldsDict; }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// config.json 자동 생성 — 층 초기화 (유전체 400 mm / 물 400 mm)
+// 균일 초기장
+defaultFieldValues
+(
+    volScalarFieldValue alpha.water   1
+    volScalarFieldValue alpha.liquid  0
+    volScalarFieldValue alpha.vapour  0
+    volScalarFieldValue T             305.15
+);
+regions
+(
+    boxToCell
+    {
+        box (-1 -1 -1) (1 0.4 1);
+        fieldValues
+        (
+            volScalarFieldValue alpha.water   0
+            volScalarFieldValue alpha.liquid  1
+            volScalarFieldValue T             320.05
+        );
+    }
+);

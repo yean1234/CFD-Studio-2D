@@ -1,0 +1,61 @@
+#!/bin/sh
+# 사용:  ./Allrun              → 3D 실험형(기본, DX=3 mm ≈ 89만 셀), CPU 자동 병렬
+#        미세 격자: config.json mesh.dx_mm=2 — GPU 압력솔버(AmgX) 연동 권장
+#        NP=14 ./Allrun        → 병렬 코어 수 직접 지정 (단독 실행 기본: nproc의 60%, Studio는 최대 80%)
+cd "${0%/*}" || exit 1
+. ${WM_PROJECT_DIR:?OpenFOAM 환경을 먼저 불러오세요}/bin/tools/RunFunctions
+
+# AmgX/PETSc가 설치된 PC의 기존 GPU 압력솔버 환경을 활성화한다.
+# 미설치 PC는 그대로 CPU GAMG 경로를 사용한다.
+if [ "${CFD_STUDIO_COMPUTE_MODE:-cpu}" != gpu_only ]; then
+    [ -f "$HOME/.of_gpu_env" ] && . "$HOME/.of_gpu_env" || true
+fi
+
+# 설정: config.json 하나 (형상·물성·발열·냉각·격자·시간 + conditions 실측 조건 배열)
+# 조건 실행 예: CONDITION=C3_T20 ./Allrun
+python3 tools/build_case.py ${CONDITION:+--condition $CONDITION} || exit 1
+ANALYSIS=$(python3 -c 'import json; print(json.load(open("config.json")).get("_해석유형", "immersion"))')
+[ "$ANALYSIS" = grain_silo ] || python3 tools/select_pressure_solver.py || exit 1
+rm -rf 0 processor*
+
+NP=${NP:-$(( $(nproc) * 6 / 10 ))}
+[ "${CFD_STUDIO_COMPUTE_MODE:-cpu}" = gpu_only ] && NP=1
+[ "$NP" -lt 1 ] && NP=1
+# CFD Studio가 전달한 NP는 이미 논리 CPU의 최대 80%로 제한된다.
+# 여기서 물리 코어 수로 다시 줄이면 32스레드 PC의 목표 사용량에 도달하지 못하므로 재제한하지 않는다.
+foamDictionary -entry numberOfSubdomains -set "$NP" system/decomposeParDict > /dev/null
+echo "병렬 코어: $NP"
+
+runApplication blockMesh
+[ "$ANALYSIS" != grain_silo ] || runApplication topoSet
+[ "$ANALYSIS" != grain_silo ] || [ ! -f system/createPatchDict ] || runApplication createPatch -overwrite
+cp -r 0.orig 0
+runApplication checkMesh
+[ "$ANALYSIS" = grain_silo ] || runApplication setFields
+runApplication decomposePar
+runParallel $(getApplication)
+SOLVER_RC=$?
+if [ "$SOLVER_RC" -ne 0 ]; then
+    if grep -qE 'Foam::sigFpe::sigHandler|End of error message|bounding (k|epsilon).*e\+[0-9]{2,}|continuity errors.*(nan|e\+[0-9]{2,})' log.$(getApplication) 2>/dev/null; then
+        echo '[CFD Studio] 계산 발산 감지 — 초기장·난류·다공성 안정 설정을 적용한 뒤 0초부터 다시 실행하세요'
+    fi
+    if [ "${CFD_STUDIO_COMPUTE_MODE:-cpu}" = gpu_only ]; then
+        touch .cfd_studio_gpu_only_failed .cfd_studio_user_stopped
+        echo '[CFD Studio] GPU Only 계산 오류 — CPU로 전환하지 않고 중단합니다'
+        exit "$SOLVER_RC"
+    fi
+    # AmgX/PETSc CUDA 오류를 자동 재개하면 Windows 그래픽 드라이버까지 반복 복구될 수 있다.
+    # 원본 계산 폴더는 그대로 두고 다음 수동 실행부터 CPU GAMG로 안전 전환한다.
+    if grep -qE 'cudaErrorIllegalAddress|PETSc error code:[[:space:]]*76|Thrust failure' log.$(getApplication) 2>/dev/null; then
+        touch .cfd_studio_gpu_failed "$HOME/.cfd_studio_gpu_failed" .cfd_studio_user_stopped
+        CFD_STUDIO_GPU_PRESSURE=0 python3 tools/select_pressure_solver.py || true
+        echo '[CFD Studio] GPU 압력 계산 오류 — 자동 재시도 차단, 다음 실행은 CPU GAMG 사용'
+    fi
+    exit "$SOLVER_RC"
+fi
+runApplication reconstructPar -newTimes
+# CFD Studio Viewer reads the native fields directly. Steady storage runs can
+# contain many iteration snapshots, so VTK duplication is opt-in for that case.
+if [ "$ANALYSIS" != grain_silo ] || [ "${CFD_STUDIO_EXPORT_VTK:-0}" = 1 ]; then
+    runApplication foamToVTK -useTimeName
+fi

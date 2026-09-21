@@ -1,0 +1,30 @@
+// ═══ GPU(AmgX) 압력 솔버 — CFD Studio가 다음 시작/재개 직전에 자동 적용 ═══
+// 근거: OpenFOAM external-solver 공식 dict 구조 + PETSc PCAMGX 권고
+// controlDict의 libs(petscFoam)도 tools/select_pressure_solver.py가 자동 반영
+
+    p_rgh
+    {
+        solver          petsc;
+        preconditioner  petsc;
+        petsc
+        {
+            options
+            {
+                ksp_type                 cg;
+                ksp_cg_single_reduction  true;
+                ksp_norm_type            unpreconditioned;
+                pc_type                  amgx;
+                mat_type                 aijcusparse;
+                vec_type                 cuda;
+            }
+            caching
+            {
+                matrix         { update always; }
+                preconditioner { update always; }
+            }
+        }
+        tolerance       1e-07;
+        relTol          0.01;
+    }
+
+// GPU 사용 확인: 실행 중 다른 창에서 watch -n1 nvidia-smi

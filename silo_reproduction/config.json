@@ -1,0 +1,104 @@
+{
+  "study": {
+    "title": "Chen et al. (2026) corn silo independent reproduction",
+    "citation": "Chen, S., Wang, X., Zhang, X., and Liu, C. (2026). Structural Optimization of Corn Circulating Ventilator for Grain Storage Silo Based on CFD. BioResources 21(1), 420-438. DOI: 10.15376/biores.21.1.420-438",
+    "scope": "3D steady single-phase incompressible isothermal forced ventilation with a Darcy-Forchheimer corn porous zone",
+    "claim": "independent reproduction from published values and explicit assumptions"
+  },
+  "published": {
+    "outer_diameter_m": 1.0,
+    "total_height_m": 1.4,
+    "storage_diameter_m": 0.8,
+    "storage_height_m": 1.2,
+    "grain_height_m": 1.0,
+    "bottom_central_duct_diameter_m": 0.3,
+    "inlet_speed_m_s": 3.0,
+    "air_temperature_C": 20.0,
+    "air_humidity_kg_kg": 0.007,
+    "rho_kg_m3": 1.177,
+    "mu_Pa_s": 1.85e-05,
+    "nu_m2_s": 1.5718e-05,
+    "grain_particle_diameter_m": 0.00782,
+    "grain_porosity": 0.411,
+    "darcy_d_1_m2": 12256963.1,
+    "forchheimer_f_1_m": 3797.1
+  },
+  "published_numerics": {
+    "software": "ANSYS Fluent 2023",
+    "pressure_velocity_coupling": "coupled",
+    "turbulence": "standard wall k-epsilon",
+    "spatial_discretization": "second-order upwind"
+  },
+  "openfoam_mapping": {
+    "version": "v2312",
+    "solver": "simpleFoam",
+    "pressure_velocity_coupling": "SIMPLE",
+    "turbulence": "kEpsilon",
+    "porosity_source": "explicitPorositySource/DarcyForchheimer",
+    "status": "independent OpenFOAM mapping; not the source solver"
+  },
+  "solver_options": {
+    "simpleFoam": {
+      "label": "정상상태 단상 (simpleFoam)",
+      "pressure_velocity_coupling": "SIMPLE",
+      "steady_state": true
+    },
+    "pimpleFoam": {
+      "label": "비정상 단상 (pimpleFoam)",
+      "pressure_velocity_coupling": "PIMPLE",
+      "steady_state": false
+    }
+  },
+  "turbulence_options": ["kEpsilon", "realizableKE", "RNGkEpsilon"],
+  "solver_controls": {
+    "turbulence_intensity": 0.05,
+    "turbulence_length_scale_m": 0.05,
+    "convergence_tolerance": 1e-6
+  },
+  "run": {
+    "time_basis": "iterations",
+    "max_iterations": 1000,
+    "write_interval_iterations": 100,
+    "end_time_s": 1000,
+    "write_interval_s": 100,
+    "viz_interval_s": 100,
+    "playback_duration_s": 60,
+    "max_dt_s": 0.01,
+    "output_fields": ["flow", "pressure", "turbulence"]
+  },
+  "mesh": {
+    "target_cells": 1056000,
+    "paper_independence_cells": [604000, 608000, 666000, 815000, 1056000, 1400000, 1747000],
+    "reproduction_validation_cells": [604000, 815000, 1056000],
+    "require_external_mesh": true
+  },
+  "design_domains": {
+    "custom_policy": "published single-factor discrete levels only",
+    "A_mm": [10, 15, 20, 25, 30],
+    "B_layers": [7, 10, 11, 12, 13, 14],
+    "C_mm": [4, 5, 6, 7, 8],
+    "D_count": [4, 5, 6, 7, 8],
+    "doe": {
+      "A_mm": [15, 20, 25],
+      "B_layers": [11, 12, 13],
+      "C_mm": [4, 5, 6],
+      "D_count": [5, 6, 7]
+    }
+  },
+  "assumptions": {
+    "cone_height_m": null,
+    "circulation_duct_section": null,
+    "circulation_duct_length_m": null,
+    "ports_per_layer": null,
+    "layer_start_height_m": null,
+    "layer_spacing_m": null,
+    "lower_outlet_positions": null,
+    "fan_flow_split": null,
+    "inlet_reference_area": null,
+    "cv_plane_height_m": null,
+    "cv_plane_radius_m": null,
+    "cv_sample_count": null,
+    "mesh_boundary_layers": null,
+    "convergence_criteria": null
+  }
+}

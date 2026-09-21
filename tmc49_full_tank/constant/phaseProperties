@@ -1,0 +1,34 @@
+/*--------------------------------*- C++ -*----------------------------------*/
+FoamFile { version 2.0; format ascii; class dictionary; object phaseProperties; }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// config.json 자동 생성 — 3상(하단 비전도 액체/그 증기/상단 액체) + Lee 상변화
+// liquid/vapour/water는 기존 프로젝트·Viewer 호환을 위한 OpenFOAM 내부 상 이름
+type    massTransferMultiphaseSystem;
+phases  (liquid vapour water);
+
+liquid  { type pureMovingPhaseModel; }
+vapour  { type pureMovingPhaseModel; }
+water   { type pureMovingPhaseModel; }
+
+surfaceTension
+(
+    (liquid and vapour) { type constant; sigma 0.01144; }   // evidence: direct
+    (liquid and water)  { type constant; sigma 0.056; }   // evidence: analogous
+    (vapour and water)  { type constant; sigma 0.0667; }   // evidence: analogous
+);
+
+massTransferModel
+(
+    (liquid to vapour)
+    {
+        type            Lee;
+        C               50.0;       // ★UDF 원값 수령 시 교체
+        Tactivate       320.15;
+    }
+    (vapour to liquid)
+    {
+        type            Lee;
+        C               -50;       // 실측 정성 기준 역산 보정 — UDF 원값 수령 시 교체
+        Tactivate       320.15;
+    }
+);

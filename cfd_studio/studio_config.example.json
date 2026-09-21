@@ -1,0 +1,12 @@
+{
+  "wsl_case": "~/cfd_studio_case",
+  "openfoam_bashrc": "auto",
+  "wsl_distro": "Ubuntu",
+  "mpi_np": "auto",
+  "gpu_index": "auto",
+  "pressure_solver_mode": "cpu",
+  "cpu_pct": 60,
+  "auto_resume": false,
+  "raw_archive_dir": "",
+  "port": 8712
+}

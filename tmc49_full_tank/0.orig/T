@@ -1,0 +1,30 @@
+/*--------------------------------*- C++ -*----------------------------------*/
+FoamFile { version 2.0; format ascii; class volScalarField; object T; }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// config.json 자동 생성
+dimensions [0 0 0 1 0 0 0];
+internalField uniform 305;      // setFields가 층별 초기 온도 설정
+
+boundaryField
+{
+    cpu         // CPU 발열면 — 총 265 W (면적 3,680 mm² ⇒ 72.0 kW/m²)
+    {
+        type            externalWallHeatFluxTemperature;
+        mode            power;
+        Q               265;
+        kappaMethod     fluidThermo;
+        value           uniform 320;
+    }
+    board       { type zeroGradient; }     // 기판 단열 근사 ★발열 분배 확인
+    coil        // 냉각 코일 — h(T-Ta). 조건 교체는 config.json의 conditions 배열
+    {
+        type            externalWallHeatFluxTemperature;
+        mode            coefficient;
+        h               uniform 3919.7;         // ★핀 사양 수령 시 확정 (hA 보존 환산값)
+        Ta              constant 293.15;
+        kappaMethod     fluidThermo;
+        value           uniform 300;
+    }
+    outerWalls  { type zeroGradient; }     // 외벽 단열 근사
+    top         { type inletOutlet; inletValue uniform 305.15; value uniform 305.15; }
+}

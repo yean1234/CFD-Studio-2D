@@ -1,0 +1,63 @@
+# CFD Studio
+
+Windows에서 OpenFOAM 계산과 프로젝트별 데이터 보관, 브라우저 3D 시각화를 운영하는 연구용 소프트웨어입니다. 이중 액침냉각과 단상 다공성 저장고 해석을 설정에서 선택합니다.
+
+## 설치 및 실행
+
+**필수:** Windows 10/11 x64, WSL2 Ubuntu, WebGL2 브라우저, 인터넷 연결(최초 OpenFOAM 설치).
+
+1. 저장소 전체를 내려받거나 clone합니다. 폴더 간 상대 위치를 유지합니다.
+2. WSL이 없다면 관리자 PowerShell에서 `wsl --install -d Ubuntu`를 실행하고 재부팅 및 Ubuntu 사용자 설정을 마칩니다.
+3. `cfd_studio/설치.bat`을 실행합니다. OpenCFD OpenFOAM v2312, Linux NumPy 및 케이스를 준비합니다. Ubuntu sudo 비밀번호를 요청할 수 있습니다.
+4. `cfd_studio/실행.bat`을 실행합니다. 기본 주소는 `http://127.0.0.1:8712`입니다.
+5. 환경 설정에서 CPU·MPI·계산 모드·Raw 보관 위치를 확인하고 설정 및 새 프로젝트를 선택합니다.
+
+Windows 실행용 Python **3.12.10 x64 embedded runtime**이 포함되어 있습니다. 시스템 Python이나 Conda 설치가 필요하지 않습니다. Linux 계산·변환용 Python과 NumPy는 설치 스크립트가 준비합니다. WSL 배포판 선택이 필요하면 `cfd_studio/studio_config.example.json`을 `studio_config.json`으로 복사해 수정합니다.
+
+설치 대상에 기존 케이스가 있으면 덮어쓰지 않고 중단합니다. 새 설치에서는 고유한 `wsl_case` 경로를 선택하세요. 기존 CFD Studio 사용자는 원본 프로젝트를 보존하고 소스 업데이트를 별도로 검토해야 합니다.
+
+## 주요 기능
+
+- 형상·물성·열경계·격자·시간 설정, 입력 JSON과 실행별 설정 보존
+- 하드웨어 감지, CPU/MPI 배정, 실행·중단·재개 및 계산 상태 표시
+- 프로젝트별 Raw 보관, 완료 자료 이관, 저장된 시각화 재생·증분 변환
+- 기포·상분율·속도·온도 및 해석 유형에 따른 압력·난류 출력
+- 재생 배속, 그래프, 스크린샷, 영상·CSV 내보내기
+- CPU Only / 압력 GPU 병행 / OpenCFD 개발 기반 GPU Only 선택 경로
+
+## 구성
+
+```text
+cfd_studio/          Windows 앱, Viewer, 설치·실행 파일, Python 런타임
+tmc49_full_tank/     공통 케이스 생성기, 액침냉각 기본 설정, GPU 보조 도구
+silo_reproduction/  저장고 설정, 설계 실험 도구 및 가정
+docs/               모델 근거, GPU 개발 경로 및 배포 노트
+tests/              배포 구성과 설치 브리지 검사
+```
+
+`cfd_studio/configs`에는 액침냉각과 저장고 예제를 제공합니다. 실제 프로젝트 데이터, 개인 PC의 드라이브 경로와 UI 상태, 협력랩 원자료는 포함하지 않습니다. Raw·Viewer 산출물은 실행 후 생성됩니다.
+
+## 해석 범위
+
+액침냉각은 OpenFOAM v2312 `icoReactingMultiphaseInterFoam` 기반 3상 VOF와 Lee 상변화 모델입니다. DI수는 비기화 상으로 취급합니다. 저장고는 단상·다공성 해석이며 `simpleFoam` 정상상태 반복을 물리시간으로 해석하면 안 됩니다. 모델 보정과 격자·시간간격 민감도 검토가 필요합니다.
+
+GPU Only는 별도 빌드·사전 검증이 필요한 개발 기능입니다. 설치 기본값은 CPU Only입니다. GPU의 속도 향상과 CPU/GPU 결과 동등성은 해당 PC와 조건에서 확인해야 합니다. 웹 서버는 로컬 PC 사용을 전제로 하므로 인터넷에 공개하지 마세요.
+
+## 개발·검사
+
+```bash
+python -m unittest discover -s tests -v
+python tmc49_full_tank/tools/build_case.py --check
+```
+
+소프트웨어 기본 스냅샷은 v174입니다. Git 배포에 맞게 누락된 설치 브리지를 보완했으며 Windows 배치 파일은 CRLF, Linux 셸 파일은 LF로 관리합니다. 설치나 시험은 기존 계산 폴더에서 수행하지 않습니다.
+
+## 문서와 라이선스
+
+- [앱 사용법](cfd_studio/README.md)
+- [배포 및 검증 범위](docs/distribution.md)
+- [모델 근거](docs/model-evidence.md)
+- [GPU 연구 및 검증 상태](docs/gpu-research.md)
+- [외부 구성요소 안내](THIRD_PARTY_NOTICES.md)
+
+저작권자의 별도 명시가 없는 자체 코드에 신규 오픈소스 라이선스를 임의 부여하지 않았습니다. 외부 구성요소는 각 라이선스를 따릅니다.

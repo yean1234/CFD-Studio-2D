@@ -1,0 +1,15 @@
+/*--------------------------------*- C++ -*----------------------------------*/
+FoamFile { version 2.0; format ascii; class volScalarField; object p; }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// config.json 자동 생성 — 직접 수정 금지 (build_case.py가 매 실행 덮어씀)
+dimensions [1 -1 -2 0 0 0 0];
+internalField uniform 101325;
+
+boundaryField
+{
+    cpu          { type calculated; value uniform 101325; }
+    board        { type calculated; value uniform 101325; }
+    coil         { type calculated; value uniform 101325; }
+    outerWalls   { type calculated; value uniform 101325; }
+    top          { type calculated; value uniform 101325; }
+}
