@@ -1,5 +1,5 @@
 #!/bin/bash
-# CFD Studio 초기 환경 자동 구성 — 재실행 안전(idempotent)
+# Fresh installation only; existing cases are never replaced.
 set -o pipefail
 PARENT="$1"    # OpenFOAM_케이스 폴더의 WSL 경로
 CASE_SETTING="${2:-~/tmc49_full_tank}"
@@ -23,8 +23,12 @@ if [ -n "$FOUND" ]; then
   echo "  이미 설치됨: $FOUND"
 else
   echo "  설치 중 (sudo 비밀번호를 물을 수 있음)"
+  if ! command -v curl >/dev/null; then
+    sudo apt-get update || fail "패키지 목록 갱신 실패"
+    sudo apt-get install -y curl ca-certificates || fail "다운로드 도구 설치 실패"
+  fi
   curl -fsSL https://dl.openfoam.com/add-debian-repo.sh | sudo bash || fail "OpenFOAM 저장소 등록 실패 (인터넷 연결 확인)"
-  sudo apt-get update -y >/dev/null
+  sudo apt-get update -y >/dev/null || fail "패키지 목록 갱신 실패"
   sudo apt-get install -y openfoam2312-default || fail "OpenFOAM 설치 실패"
   FOUND="$(ls /usr/lib/openfoam/openfoam2312/etc/bashrc /opt/openfoam2312/etc/bashrc 2>/dev/null | head -1)"
   [ -n "$FOUND" ] || fail "설치 후 OpenFOAM 환경 파일을 찾지 못함"
@@ -70,6 +74,7 @@ elif [ -f "$TAR" ]; then
   tar xzf "$TAR" -C "$CASE" --strip-components=1 || fail "케이스 압축 해제 실패"
   echo "  풀기 완료: $CASE"
 elif [ -d "$PARENT/tmc49_full_tank" ]; then
+  mkdir -p "$(dirname "$CASE")" || fail "상위 폴더 생성 실패"
   cp -r "$PARENT/tmc49_full_tank" "$CASE" || fail "케이스 복사 실패"
   rm -f "$CASE/conditions.csv.bak" "$CASE/run_overrides.json" 2>/dev/null
   echo "  압축본이 없어 Windows 폴더에서 복사: $CASE"

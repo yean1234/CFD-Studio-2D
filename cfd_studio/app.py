@@ -18,14 +18,14 @@ PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 
 # ── 환경 설정 (studio_config.json) — 어떤 PC에서도 값만 바꾸면 동작 ──
-_SDEF = {"wsl_case": "~/tmc49_full_tank",     # WSL 안 케이스 폴더
+_SDEF = {"wsl_case": "~/cfd_studio_case",     # WSL 안 케이스 폴더
          "openfoam_bashrc": "auto",            # auto = /usr/lib/openfoam/openfoam*/etc/bashrc 자동 탐색
          "mpi_np": "auto",                     # auto = 논리 CPU의 cpu_pct% (총 사용률 목표)
-         "gpu_index": "auto", "wsl_distro": "",                  # auto = 성능 점수가 가장 높은 NVIDIA GPU
+         "gpu_index": "auto", "wsl_distro": "Ubuntu",                  # auto = 성능 점수가 가장 높은 NVIDIA GPU
          "pressure_solver_mode": "cpu",        # cpu=CPU, gpu=CPU+GPU(p_rgh), gpu_only=OpenCFD 전체 오프로딩
          "gpu_only_bashrc": "auto",            # OpenCFD GPU feature 브랜치 전용 bashrc. auto=표준 위치 탐색
          "cpu_pct": 60,                        # 기본 60%: Windows·시각화·드라이버 응답 여유 확보
-         "auto_resume": True,                  # 예기치 않게 멈춘 계산을 자동으로 이어서 실행
+         "auto_resume": False,                 # Automatic restart requires explicit opt-in.
          "archive_completed_projects": True,  # 완료 프로젝트 전체를 Raw 저장 드라이브로 이관
          "trash_retention_days": 30,           # 삭제 프로젝트 휴지통 보관 기간
          "raw_archive_dir": "",                # 빈 값=사용 안 함. PC마다 Studio에서 직접 선택

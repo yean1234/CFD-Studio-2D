@@ -27,6 +27,21 @@ class DistributionTests(unittest.TestCase):
             for p in (ROOT/base).rglob('*.py'):
                 ast.parse(p.read_text(encoding='utf-8-sig'), filename=str(p))
 
+    def test_first_launch_defaults_match_installer(self):
+        tree = ast.parse((ROOT/'cfd_studio/app.py').read_text(encoding='utf-8'))
+        defaults = next(ast.literal_eval(node.value) for node in tree.body
+                        if isinstance(node, ast.Assign)
+                        and any(isinstance(t, ast.Name) and t.id == '_SDEF' for t in node.targets))
+        example = json.loads((ROOT/'cfd_studio/studio_config.example.json').read_text())
+        for key, value in example.items():
+            self.assertEqual(defaults[key], value, key)
+
+    def test_shell_syntax(self):
+        if not shutil.which('bash'):
+            self.skipTest('bash required')
+        for path in ROOT.rglob('*.sh'):
+            subprocess.run(['bash', '-n', str(path)], check=True)
+
     def test_no_personal_state(self):
         for name in ['studio_config.json','Project','Trash','_runtime','frames']:
             self.assertFalse((ROOT/'cfd_studio'/name).exists(), name)

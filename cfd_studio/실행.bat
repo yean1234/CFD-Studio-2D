@@ -111,7 +111,7 @@ if not defined CFD_STUDIO_WSL_EXE if exist "%SystemRoot%\Sysnative\wsl.exe" set 
 if not defined CFD_STUDIO_WSL_EXE set "CFD_STUDIO_WSL_EXE=wsl.exe"
 if not exist "%CFD_STUDIO_WSL_EXE%" set "CFD_STUDIO_WSL_EXE=wsl.exe"
 "%CFD_STUDIO_WSL_EXE%" --status >nul 2>&1
-if errorlevel 1 echo [note] WSL not found - run the SETUP batch file first.
+if errorlevel 1 echo [note] Initialize WSL2 Ubuntu first. See README.md.
 
 rem --- CFD Studio ships and uses one tested runtime. System Python/Conda/Store aliases are ignored. ---
 set "CFD_PYTHON=%~dp0Setup\Python312\python.exe"
@@ -126,7 +126,7 @@ goto done
 echo [CFD Studio] bundled Python runtime not found.
 echo   Required: Python 3.12.10 x64
 echo   Restore the folder: Setup\Python312
-echo   Or run: Setup\Python-3.12.10-x64.exe
+echo   Download the complete repository again if runtime files are missing.
 pause
 goto :eof
 
