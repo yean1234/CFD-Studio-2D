@@ -1,0 +1,23 @@
+{
+  "target_species": "PH3",
+  "model_kind": "normalized_tracer",
+  "evidence": "numerical_test_only_not_rice_or_PH3_calibration",
+  "lengths_m": [1.0, 0.2, 0.2],
+  "transverse_cells": [4, 4],
+  "porous_x_fraction": [0.0, 1.0],
+  "porous_boxes_m": [{"min": [0.0, 0.0, 0.0], "max": [1.0, 0.2, 0.2]}],
+  "porosity": 0.4,
+  "D_air_m2_s": 0.01,
+  "K_porous_m2_s": 0.002,
+  "end_s": 2.0,
+  "write_interval_s": 0.1,
+  "initial_mean": 1.0,
+  "initial_cosine_amplitude": 0.0,
+  "adsorption": {
+    "model": "linear_reversible",
+    "k_ads_s_inv": 0.2,
+    "k_des_s_inv": 0.1,
+    "initial_bulk_Q": 0.0,
+    "evidence": "numerical_test_assumption"
+  }
+}

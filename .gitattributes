@@ -14,3 +14,4 @@ Allclean text eol=lf
 *.zip binary
 *.cat binary
 cfd_studio/Setup/Python312/LICENSE.txt -whitespace
+study_platform/vendor/three.module.js -whitespace linguist-vendored

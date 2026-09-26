@@ -1,0 +1,15 @@
+{
+  "target_species": "PH3",
+  "model_kind": "normalized_tracer",
+  "evidence": "research_assumption_numerical_benchmark_not_rice_or_fumigant_properties",
+  "lengths_m": [1.0, 0.2, 0.2],
+  "transverse_cells": [4, 4],
+  "porous_x_fraction": [0.25, 0.75],
+  "porosity": 0.4,
+  "D_air_m2_s": 0.01,
+  "K_porous_m2_s": 0.002,
+  "end_s": 1.0,
+  "write_interval_s": 0.1,
+  "initial_mean": 1.0,
+  "initial_cosine_amplitude": 0.5
+}

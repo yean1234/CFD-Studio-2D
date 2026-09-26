@@ -24,6 +24,8 @@ Windows 실행용 Python **3.12.10 x64 embedded runtime**이 포함되어 있습
 - 기포·상분율·속도·온도 및 해석 유형에 따른 압력·난류 출력
 - 재생 배속, 그래프, 스크린샷, 영상·CSV 내보내기
 - CPU Only / 압력 GPU 병행 / OpenCFD 개발 기반 GPU Only 선택 경로
+- 실험 묶음(Study), 순차 검증 계산, 품질 검사·비교·재현 패키지
+- 연구 변수 3그룹, 배치·공급 위치 후보 검사, 3D 형상 미리보기 및 불변 입력 버전
 
 ## 구성
 
@@ -33,6 +35,8 @@ tmc49_full_tank/     공통 케이스 생성기, 액침냉각 기본 설정, GPU
 silo_reproduction/  저장고 설정, 설계 실험 도구 및 가정
 docs/               모델 근거, GPU 개발 경로 및 배포 노트
 tests/              배포 구성과 설치 브리지 검사
+study_platform/     실험 관리, 연구 변수·형상 후보, 비교·재현
+tracer_transport/   정규화 추적자 검증 솔버 및 후처리
 ```
 
 `cfd_studio/configs`에는 액침냉각과 저장고 예제를 제공합니다. 실제 프로젝트 데이터, 개인 PC의 드라이브 경로와 UI 상태, 협력랩 원자료는 포함하지 않습니다. Raw·Viewer 산출물은 실행 후 생성됩니다.
@@ -45,12 +49,16 @@ GPU Only는 별도 빌드·사전 검증이 필요한 개발 기능입니다. �
 
 ## 개발·검사
 
+Studio 실행 후 `/studies`에서 검증 실험을, `/studies/design`에서 연구 변수·형상 후보를 관리합니다. [연구 실험 사용법](docs/research-studies.md)에 실행 조건과 제한사항을 정리했습니다. **저장고 후보를 실제 ClO₂ CFD로 실행하는 어댑터는 아직 연결하지 않았습니다.** 검증 예제만 실제 솔버로 실행됩니다.
+
+정규화 가스 수송 모듈은 [tracer_transport 사용법](tracer_transport/README.md)을 참고하세요. 해당 모듈 검사는 별도의 requirements 설치 환경에서 실행합니다.
+
 ```bash
 python -m unittest discover -s tests -v
 python tmc49_full_tank/tools/build_case.py --check
 ```
 
-소프트웨어 기본 스냅샷은 v174입니다. Git 배포에 맞게 누락된 설치 브리지를 보완했으며 Windows 배치 파일은 CRLF, Linux 셸 파일은 LF로 관리합니다. 설치나 시험은 기존 계산 폴더에서 수행하지 않습니다.
+v174 기반 코드를 보존하고 연구 작업 경로를 v177에 추가했습니다. Windows 배치 파일은 CRLF, Linux 셸 파일은 LF로 관리합니다. 설치나 시험은 기존 계산 폴더에서 수행하지 않습니다.
 
 ## 문서와 라이선스
 
@@ -59,5 +67,7 @@ python tmc49_full_tank/tools/build_case.py --check
 - [모델 근거](docs/model-evidence.md)
 - [GPU 연구 및 검증 상태](docs/gpu-research.md)
 - [외부 구성요소 안내](THIRD_PARTY_NOTICES.md)
+- [개발 규칙](docs/code-conventions.md)
+- [2026-09-26 구현·검증 범위](docs/research-status-20260926.md)
 
 저작권자의 별도 명시가 없는 자체 코드에 신규 오픈소스 라이선스를 임의 부여하지 않았습니다. 외부 구성요소는 각 라이선스를 따릅니다.

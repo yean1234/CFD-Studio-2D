@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="ko">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><link rel="icon" href="data:," /><title>CFD Studio · 연구 변수</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      background: #f5f6f8;
+      color: #20252a;
+      font: 14px system-ui;
+      letter-spacing: 0;
+    }
+    header {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      padding: 16px 24px;
+      background: white;
+      border-bottom: 1px solid #cbd1d5;
+    }
+    a {
+      color: #176d57;
+    }
+    main {
+      max-width: 1400px;
+      margin: auto;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 22px;
+    }
+    h2 {
+      font-size: 17px;
+    }
+    section {
+      padding: 16px 0;
+      border-bottom: 1px solid #ccd2d8;
+    }
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+      border: 1px solid #9daab4;
+      border-radius: 4px;
+      padding: 8px;
+      background: white;
+      min-width: 0;
+      max-width: 100%;
+    }
+    button {
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    textarea {
+      width: 100%;
+      resize: vertical;
+      font: 12px monospace;
+    }
+    label {
+      display: grid;
+      gap: 6px;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .scroll {
+      overflow: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    th,
+    td {
+      text-align: left;
+      padding: 8px;
+      border-bottom: 1px solid #d5dbe0;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+    td select,
+    td input {
+      width: 100%;
+    }
+    th:first-child {
+      width: 140px;
+    }
+    th:nth-child(2) {
+      width: 120px;
+    }
+    th:nth-child(4) {
+      width: 90px;
+    }
+    th:last-child {
+      width: 180px;
+    }
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    #scene {
+      width: 100%;
+      height: 440px;
+      position: relative;
+      background: #e7edf0;
+      touch-action: none;
+    }
+    #scene canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    #status {
+      min-height: 24px;
+      color: #8c4600;
+      overflow-wrap: anywhere;
+    }
+    pre {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      max-height: 280px;
+      overflow: auto;
+    }
+    #candidates tr {
+      cursor: pointer;
+    }
+    #candidates tr[aria-selected="true"] {
+      background: #d9ede8;
+    }
+    .notice {
+      color: #714808;
+      background: #fff0cb;
+      padding: 10px;
+    }
+    button:focus,
+    input:focus,
+    textarea:focus,
+    select:focus {
+      outline: 2px solid #1685a6;
+      outline-offset: 2px;
+    }
+    @media (max-width: 800px) {
+      .split {
+        grid-template-columns: 1fr;
+      }
+      table {
+        min-width: 820px;
+      }
+      main {
+        padding: 12px;
+      }
+      #scene {
+        height: 340px;
+      }
+    }
+  </style>
+  <header>
+    <strong>CFD Studio</strong><a href="/studies">실험 실행·결과</a
+    ><a href="/">프로젝트·Viewer</a><a href="/warehouse">저장고 형상</a>
+  </header>
+  <main>
+    <h1>연구 변수</h1>
+    <p class="notice">
+      저장고 배치·공급 위치 공동 비교 · 형상 검토 단계 · 실제 ClO₂ 계산 미연결
+    </p>
+    <section>
+      <div class="row">
+        <label>실험<select id="study"></select></label
+        ><label>새 실험 이름<input id="name" maxlength="80" /></label
+        ><button id="create">실험 만들기</button
+        ><label
+          >설계 JSON 가져오기<input
+            id="import"
+            type="file"
+            accept=".json" /></label
+        ><button id="download">설계 JSON 저장</button>
+      </div>
+      <p id="revision"></p>
+    </section>
+    <section>
+      <h2>공통 고정 조건</h2>
+      <textarea
+        id="common"
+        rows="9"
+        aria-label="저장고 치수·저장량·공급원·통로 조건 JSON"
+      ></textarea>
+    </section>
+    <div id="groups"></div>
+    <section>
+      <div class="row">
+        <label
+          >샘플링<select disabled>
+            <option>후보 목록 조합</option>
+          </select></label
+        ><label>시드<input id="seed" type="number" value="0" /></label
+        ><button id="baseline">현재 입력을 기준안으로 지정</button
+        ><button id="preview">후보 생성·검사</button
+        ><button id="commit" disabled>버전 확정</button>
+      </div>
+      <details>
+        <summary>기준안</summary>
+        <pre id="baselineData">미지정</pre>
+      </details>
+      <p id="status" role="status"></p>
+    </section>
+    <section class="split">
+      <div>
+        <h2>후보</h2>
+        <div class="scroll">
+          <table style="min-width: 0; table-layout: auto">
+            <thead>
+              <tr>
+                <th>후보</th>
+                <th>검사</th>
+                <th>사유</th>
+              </tr>
+            </thead>
+            <tbody id="candidates"></tbody>
+          </table>
+        </div>
+        <h2>기준안 대비 변경값</h2>
+        <pre id="diff"></pre>
+      </div>
+      <div>
+        <h2>3D 배치</h2>
+        <div
+          id="scene"
+          aria-label="저장고, 적재 블록, 통로 및 공급 위치 3D 미리보기"
+        ></div>
+        <p>회색: 저장동 · 초록: 적재물 · 청록: 통로 · 자홍: 공급 위치</p>
+        <p id="selected"></p>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="/studies/design.js"></script>
+</html>

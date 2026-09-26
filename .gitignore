@@ -1,4 +1,6 @@
 __pycache__/
+tracer_transport/solver/Make/linux*/
+tracer_transport/results/
 # Local environments, editors, and test/build outputs
 .idea/
 .vscode/
@@ -8,9 +10,12 @@ Desktop.ini
 venv/
 env/
 .pytest_cache/
+.playwright-cli/
+output/playwright/
 .mypy_cache/
 .ruff_cache/
 .coverage
+.coverage.*
 htmlcov/
 build/
 dist/
@@ -26,6 +31,12 @@ dist/
 *.p12
 .ssh/
 .aws/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+*.npz
+*.npy
 # Simulation results and user-generated media (not case templates)
 Raw_Data/
 raw_data/
@@ -71,3 +82,7 @@ silo_reproduction/studies/
 .env
 .env.*
 !*.example.json
+# Local Study inputs, solver outputs and reproduction packages.
+cfd_studio/Studies/
+output/warehouse_geometry_*/
+output/study_*/

@@ -43,8 +43,13 @@ class DistributionTests(unittest.TestCase):
             subprocess.run(['bash', '-n', str(path)], check=True)
 
     def test_no_personal_state(self):
+        # Local runs may create ignored state; it must never enter the distribution.
+        tracked=subprocess.run(['git','ls-files'],cwd=ROOT,text=True,capture_output=True,check=True).stdout.splitlines()
         for name in ['studio_config.json','Project','Trash','_runtime','frames']:
-            self.assertFalse((ROOT/'cfd_studio'/name).exists(), name)
+            prefix='cfd_studio/'+name
+            self.assertFalse(any(p==prefix or p.startswith(prefix+'/') for p in tracked),name)
+            ignored=subprocess.run(['git','check-ignore',prefix if name.endswith('.json') else prefix+'/probe'],cwd=ROOT,capture_output=True)
+            self.assertEqual(ignored.returncode,0,name)
 
     def test_case_validation(self):
         for cfg in ['immersion','grain_silo']:

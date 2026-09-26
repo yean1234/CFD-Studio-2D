@@ -13,7 +13,7 @@ sys.dont_write_bytecode = True                             # __pycache__ 생성 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v174"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v177"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 
@@ -57,6 +57,11 @@ RUNTIME_DIR = os.path.join(HERE, "_runtime")               # 임시·자동 생�
 os.makedirs(RUNTIME_DIR, exist_ok=True)
 SILO_ROOT = os.path.abspath(os.path.join(HERE, "..", "silo_reproduction"))
 SILO_CONFIG = os.path.join(SILO_ROOT, "config.json")
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+from warehouse_workspace import Workspace, get_route as warehouse_get, post_route as warehouse_post
+WAREHOUSE_WORKSPACE = Workspace(os.path.join(HERE, "_runtime", "warehouse"), SCFG)
+from study_platform import http as study_http
 UISTF = os.path.join(RUNTIME_DIR, "uistate.json")          # 마지막 화면 상태 (재실행 시 복원)
 STUDIO_PIDF = os.path.join(RUNTIME_DIR, "studio.pid")      # 포트 없는 잔존 인스턴스까지 식별
 
@@ -737,6 +742,7 @@ def project_inventory(pdir):
     phases = [n for n in names if re.fullmatch(r"phase_" + num + r"\.bin", n)]
     pressures = [n for n in names if re.fullmatch(r"pressure_" + num + r"\.bin", n)]
     turbulences = [n for n in names if re.fullmatch(r"turbulence_" + num + r"\.bin", n)]
+    tracer_frames = (_read_json_file(os.path.join(pdir, "tracer_frames.json")) or {}).get("frames", [])
     times = []
     for n in bubs:
         try: times.append(float(n[4:-4]))
@@ -755,8 +761,8 @@ def project_inventory(pdir):
             "C": _valid_cell_centres(os.path.join(pdir, "C")),
             "bubble": len(bubs) + len(raws), "flow": len(flows), "therm": len(therms),
             "phase": len(phases), "pressure": len(pressures),
-            "turbulence": len(turbulences),
-            "tmax": max(times) if times else 0.0}
+            "turbulence": len(turbulences), "concentration": len(tracer_frames), "sorbed": len(tracer_frames),
+            "tmax": max(times + [float(f["t"]) for f in tracer_frames], default=0.0)}
 
 def _apply_config_file(src):
     """선택한 config 파일을 검증한 뒤 WSL 케이스에 원자적으로 교체."""
@@ -3658,6 +3664,11 @@ class H(BaseHTTPRequestHandler):
 
     def _do_GET(self):
         u = urlparse(self.path)
+        if u.path.startswith(('/studies', '/api/studies', '/api/attempts', '/api/study-packages', '/api/capabilities')):
+            if study_http.get(self, study_http.service(HERE, SCFG, PROJECT_DIR)):
+                return
+        if warehouse_get(self, u.path, WAREHOUSE_WORKSPACE):
+            return
         if u.path == "/":
             self._send(200, INDEX_HTML.encode(), "text/html; charset=utf-8")
         elif u.path == "/api/status":
@@ -3720,6 +3731,7 @@ class H(BaseHTTPRequestHandler):
                         "phases": flist(pd, "phase_", lambda s: float(s[6:-4])),
                         "pressures": flist(pd, "pressure_", lambda s: float(s[9:-4])),
                         "turbulences": flist(pd, "turbulence_", lambda s: float(s[11:-4])),
+                        "tracer_frames": (_read_json_file(os.path.join(pd, "tracer_frames.json")) or {}).get("frames", []),
                         "hasC": _valid_cell_centres(os.path.join(pd, "C")),
                         "extract": _extract_public(rid),
                         "rid": rid, "cur": _active_rid(), "projects": list_projects(),
@@ -3777,11 +3789,21 @@ class H(BaseHTTPRequestHandler):
     def _do_POST(self):
         n = int(self.headers.get("Content-Length") or 0)
         u = urlparse(self.path)
+        if u.path.startswith('/api/stud') and (n <= 0 or n > (28*1024*1024 if u.path.endswith('/import') else 65536)):
+            self._json({"ok": False, "msg": "실험 요청 크기를 확인해 주세요"}, 413)
+            return
+        if u.path.startswith('/api/warehouse/') and (n <= 0 or n > 65536):
+            self._json({"ok": False, "msg": "설정 요청 크기를 확인해 주세요"}, 413)
+            return
         if u.path == "/api/screenshot" and (n <= 0 or n > 32 * 1024 * 1024):
             self._json({"ok": False, "msg": "스크린샷 크기가 허용 범위를 벗어났습니다"}, 413)
             return
         try: body = json.loads(self.rfile.read(n) or b"{}")
         except Exception: body = {}
+        if u.path.startswith('/api/stud') and study_http.post(self, study_http.service(HERE, SCFG, PROJECT_DIR), body):
+            return
+        if warehouse_post(self, u.path, body, WAREHOUSE_WORKSPACE):
+            return
         if u.path == "/api/open-raw":
             rid = _project_key(body.get("rid"))
             path = _project_raw_run_dir(rid)
@@ -3863,6 +3885,11 @@ class H(BaseHTTPRequestHandler):
         elif u.path == "/api/run":
             mode = body.get("mode", "resume")
             incoming_cfg = body.get("config")
+            selected_cfg = project_config(_project_key(body.get("selected_rid")) or _active_rid()) or {}
+            if ((incoming_cfg or {}).get("_해석유형") == "gas_transport" or
+                    (mode != "fresh" and selected_cfg.get("_해석유형") == "gas_transport")):
+                self._json({"ok": False, "msg": "가스 수송 결과 프로젝트입니다. tracer_transport 실행기로 새 계산 또는 재개를 수행해 주세요."}, 409)
+                return
             if isinstance(incoming_cfg, dict) and incoming_cfg.get("_해석유형") == "grain_silo":
                 ok_silo, incoming_cfg, msg_silo = _normalize_silo_config(incoming_cfg)
                 if not ok_silo:
@@ -4170,6 +4197,9 @@ class H(BaseHTTPRequestHandler):
             extract_rid = _project_key(body.get("rid")) or _active_rid()
             if not extract_rid:
                 self._json({"ok": False, "msg": "변환할 프로젝트를 선택해 주세요"}, 400); return
+            if (project_config(extract_rid) or {}).get("_해석유형") == "gas_transport":
+                self._json({"ok": True, "started": False, "msg": "저장된 농도 시각화가 준비되어 있습니다"})
+                return
             if extract_rid != _active_rid():
                 ok_arc, _ = wsl(f"test -d {WSL_CASE}/ProjectRuns/{extract_rid}/processor0")
                 if not ok_arc:
@@ -4886,6 +4916,27 @@ INDEX_HTML = r'''<!DOCTYPE html>
   box-shadow:0 18px 60px rgba(0,0,0,.6)}
  #modal h3{margin:0 0 9px;font-size:14.5px} #modal p{margin:0 0 18px;color:var(--ink2);font-size:12.5px;line-height:1.65}
  #modal .row{display:flex;gap:8px;justify-content:flex-end}
+ @media(max-width:700px){
+  body.tracerView #hdr{gap:8px;padding:0 10px}
+  body.tracerView #logo{white-space:nowrap;font-size:13px}
+  body.tracerView #logo img,body.tracerView #logo span,body.tracerView #hdr .pill,
+  body.tracerView #envPath,body.tracerView #appContext,body.tracerView #infoBtn{display:none}
+  body.tracerView #app{flex-direction:column}
+  body.tracerView #side{width:100%;min-width:0;flex:0 0 140px;border-bottom:1px solid var(--line)}
+  body.tracerView #main{min-height:0;min-width:0;border-left:0}
+  body.tracerView #rcol{left:8px;right:8px;top:8px;gap:6px;max-height:220px;overflow:auto}
+  body.tracerView #lcol{min-width:0;flex:1;gap:5px}
+  body.tracerView #hud,body.tracerView #vlegend{min-width:0;border-radius:6px;padding:7px}
+  body.tracerView #vlegend{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+  body.tracerView #vlegend .ltit{grid-column:1 / -1;margin:2px 0}
+  body.tracerView #vlegend label{min-width:0;font-size:10px}
+  body.tracerView #tcbar{max-width:88px;padding:7px;border-radius:6px}
+  body.tracerView #tcbar .grad{height:94px}
+  body.tracerView #controls{left:8px;right:8px;bottom:8px;transform:none;gap:7px;padding:8px;border-radius:8px;flex-wrap:wrap}
+  body.tracerView #tbar{min-width:30px;width:auto;flex:1}
+  body.tracerView #tlab{min-width:0;font-size:11px}
+  body.tracerView #speed{width:62px}
+ }
 </style></head>
 <body>
 <div id="hdr">
@@ -5156,7 +5207,8 @@ INDEX_HTML = r'''<!DOCTYPE html>
   <p class="mhint" id="cbHint">해석 유형과 조건을 선택해 독립 config.json으로 저장합니다.</p>
   <div class="cbr" style="padding:0 0 8px">
    <label style="flex:none;width:120px">해석 유형</label>
-   <select id="cbType" onchange="renderCBForm()" style="flex:1;width:auto;margin:0">
+   <select id="cbType" onchange="if(this.value==='warehouse'){location.href='/warehouse';}else{renderCBForm();}" style="flex:1;width:auto;margin:0">
+    <option value="warehouse">포대식 저장고 · 형상 사전 검사</option>
     <option value="immersion">액침냉각용</option>
     <option value="grain_silo">식량 저장고용</option>
    </select>
@@ -5531,7 +5583,7 @@ function srvFromInfo(i){
  const bt=nums(bubs,4,-4,false).concat(nums(raws,0,0,true)), ft=nums(i.flows||[],5,-4,false), tt=nums(i.therms||[],6,-4,false),pt=nums(i.phases||[],6,-4,false),
   prt=nums(i.pressures||[],9,-4,false),trt=nums(i.turbulences||[],11,-4,false);
  SRV={bub:bubs.length+raws.length, flow:(i.flows||[]).length, therm:(i.therms||[]).length,phase:(i.phases||[]).length, hasC:!!i.hasC,
-  pressure:(i.pressures||[]).length,turbulence:(i.turbulences||[]).length,
+  pressure:(i.pressures||[]).length,turbulence:(i.turbulences||[]).length,concentration:(i.tracer_frames||[]).length,
   hasConfig:!!i.project_config_available,configName:i.project_config_name||'',
   tb:bt.length?Math.max(...bt):0,tf:ft.length?Math.max(...ft):0,tt:tt.length?Math.max(...tt):0,tp:pt.length?Math.max(...pt):0,
   tpr:prt.length?Math.max(...prt):0,ttr:trt.length?Math.max(...trt):0};
@@ -5581,7 +5633,7 @@ function renderProjects(info){
   +'ondblclick="event.stopPropagation();renameProj('+ridArg+','+nmArg+')">'+esc(lb)+'</b>'
   +'<button class="mini" style="padding:1px 6px;flex:none" title="프로젝트를 Trash로 이동" onclick="event.stopPropagation();delProj('+ridArg+','+nmArg+')">🗑</button></div>'
   +'<div style="text-align:right;flex:none;line-height:1.35">'
-  +(p.external?('<b style="font-size:12.5px" title="확인된 데이터 종류">'+dataN+'/6</b>'):(pct!=null?('<b class="projPct" style="font-size:12.5px">'+pct+'%</b>'):''))
+  +(p.external?('<b style="font-size:12.5px" title="확인된 데이터 종류">'+(p.analysis==='gas_transport'?([dd.concentration>0,dd.sorbed>0].filter(Boolean).length+'/2'):(dataN+'/6'))+'</b>'):(pct!=null?('<b class="projPct" style="font-size:12.5px">'+pct+'%</b>'):''))
   +'<div class="sst projTime">'+(ex.busy?('변환 '+(+(ex.processed??ex.done)||0)+'/'+(+ex.total||0)):production)+'</div></div>'
   +'</div>';
  };
@@ -5716,6 +5768,7 @@ async function fetchVizBuffer(url){
  throw last||new Error('파일 읽기 실패');
 }
 function vizFrameReady(i,withFields=true){
+ if(isTracerConfig(VIZCFG||CFG))return tracerFrameReady(i);
  const f=FRAMES[i];if(!f)return false;
  // 꺼 레이어의 파일은 재생 준비 판정에서 제외한다. 표시하지 않는 4 GB 기포
  // 파일 때문에 상분율 화면까지 멈추던 상호 의존을 없앤다.
@@ -5728,6 +5781,7 @@ function vizFrameReady(i,withFields=true){
   &&(!LY('lyPhase')||!f.turbulence||TURBMAP[f.turbulence.t]!=null);
 }
 async function ensureVizFrame(i,withFields=true){
+ if(isTracerConfig(VIZCFG||CFG))return ensureTracerFrame(i);
  const f=FRAMES[i],gen=VFRAMEGEN;if(!f)return false;
  if(vizFrameReady(i,withFields))return true;if(f.loading)return f.loading;
  f.loading=(async()=>{
@@ -5825,6 +5879,7 @@ async function loadFrames(autoplay){
   adoptExtractWatch(target,info.extract||{});
   if(info.config){setConfig(info.config);fillRunInputs(info.config);}
   fillConds(info.conditions||[]);
+  if(isTracerConfig(info.config)){await loadTracerFrames(info,fileUrl,target,live);return;}
   // 보관 프로젝트의 열전대 이력을 프레임 로딩과 병렬로 불러온다.
   // 이 경로가 loadFrames 안에 있어야 클릭 뿐 아니라 마지막 화면 복원 시에도 텍스트·그래프가 채워진다.
   const histUrl='/api/history'+((target&&target!==CURC)?('?proj='+encodeURIComponent(target)):'');
@@ -5885,6 +5940,7 @@ async function loadFrames(autoplay){
   if(again){SRVDIRTY=true;setTimeout(()=>loadFrames(false),0);}}}
 }
 function updateSlots(){
+ if(isTracerConfig(VIZCFG||CFG)){updateTracerSlots();return;}
  const set=(id,txt,ok)=>{const el=document.getElementById(id); if(!el)return;
   el.textContent=txt; el.className='sst'+(ok?' ok':'');};
  const want=vizFields();
@@ -5941,6 +5997,7 @@ function configFileName(){
  return CFGFILE||'config.json';
 }
 function setDataAvail(){
+ if(isTracerConfig(VIZCFG||CFG)){updateTracerSlots();return;}
  const hb=BUBLOADED>0,hf=Object.keys(FLOWMAP).length>0,ht=Object.keys(THERMMAP).length>0,hp=Object.keys(PHASEMAP).length>0;
  const want=vizFields();
  const en=(lb,cb,loaded,available,what,wanted)=>{
@@ -6013,8 +6070,9 @@ function finishFrames(autoplay){
 
 // ══════════════ 결과 가져오기 = 프로젝트별 추출 + 자동 로딩 ══════════════
 const VIZWATCH=new Map();let EXBUSY=false;
-const OUTIDS={bubble:'outBub',phase:'outPhase',flow:'outFlow',therm:'outTherm',pressure:'outBub',turbulence:'outPhase'};
+const OUTIDS={bubble:'outBub',phase:'outPhase',flow:'outFlow',therm:'outTherm',pressure:'outBub',turbulence:'outPhase',concentration:'outBub',sorbed:'outPhase'};
 const OUTPUT_LAYOUTS={
+ gas_transport:[['outOptBub','outBub','concentration','농도장','C/C_ref'],['outOptPhase','outPhase','sorbed','흡착량','Q/C_ref · 벌크 체적 기준']],
  immersion:[['outOptBub','outBub','bubble','기포','증기 형상·부피'],['outOptPhase','outPhase','phase','상분율','액체 분포'],['outOptFlow','outFlow','flow','속도장','유속·방향'],['outOptTherm','outTherm','therm','온도장','온도 분포']],
  grain_silo:[['outOptBub','outBub','pressure','압력장','압력 분포'],['outOptPhase','outPhase','turbulence','난류장','k · epsilon'],['outOptFlow','outFlow','flow','속도장','유속·방향']]
 };
@@ -6025,6 +6083,12 @@ function refreshViewerFields(){
 }
 const VIEWLAYERSTATE={};
 function configureViewerFields(c){
+ if(isTracerConfig(c)){configureTracerFields(c);return;}
+ document.body.classList.remove('tracerView');
+ const tracerStats=document.getElementById('tracerStats');if(tracerStats)tracerStats.style.display='none';
+ const scalarGrad=document.querySelector('#tcbar .grad');if(scalarGrad)scalarGrad.style.background='';
+ for(const id of ['lyGeo','lyCoil','lyTank','lyBound'])document.getElementById(id).closest('label').style.display='';
+ for(const id of ['lbBub','lbPhase','lbSlice','lbTvol'])document.getElementById(id).style.display='';
  const silo=isSiloConfig(c),mode=silo?'grain_silo':'immersion',layerIds=['lyBub','lyPhase','lySlice','lyTvol','lyGeo','lyCoil','lyTank','lyBound'];
  const prior=configureViewerFields.mode;
  if(prior&&prior!==mode)VIEWLAYERSTATE[prior]=Object.fromEntries(layerIds.map(id=>[id,!!document.getElementById(id)?.checked]));
@@ -6063,7 +6127,7 @@ function configureViewerFields(c){
  }
 }
 function configureOutputFields(c,selected){
- const type=isSiloConfig(c)?'grain_silo':'immersion',defs=OUTPUT_LAYOUTS[type],active=new Set(selected||((c&&c.run&&c.run.output_fields)||defs.map(x=>x[2])));
+ const type=isTracerConfig(c)?'gas_transport':isSiloConfig(c)?'grain_silo':'immersion',defs=OUTPUT_LAYOUTS[type],active=new Set(selected||((c&&c.run&&c.run.output_fields)||defs.map(x=>x[2])));
  for(const id of ['outOptBub','outOptPhase','outOptFlow','outOptTherm']){const row=document.getElementById(id);if(row)row.style.display='none';}
  for(const [rowId,inputId,key,title,sub] of defs){const row=document.getElementById(rowId),input=document.getElementById(inputId);if(!row||!input)continue;
   row.style.display='';input.dataset.output=key;input.checked=active.has(key);row.querySelector('b').textContent=title;row.querySelector('small').textContent=sub;}
@@ -6148,7 +6212,7 @@ async function fetchResults(){
  toast(er.started?'시각화 데이터 상태를 확인합니다':'이 프로젝트는 이미 변환 중입니다');
  runExtractWatch(target,0);
 }
-function hasCachedViz(){return (SRV.bub>0&&SRV.hasC)||SRV.flow>0||SRV.therm>0||SRV.phase>0||SRV.pressure>0||SRV.turbulence>0;}
+function hasCachedViz(){return SRV.concentration>0||(SRV.bub>0&&SRV.hasC)||SRV.flow>0||SRV.therm>0||SRV.phase>0||SRV.pressure>0||SRV.turbulence>0;}
 function cacheNeedsUpdate(){
  const vz=vzrid();if(vz&&vz!==CURC)return false;
  const newest=+(LASTST&&LASTST.snap_max||0);
@@ -6163,6 +6227,7 @@ function cacheNeedsUpdate(){
  return ends.length>0&&Math.min(...ends)+1e-7<newest;
 }
 function vizRun(){ // 시각화 준비만 담당 — 시간 재생은 하단 재생 버튼에서 시작
+ if(isTracerConfig(VIZCFG||CFG)){loadFrames(false);return;}
  if(isWatching()){toast('이 프로젝트는 변환 중입니다 — 위 진행바를 확인하세요');return;}
  const vz=vzrid();
  if(hasCachedViz()){
@@ -6457,6 +6522,7 @@ function updateProbeLabels(M){
 }
 function setConfig(c){
  CFG=c;
+ if(isTracerConfig(c)){setTracerConfig(c);return;}
  if(isSiloConfig(c)){
   VIZCFG=c;
   if(MODE==='cfd')RUNCFG=c;
@@ -6594,6 +6660,7 @@ function thermRange(T){
  T._HdM=(CFG?CFG.layers.dielectric_mm:400)/1000;
 }
 function scalarRange(T,mode){
+ if(mode==='concentration'||mode==='sorbed'){const r=(VIZCFG||CFG).scalar_ranges[mode];return T._g={lo:r[0],hi:r[1],sat:null};}
  if(mode==='therm'){thermRange(T);return T._g;}
  if(T._scalarMode===mode&&T._g)return T._g;
  const a=[];for(let i=0;i<T.v.length;i+=Math.max(1,Math.floor(T.v.length/50000))){const v=T.v[i];if(Number.isFinite(v)&&Math.abs(v)>1e-20)a.push(v);}
@@ -6608,7 +6675,7 @@ function scalarRamp(mode,u){
 }
 function updateScalarBar(T,mode){
  const g=scalarRange(T,mode),title=document.querySelector('#tcbar>div:first-child'),sat=document.getElementById('tcSat'),satL=document.getElementById('tcSatL');
- if(title){title.textContent=mode==='pressure'?'압력 Pa':mode==='turbulence'?'난류 운동에너지 k (m²/s²)':'온도 °C';title.title='';}
+ if(title){title.textContent=mode==='concentration'?'농도 C/C_ref':mode==='sorbed'?'흡착량 Q/C_ref · 벌크 체적 기준':mode==='pressure'?'압력 Pa':mode==='turbulence'?'난류 운동에너지 k (m²/s²)':'온도 °C';title.title='';}
  document.getElementById('tcHi').textContent=mode==='therm'?(g.hi-273.15).toFixed(1):fmtSci(g.hi);
  document.getElementById('tcLo').textContent=mode==='therm'?(g.lo-273.15).toFixed(1):fmtSci(g.lo);
  if(mode!=='therm'){if(sat)sat.style.display='none';if(satL)satL.textContent='';}else{if(sat)sat.style.display='';updateTcbar(T);}
@@ -6831,14 +6898,15 @@ function uploadPoints(){
 }
 function resetCam(){
  th=0; ph=0;
+ if(isTracerConfig(VIZCFG||CFG)){tracerCamera(VIZCFG||CFG);return;}
  if(isSiloConfig(VIZCFG||CFG)){const p=(VIZCFG||CFG).published||{},r=(+p.storage_diameter_m||.8)*500,H=(+p.total_height_m||1.4)*1000;tgt=[0,0,H*.48];rad=Math.max(r*2,H)*1.65;ph=.08;}
  else if(CFG){const W=CFG.tank.width_mm,D=CFG.tank.depth_mm,H=CFG.tank.liquid_height_mm,
   AIR=(CFG.layers&&CFG.layers.air_mm!=null)?CFG.layers.air_mm:200;
   tgt=[W/2,(H+AIR)*0.45,D/2]; rad=Math.max(W,H+AIR)*2.25;}
  else{tgt=[228,380,35];rad=1650;}
  toast('카메라를 기본 시점으로 재조정했습니다');}
-function eye(){if(isSiloConfig(VIZCFG||CFG))return[tgt[0]+rad*Math.cos(ph)*Math.sin(th),tgt[1]+rad*Math.cos(ph)*Math.cos(th),tgt[2]+rad*Math.sin(ph)];return[tgt[0]+rad*Math.cos(ph)*Math.sin(th),tgt[1]+rad*Math.sin(ph),tgt[2]+rad*Math.cos(ph)*Math.cos(th)];}
-function viewUp(){return isSiloConfig(VIZCFG||CFG)?[0,0,1]:[0,1,0];}
+function eye(){if(isSiloConfig(VIZCFG||CFG)||isTracerConfig(VIZCFG||CFG))return[tgt[0]+rad*Math.cos(ph)*Math.sin(th),tgt[1]+rad*Math.cos(ph)*Math.cos(th),tgt[2]+rad*Math.sin(ph)];return[tgt[0]+rad*Math.cos(ph)*Math.sin(th),tgt[1]+rad*Math.sin(ph),tgt[2]+rad*Math.cos(ph)*Math.cos(th)];}
+function viewUp(){return isSiloConfig(VIZCFG||CFG)||isTracerConfig(VIZCFG||CFG)?[0,0,1]:[0,1,0];}
 let VW,VH;
 function resize(){const d=Math.min(devicePixelRatio||1,2);VW=cv.clientWidth;VH=cv.clientHeight;cv.width=VW*d;cv.height=VH*d;gl.viewport(0,0,cv.width,cv.height);}
 addEventListener('resize',resize); setTimeout(resize,60);
@@ -7010,6 +7078,7 @@ function frame(){
  const now=performance.now(),dt=(now-last)/1000;last=now;
  if(MODE!=='viz'){requestAnimationFrame(frame);return;}
  if(!VW||VW<10)resize();
+ if(isTracerConfig(VIZCFG||CFG)){frameTracer(now,dt);requestAnimationFrame(frame);return;}
  const spd=+document.getElementById('speed').value;   // 1=실시간(물리시간 배속)
  if(playing)FLOWPHASE+=Math.min(dt,.08)*spd;
  if(playing&&FRAMES.length){
@@ -7161,6 +7230,7 @@ function recTick(){
 function rrect(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);
  x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath();}
 function drawRecOv(x,d){
+ if(isTracerConfig(VIZCFG||CFG)){drawTracerOverlay(x,d);return;}
  x.save();x.textBaseline='middle';
  const F=FRAMES[idx];
  if(F){                                                       // 시간·증기 배지 (좌상단)
@@ -7303,6 +7373,7 @@ function scrub(v){PLAYBUFSEQ++;PLAYBUFFERING=false;idx=+v;clock=FRAMES[idx]?fram
 let MODE='cfd';
 function setMode(m){
  MODE=m;
+ document.body.classList.toggle('tracerView',m==='viz'&&isTracerConfig(VIZCFG||CFG));
  // Viewer에서 보관 프로젝트를 본 뒤 CFD로 돌아와도 그 프로젝트의 config가
  // 콘피그·에너지 수지에 남지 않도록 모드별 설정을 즉시 복원한다.
  if(m==='cfd'&&RUNCFG){setConfig(RUNCFG);fillRunInputs(RUNCFG);}
@@ -7337,6 +7408,7 @@ function playbackDuration(c,p){
 }
 function fmtPlaybackSeconds(v){return Number(v).toLocaleString(undefined,{maximumFractionDigits:2});}
 function applyAnalysisTypeUI(){
+ if(isTracerConfig(MODE==='viz'?(VIZCFG||CFG):CFG)){configureTracerFields(VIZCFG||CFG);return;}
  const silo=isSiloConfig(MODE==='viz'?(VIZCFG||CFG):CFG);
  const setup=document.getElementById('immersionSetup');
  const context=document.getElementById('appContext');if(context)context.textContent=(silo?'식량 저장고 CFD':'액침냉각 CFD')+' · __APP_VER__';
@@ -7401,6 +7473,7 @@ async function showCfg(){
    '<div class="cr"><span>현재 프로젝트 Raw</span><em class="rawPath">'+esc(rawPath)+'</em><small></small></div>';
  }catch(e){runtime.innerHTML='<div class="cr"><span>실행 환경</span><em>'+esc(e.message||'확인 실패')+'</em><small></small></div>';}
  if(!CFG){body.textContent='설정이 아직 로딩되지 않았습니다 — WSL 연결 또는 config.json 드롭 필요';return;}
+ if(isTracerConfig(CFG)){showTracerSettings(body,CFG);return;}
  if(isSiloConfig(CFG)){
   const p=CFG.published||{},s=CFG.silo||{},m=CFG.mesh||{},om=CFG.openfoam_mapping||{},ctl=CFG.solver_controls||{},rn=CFG.run||{};
   const steady=(om.solver||'simpleFoam')==='simpleFoam';
@@ -7644,6 +7717,7 @@ async function selectProj(rid,quiet){
  applyProjSettings(rid);                                  // 그 프로젝트의 저장 설정을 표시 (독립)
  if(LASTST)setStatus(LASTST);}                            // 선택 즉시 [실행] 버튼·잠금 반영
 function goRun(){
+ if(isTracerConfig(CFG)){toast('가스 수송 계산은 tracer_transport 실행기를 사용해 주세요. 이 프로젝트에서는 저장 결과를 재생할 수 있습니다.',true);return;}
  // NEWMODE는 UI 복원값이 남을 수 있으므로, 실제 대기 카드(PENDF)가 있을 때만
  // 새 프로젝트로 시작한다. 시작 중 실패해 카드만 남은 프로젝트는 아래의
  // 같은 프로젝트 0초 재시작 경로로 보낸다.
@@ -7676,6 +7750,7 @@ function goRun(){
   '이 프로젝트의 보관 원본과 전체 저장 앵커를 검증한 뒤 독립 설정으로 전환해 재개합니다.',
   '이 프로젝트 재개',()=>run('resume_archived',{rid:p?p.rid:PROJ,end:p&&p.end||null}));}
 function goReset(){
+ if(isTracerConfig(CFG)){toast('가스 수송 원본은 보존합니다. 새 출력 폴더로 실행해 주세요.',true);return;}
  if(runBusyNow()){toast('실행 중에는 리셋할 수 없습니다 — [중단] 후 진행하세요',true);return;}
  if(NEWMODE){toast('새 프로젝트는 아직 초기 상태입니다 — [실행]으로 시작하세요',true);return;}
  const rid=PROJ||CURC, p=LASTPROJS.find(x=>x.rid===rid);
@@ -7907,6 +7982,7 @@ function renderCBForm(){
  }
 }
 async function openCB(){
+ if(isTracerConfig(CFG)){toast('가스 수송 설정은 실행 JSON에서 변경해 주세요. 기존 결과의 설정은 유지됩니다.',true);return;}
  if(runBusyNow()){toast('실행 중에는 설정을 할 수 없습니다',true);return;}
  if(CFGLOAD){
   const loaded=await CFGLOAD;
@@ -8390,10 +8466,11 @@ async function restoreUI(currentStatus){
   if(st.mode==='viz'){setMode('viz');
    const p=LASTPROJS.find(x=>x.rid===(vzrid()||CURC));
    const d=p&&p.data||{};
-   if(p&&(p.n>0||d.bubble>0||d.flow>0||d.therm>0||d.phase>0||d.pressure>0||d.turbulence>0)&&!FRAMES.length)loadFrames(); // 부분 데이터 프로젝트도 복원
+   if(p&&(p.n>0||d.concentration>0||d.bubble>0||d.flow>0||d.therm>0||d.phase>0||d.pressure>0||d.turbulence>0)&&!FRAMES.length)loadFrames(); // 부분 데이터 프로젝트도 복원
   }
   UILAST=JSON.stringify(collectUI());
  }catch(_){}}
+__TRACER_VIEWER__
 (async()=>{
  try{
   const i=await (await fetch('/api/info')).json();
@@ -8416,11 +8493,13 @@ async function restoreUI(currentStatus){
   PROJ=i.rid||''; renderProjects(i);
   if(PROJ)applyProjSettings(PROJ);                       // 현재 프로젝트의 설정·현황 즉시 표시
   await restoreUI(st0);                                  // 계산 중/중단 현재 프로젝트가 과거 저장 선택보다 우선
+  const studyProject=new URLSearchParams(location.search).get('study_project');
+  if(studyProject&&LASTPROJS.some(p=>p.rid===studyProject)){VPROJ=studyProject;openProj(studyProject);}
   // 서버를 다시 열어도 마지막 프로젝트의 변환 결과는 즉시 준비한다. Raw 재변환이
   // 아니라 Project 폴더의 저장된 프레임만 읽으므로, Viewer를 열면 곧바로 재생할 수 있다.
   const restoreRid=vzrid()||PROJ, restoreProj=LASTPROJS.find(p=>p.rid===restoreRid);
   const restoreData=restoreProj&&restoreProj.data||{};
-  if(restoreProj&&(restoreProj.n>0||restoreData.bubble>0||restoreData.flow>0||restoreData.therm>0||restoreData.phase>0)&&!FRAMES.length){
+  if(restoreProj&&(restoreProj.n>0||restoreData.concentration>0||restoreData.bubble>0||restoreData.flow>0||restoreData.therm>0||restoreData.phase>0)&&!FRAMES.length){
    SRVDIRTY=true;loadFrames();
   }
   if(i.saved_configs){SAVEDCFG=i.saved_configs;SAVEDCFGTYPES=i.saved_config_types||{};renderSettings();}
@@ -8432,6 +8511,8 @@ async function restoreUI(currentStatus){
 </body></html>
 '''
 INDEX_HTML = INDEX_HTML.replace("__APP_VER__", APP_VER)
+with open(os.path.join(HERE, "tracer_viewer.js"), encoding="utf-8") as _tracer_js:
+    INDEX_HTML = INDEX_HTML.replace("__TRACER_VIEWER__", _tracer_js.read())
 
 def _merge_conditions():
     """설정 일원화 — conditions.csv를 config.json의 "conditions" 배열로 1회 통합.

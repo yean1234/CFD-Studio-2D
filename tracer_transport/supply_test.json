@@ -1,0 +1,36 @@
+{
+  "target_species": "PH3",
+  "model_kind": "normalized_tracer",
+  "evidence": "numerical_test_only_not_user_selected_warehouse",
+  "lengths_m": [1.0, 0.2, 0.2],
+  "transverse_cells": [8, 8],
+  "porous_x_fraction": [0.25, 0.75],
+  "porous_boxes_m": [{"min": [0.25, 0.05, 0.05], "max": [0.75, 0.15, 0.15]}],
+  "porosity": 0.4,
+  "D_air_m2_s": 0.01,
+  "K_porous_m2_s": 0.002,
+  "end_s": 160,
+  "write_interval_s": 1,
+  "initial_mean": 0,
+  "initial_cosine_amplitude": 0,
+  "source": {
+    "box_m": {"min": [0, 0.05, 0.05], "max": [0.1, 0.15, 0.15]},
+    "end_s": 2,
+    "rate_Cref_per_s": 1,
+    "evidence": "numerical_test_assumption"
+  },
+  "adsorption": {
+    "model": "linear_reversible",
+    "k_ads_s_inv": 0.2,
+    "k_des_s_inv": 0.1,
+    "initial_bulk_Q": 0,
+    "evidence": "numerical_test_assumption"
+  },
+  "termination": {
+    "mode": "steady",
+    "relative_rate_per_s": 0.0001,
+    "absolute_rate_per_s": 0.00000001,
+    "hold_s": 2,
+    "minimum_time_s": 4
+  }
+}

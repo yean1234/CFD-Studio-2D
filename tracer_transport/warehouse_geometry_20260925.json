@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "geometry": {
+    "length_m": 78,
+    "width_m": 25,
+    "eaves_m": 7.2,
+    "roof_rise_m": 3.5,
+    "coordinate_basis": "nominal_drawing_envelope"
+  },
+  "mesh": {"nx": 78, "ny_per_half": 13, "nz": 11, "maximum_cells": 100000},
+  "evidence": "User research proposal dated 2026-09-25, pages 4-5, citing PNS/PAES 419:2015 Annex A. Storage building only; 5 m annex excluded. Coarse mesh counts are numerical preflight assumptions, not a mesh convergence result.",
+  "unresolved": [
+    "Wall thickness and internal clear dimensions; nominal envelope is not confirmed air volume",
+    "Approved loading layout, pallets, common storage mass and porous material parameters",
+    "Thermal and flow boundary conditions; validated temperature and velocity fields",
+    "Measured species transport and reaction properties; no PH3 coefficients transferred to ClO2",
+    "Boundary segmentation for doors, vents and actual annex connections; current end face is only a named placeholder",
+    "Residual leakage model and independent comparison data",
+    "Physical duration, internal time step and field output interval for the transport calculation"
+  ]
+}
