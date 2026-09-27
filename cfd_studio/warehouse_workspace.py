@@ -97,7 +97,9 @@ class Workspace:
                 prefix += ['--']
             bashrc = self.settings.get('openfoam_bashrc', 'auto')
             if bashrc == 'auto':
-                load = 'rcs=(/usr/lib/openfoam/openfoam*/etc/bashrc); test -f "${rcs[-1]}" && source "${rcs[-1]}"'
+                load = ('shopt -s nullglob; rcs=(/usr/lib/openfoam/openfoam*/etc/bashrc /opt/openfoam*/etc/bashrc); '
+                        'if ((${#rcs[@]})); then source "${rcs[-1]}"; '
+                        'else echo "OpenFOAM environment not found" >&2; exit 1; fi')
             else:
                 load = 'source '+shlex.quote(bashrc)
             command = (load+' && cd '+shlex.quote(root)+' && python3 -m tracer_transport.warehouse_geometry'

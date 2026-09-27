@@ -1,0 +1,243 @@
+{
+  "profile": "warehouse_joint_v1",
+  "variables": {
+    "bag_resistance": {
+      "mode": "fixed",
+      "value": null,
+      "unit": null,
+      "evidence": null
+    },
+    "convergence": {
+      "mode": "fixed",
+      "value": null,
+      "unit": null,
+      "evidence": null
+    },
+    "diffusion": {
+      "mode": "fixed",
+      "value": null,
+      "unit": "m2/s",
+      "evidence": null
+    },
+    "dt_s": {
+      "mode": "fixed",
+      "value": null,
+      "unit": "s",
+      "evidence": null
+    },
+    "evaluation_s": {
+      "mode": "fixed",
+      "value": null,
+      "unit": "s",
+      "evidence": null
+    },
+    "layout": {
+      "mode": "fixed",
+      "value": {
+        "spacing_axis": 0,
+        "blocks": [
+          {
+            "id": "a",
+            "min": [
+              1,
+              1,
+              0
+            ],
+            "max": [
+              3,
+              3,
+              2
+            ],
+            "mass_kg": 10
+          },
+          {
+            "id": "b",
+            "min": [
+              4,
+              1,
+              0
+            ],
+            "max": [
+              6,
+              3,
+              2
+            ],
+            "mass_kg": 10
+          }
+        ]
+      },
+      "unit": null,
+      "evidence": null
+    },
+    "leakage": {
+      "mode": "fixed",
+      "value": null,
+      "unit": null,
+      "evidence": null
+    },
+    "mesh_m": {
+      "mode": "fixed",
+      "value": null,
+      "unit": "m",
+      "evidence": null
+    },
+    "porosity": {
+      "mode": "fixed",
+      "value": null,
+      "unit": "1",
+      "evidence": null
+    },
+    "reaction": {
+      "mode": "fixed",
+      "value": null,
+      "unit": null,
+      "evidence": null
+    },
+    "spacing_m": {
+      "mode": "fixed",
+      "value": 1,
+      "unit": "m",
+      "evidence": null
+    },
+    "supply_positions": {
+      "mode": "fixed",
+      "value": [
+        [
+          8,
+          2,
+          1
+        ]
+      ],
+      "unit": null,
+      "evidence": null
+    },
+    "temperature_K": {
+      "mode": "fixed",
+      "value": null,
+      "unit": "K",
+      "evidence": null
+    },
+    "total_supply": {
+      "mode": "fixed",
+      "value": {
+        "value": 1,
+        "unit": "normalized_test_unit",
+        "evidence": "unit_test_only"
+      },
+      "unit": null,
+      "evidence": null
+    },
+    "write_interval_s": {
+      "mode": "fixed",
+      "value": null,
+      "unit": "s",
+      "evidence": null
+    }
+  },
+  "baseline": {
+    "bag_resistance": null,
+    "convergence": null,
+    "diffusion": null,
+    "dt_s": null,
+    "evaluation_s": null,
+    "layout": {
+      "spacing_axis": 0,
+      "blocks": [
+        {
+          "id": "a",
+          "min": [
+            1,
+            1,
+            0
+          ],
+          "max": [
+            3,
+            3,
+            2
+          ],
+          "mass_kg": 10
+        },
+        {
+          "id": "b",
+          "min": [
+            4,
+            1,
+            0
+          ],
+          "max": [
+            6,
+            3,
+            2
+          ],
+          "mass_kg": 10
+        }
+      ]
+    },
+    "leakage": null,
+    "mesh_m": null,
+    "porosity": null,
+    "reaction": null,
+    "spacing_m": 1,
+    "supply_positions": [
+      [
+        8,
+        2,
+        1
+      ]
+    ],
+    "temperature_K": null,
+    "total_supply": {
+      "value": 1,
+      "unit": "normalized_test_unit",
+      "evidence": "unit_test_only"
+    },
+    "write_interval_s": null
+  },
+  "sampling": {
+    "method": "cartesian_choices",
+    "seed": 42
+  },
+  "common": {
+    "geometry": {
+      "length_m": 10,
+      "width_m": 8,
+      "eaves_m": 4
+    },
+    "stored_mass_kg": 20,
+    "mass_tolerance_kg": 0,
+    "source_count": 1,
+    "supply_duration_s": 10,
+    "wall_clearance_m": 1,
+    "maximum_stack_height_m": 3,
+    "aisles": [
+      {
+        "min": [
+          0,
+          4,
+          0
+        ],
+        "max": [
+          10,
+          6,
+          4
+        ],
+        "width_axis": 1,
+        "minimum_width_m": 2
+      }
+    ],
+    "allowed_source_regions": [
+      {
+        "min": [
+          7,
+          1,
+          0
+        ],
+        "max": [
+          9,
+          3,
+          3
+        ]
+      }
+    ]
+  }
+}

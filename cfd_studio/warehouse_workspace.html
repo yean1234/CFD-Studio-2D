@@ -9,21 +9,29 @@
 <section><div class="grid"><label>저장된 설정<select id="presets"><option value="">새 설정</option></select></label><label>설정 이름<input id="name" value="저장고 기준 형상" maxlength="80"></label></div></section>
 <form id="form"><section><h2>형상</h2><div class="grid" id="geometry"></div><p><small>좌표: x 길이 · y 폭 · z 바닥 위 높이 / 도면 공칭 치수, 벽 두께 미반영</small></p></section>
 <section><h2>격자</h2><div class="grid" id="mesh"></div></section>
-<div class="actions"><button type="submit" class="primary">새 설정으로 저장</button><button type="button" id="check" disabled>격자 검사</button></div></form>
+<div class="actions"><button type="submit" id="save" class="primary">새 설정으로 저장</button><button type="button" id="check" disabled>격자 검사</button></div></form>
 <p id="message" role="status"></p>
 <section><h2>검사 결과</h2><div class="table"><table><thead><tr><th>설정</th><th>상태</th><th>셀 수</th><th>형상 체적</th></tr></thead><tbody id="jobs"></tbody></table></div></section>
 <section><h2>본 해석 전 확인 항목</h2><ul id="unresolved"></ul></section></main>
 <script>
-let spec,template,entries=[],selected='',busy=false;
+let spec,template,entries=[],selected='',presetChoice='',busy=false,dirty=false,pending='',refreshGen=0;
 const $=id=>document.getElementById(id),labels={length_m:'길이 (m)',width_m:'폭 (m)',eaves_m:'처마 높이 (m)',roof_rise_m:'지붕 상승 (m)',nx:'길이 방향 셀 수',ny_per_half:'폭 반쪽 셀 수',nz:'높이 방향 셀 수',maximum_cells:'최대 셀 수'};
-function show(s){spec=structuredClone(s);for(const group of ['geometry','mesh']){$(group).replaceChildren();for(const [key,value]of Object.entries(spec[group])){if(!(key in labels))continue;const label=document.createElement('label'),input=document.createElement('input');label.textContent=labels[key];input.type='number';input.step=group==='mesh'?'1':'any';input.min=group==='mesh'?'1':'0.000001';input.required=true;input.value=value;input.dataset.group=group;input.dataset.key=key;input.oninput=()=>{selected='';$('check').disabled=true;};label.append(input);$(group).append(label);}}$('unresolved').replaceChildren();for(const text of spec.unresolved){const li=document.createElement('li');li.textContent=text;$('unresolved').append(li);}}
+function updateControls(){
+ const locked=!!pending||!spec;
+ for(const input of document.querySelectorAll('[data-group]'))input.disabled=locked;
+ for(const id of ['name','presets','save'])$(id).disabled=locked;
+ $('check').disabled=locked||dirty||!selected||busy;
+}
+function markDirty(){dirty=true;selected='';updateControls();}
+function show(s){spec=structuredClone(s);for(const group of ['geometry','mesh']){$(group).replaceChildren();for(const [key,value]of Object.entries(spec[group])){if(!(key in labels))continue;const label=document.createElement('label'),input=document.createElement('input');label.textContent=labels[key];input.type='number';input.step=group==='mesh'?'1':'any';input.min=group==='mesh'?'1':'0.000001';input.required=true;input.value=value;input.dataset.group=group;input.dataset.key=key;input.oninput=markDirty;label.append(input);$(group).append(label);}}$('unresolved').replaceChildren();for(const text of spec.unresolved){const li=document.createElement('li');li.textContent=text;$('unresolved').append(li);}}
 async function request(path,data){const response=await fetch(path,data?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}:{});const result=await response.json();if(!response.ok||result.ok===false)throw Error(result.msg||result.err||'요청 실패');return result;}
-async function refresh(initial=false){
- const data=await request('/api/warehouse');entries=data.settings;
- const prior=$('presets').value;$('presets').replaceChildren(new Option('새 설정',''));
+async function refresh(){
+ const gen=++refreshGen,data=await request('/api/warehouse');if(gen!==refreshGen)return;
+ entries=data.settings;template=data.template;
+ $('presets').replaceChildren(new Option('새 설정',''));
  for(const entry of entries)$('presets').add(new Option(entry.name,entry.id));
- $('presets').value=prior;if(initial)show(data.template);$('jobs').replaceChildren();
- busy=data.jobs.some(x=>['queued','running'].includes(x.status));$('check').disabled=!selected||busy;
+ $('presets').value=presetChoice;if(!spec)show(template);$('jobs').replaceChildren();
+ busy=data.jobs.some(x=>['queued','running'].includes(x.status));updateControls();
  for(const job of data.jobs){
   const row=document.createElement('tr');
   for(const value of [job.name,job.error||({queued:'대기',running:'검사 중',complete:'격자 통과',failed:'실패'})[job.status],job.report?.cells??'-',job.report?job.report.volume_m3+' m³':'-']){
@@ -35,8 +43,31 @@ async function refresh(initial=false){
   const latest=data.jobs.at(-1);$('message').textContent=latest?.status==='complete'?'격자 검사를 통과했습니다. 가스 해석 결과는 아닙니다.':latest?.error||'검사가 종료되었습니다.';
  }
 }
-$('presets').onchange=()=>{const item=entries.find(x=>x.id===$('presets').value);selected=item?.id||'';if(item){show(item.geometry_spec);$('name').value=item.name;}else if(template){show(template);$('name').value='저장고 기준 형상';}$('check').disabled=!selected||busy;};
-$('form').onsubmit=async event=>{event.preventDefault();try{for(const input of document.querySelectorAll('[data-group]'))spec[input.dataset.group][input.dataset.key]=Number(input.value);const data=await request('/api/warehouse/save',{name:$('name').value,geometry_spec:spec});selected=data.result.id;await refresh();$('presets').value=selected;$('message').textContent='새 설정을 저장했습니다. 기존 설정과 프로젝트는 변경하지 않았습니다.';}catch(error){$('message').textContent=error.message;}};
-$('check').onclick=async()=>{try{$('check').disabled=true;await request('/api/warehouse/check',{id:selected});$('message').textContent='OpenFOAM 격자 검사 중';await refresh();}catch(error){$('message').textContent=error.message;}};
-request('/api/warehouse').then(data=>{template=data.template;return refresh(true);}).catch(error=>$('message').textContent=error.message);setInterval(()=>refresh().catch(error=>$('message').textContent=error.message),2000);
+$('name').oninput=markDirty;
+$('presets').onchange=()=>{
+ if(pending||(dirty&&!confirm('저장하지 않은 변경 사항을 버리고 설정을 전환할까요?'))){$('presets').value=presetChoice;return;}
+ const item=entries.find(x=>x.id===$('presets').value);selected=item?.id||'';presetChoice=selected;dirty=false;
+ show(item?item.geometry_spec:template);$('name').value=item?item.name:'저장고 기준 형상';updateControls();
+};
+$('form').onsubmit=async event=>{
+ event.preventDefault();if(pending||!spec)return;
+ pending='save';++refreshGen;updateControls();
+ try{
+  const snapshot=structuredClone(spec);
+  for(const input of document.querySelectorAll('[data-group]'))snapshot[input.dataset.group][input.dataset.key]=Number(input.value);
+  const data=await request('/api/warehouse/save',{name:$('name').value,geometry_spec:snapshot});
+  spec=snapshot;selected=data.result.id;presetChoice=selected;dirty=false;
+  await refresh();$('message').textContent='새 설정을 저장했습니다. 기존 설정과 프로젝트는 변경하지 않았습니다.';
+ }catch(error){$('message').textContent=error.message;}
+ finally{pending='';updateControls();}
+};
+$('check').onclick=async()=>{
+ if(pending||dirty||!selected||busy)return;
+ pending='check';++refreshGen;updateControls();
+ try{await request('/api/warehouse/check',{id:selected});busy=true;$('message').textContent='OpenFOAM 격자 검사 중';await refresh();}
+ catch(error){$('message').textContent=error.message;}
+ finally{pending='';updateControls();}
+};
+updateControls();refresh().catch(error=>$('message').textContent=error.message);
+setInterval(()=>refresh().catch(error=>$('message').textContent=error.message),2000);
 </script></html>

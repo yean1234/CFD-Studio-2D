@@ -124,6 +124,22 @@
       width: 100%;
       height: 100%;
     }
+    #sceneEmpty {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      text-align: center;
+      pointer-events: none;
+    }
+    #sceneEmpty[hidden] {
+      display: none;
+    }
+    #draftStatus {
+      color: #8c4600;
+      overflow-wrap: anywhere;
+    }
     #status {
       min-height: 24px;
       color: #8c4600;
@@ -149,7 +165,8 @@
     button:focus,
     input:focus,
     textarea:focus,
-    select:focus {
+    select:focus,
+    #candidates tr:focus-visible {
       outline: 2px solid #1685a6;
       outline-offset: 2px;
     }
@@ -169,7 +186,8 @@
     }
   </style>
   <header>
-    <strong>CFD Studio</strong><a href="/studies">실험 실행·결과</a
+    <strong>CFD Studio</strong
+    ><a id="studiesLink" href="/studies">실험 실행·결과</a
     ><a href="/">프로젝트·Viewer</a><a href="/warehouse">저장고 형상</a>
   </header>
   <main>
@@ -179,23 +197,30 @@
     </p>
     <section>
       <div class="row">
-        <label>실험<select id="study"></select></label
-        ><label>새 실험 이름<input id="name" maxlength="80" /></label
-        ><button id="create">실험 만들기</button
+        <label>실험<select id="study" disabled></select></label
+        ><label>새 실험 이름<input id="name" maxlength="80" disabled /></label
+        ><button id="create" disabled>실험 만들기</button
         ><label
           >설계 JSON 가져오기<input
             id="import"
             type="file"
+            disabled
             accept=".json" /></label
-        ><button id="download">설계 JSON 저장</button>
+        ><button id="download" disabled>설계 JSON 저장</button>
       </div>
       <p id="revision"></p>
+      <p id="profileNotice" class="notice" role="status" hidden>
+        이 실험은 다른 계산 프로필로 확정되어 있습니다. 저장고 연구 설계는 새
+        실험을 만들어 생성·검사하고 확정해 주세요.
+      </p>
+      <p id="draftStatus" role="status"></p>
     </section>
     <section>
       <h2>공통 고정 조건</h2>
       <textarea
         id="common"
         rows="9"
+        disabled
         aria-label="저장고 치수·저장량·공급원·통로 조건 JSON"
       ></textarea>
     </section>
@@ -206,22 +231,33 @@
           >샘플링<select disabled>
             <option>후보 목록 조합</option>
           </select></label
-        ><label>시드<input id="seed" type="number" value="0" /></label
-        ><button id="baseline">현재 입력을 기준안으로 지정</button
-        ><button id="preview">후보 생성·검사</button
+        ><label
+          >시드<input
+            id="seed"
+            type="text"
+            inputmode="numeric"
+            value="0"
+            disabled /></label
+        ><button id="baseline" disabled>현재 입력을 기준안으로 지정</button
+        ><button id="preview" disabled>후보 생성·검사</button
         ><button id="commit" disabled>버전 확정</button>
       </div>
       <details>
         <summary>기준안</summary>
         <pre id="baselineData">미지정</pre>
       </details>
-      <p id="status" role="status"></p>
+      <p id="status" role="status">입력을 불러오는 중입니다</p>
     </section>
     <section class="split">
       <div>
         <h2>후보</h2>
         <div class="scroll">
-          <table style="min-width: 0; table-layout: auto">
+          <table
+            role="grid"
+            aria-label="연구 설계 후보"
+            aria-readonly="true"
+            style="min-width: 0; table-layout: auto"
+          >
             <thead>
               <tr>
                 <th>후보</th>
@@ -240,9 +276,11 @@
         <div
           id="scene"
           aria-label="저장고, 적재 블록, 통로 및 공급 위치 3D 미리보기"
-        ></div>
+        >
+          <span id="sceneEmpty">선택된 후보 없음</span>
+        </div>
         <p>회색: 저장동 · 초록: 적재물 · 청록: 통로 · 자홍: 공급 위치</p>
-        <p id="selected"></p>
+        <p id="selected" role="status"></p>
       </div>
     </section>
   </main>

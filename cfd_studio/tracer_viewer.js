@@ -9,6 +9,7 @@ function tracerCamera(c){
 }
 function setTracerConfig(c){
  VIZCFG=c;
+ if(MODE==='cfd')RUNCFG=c;
  for(const item of TRACERGEOM)gl.deleteBuffer(item.mesh.b);
  TRACERGEOM=[];
  const lengths=c.tracer.lengths_m.map(v=>v*1000);
@@ -19,7 +20,7 @@ function setTracerConfig(c){
   TRACERGEOM.push({type:'source',mesh:mesh(boxEdges(...box.min.map(v=>v*1000),...box.max.map(v=>v*1000)))});}
  PROBEPTS=[];G.probes=[];tracerCamera(c);
  document.getElementById('hGeo').textContent=c.tracer.lengths_m.join(' × ')+' m';
- configureTracerFields(c);
+ applyAnalysisTypeUI();
 }
 function configureTracerFields(c){
  document.body.classList.toggle('tracerView',MODE==='viz');
@@ -46,12 +47,9 @@ function configureTracerFields(c){
   q.addEventListener('change',()=>{if(isTracerConfig(VIZCFG||CFG)){if(q.checked)p.checked=false;refreshViewerFields();}});
   p.dataset.tracerBound='1';
  }
- document.getElementById('appContext').textContent='가스 수송 CFD · 정규화 추적자';
  const hud=document.querySelector('#hud .hrow');if(hud)hud.style.display='none';
- document.getElementById('dash').style.display=MODE==='cfd'?'flex':'none';
  document.getElementById('vbar').style.display='none';
  document.getElementById('vizWarn').style.display='none';
- configureOutputFields(c);
  let stat=document.getElementById('tracerStats');
  if(!stat){stat=document.createElement('div');stat.id='tracerStats';stat.style.cssText='font-size:11px;line-height:1.6;white-space:normal;max-width:330px';document.getElementById('hud').appendChild(stat);}
  stat.style.display='';
@@ -60,7 +58,7 @@ function configureTracerFields(c){
 }
 function showTracerSettings(body,c){
  const p=c.tracer,s=p.source||{},stop=p.termination||{mode:'time'};
- const rows=[['솔버','porousTracerFoam'],['대상 필드','정규화 추적자 (PH₃ 물성 미적용)'],
+ const rows=[['솔버','porousTracerFoam'],['대상 필드','정규화 추적자 (실제 가스 물성 미적용)'],
   ['계산 영역',p.lengths_m.join(' × ')+' m'],['격자',p.shape_xyz.join(' × ')],
   ['초기 농도',p.initial_mean+' C/C_ref'],['계산 시간 간격',p.dt_s+' s'],['저장 간격',p.write_interval_s+' s'],
   ['공급 시작','0 s'],['공급 종료',s.end_s==null?'공급 없음':s.end_s+' s'],
@@ -112,6 +110,7 @@ async function loadTracerFrames(info,fileUrl,target,live){
  FRAMES=rows.map(r=>({t:r.t,pt:r.t,tracer:r,n:0,v:0}));idx=0;clock=0;
  TRACERMEASURE={wall:0,physical:0,frames:0};
  finishFrames(false);await ensureTracerFrame(0);if(!live())return;
+ finishFrames(!!loadFrames.autoplay);
  prefetchViz(0,true);setDataAvail();SRVDIRTY=false;
  document.getElementById('frSt').textContent=FRAMES.length+'프레임';
 }
@@ -129,9 +128,9 @@ function frameTracer(now,dt){
  }
  const f=FRAMES[idx],j=Math.min(idx+1,FRAMES.length-1),a=TRACERMAP[field][f.t],b=TRACERMAP[field][FRAMES[j].t];
  let T=a;
- if(a&&b&&playing&&j!==idx){
+ if(a&&b&&j!==idx){
   const u=Math.max(0,Math.min(1,(clock-f.t)/(FRAMES[j].t-f.t)));
-  const key=field+':'+idx+':'+Math.floor(now/33);
+  const key=field+':'+idx+':'+(playing?'tick:'+Math.floor(now/33):'time:'+clock);
   if(!TRACERBLEND||TRACERBLEND.key!==key){const v=new Float32Array(a.v.length);for(let k=0;k<v.length;k++)v[k]=a.v[k]*(1-u)+b.v[k]*u;TRACERBLEND={key,T:{...a,v}};}
   T=TRACERBLEND.T;
  }

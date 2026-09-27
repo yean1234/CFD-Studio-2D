@@ -13,6 +13,8 @@ GROUPS = {
 KEYS = {key for group in GROUPS.values() for key in group['keys']}
 LOCKED = {'total_supply', 'temperature_K', 'leakage', 'bag_resistance', 'porosity', 'diffusion',
           'reaction', 'mesh_m', 'dt_s', 'evaluation_s', 'write_interval_s', 'convergence'}
+POSITIVE = {'temperature_K', 'mesh_m', 'dt_s', 'evaluation_s', 'write_interval_s', 'convergence'}
+NONNEGATIVE = {'leakage', 'bag_resistance', 'diffusion', 'reaction'}
 
 
 def variable_schema():
@@ -35,6 +37,32 @@ def vector(value, label):
     return [number(x) for x in value]
 
 
+def require_object(value, label, required=()):
+    if not isinstance(value, dict) or not set(required) <= set(value):
+        raise ValueError(label+'는 필수 항목을 포함한 객체여야 합니다')
+    return value
+
+
+def validate_fixed_value(key, value):
+    if value is None:
+        return
+    if key in POSITIVE | NONNEGATIVE | {'porosity'}:
+        value = number(value)
+        if (key in POSITIVE and value <= 0 or key in NONNEGATIVE and value < 0
+                or key == 'porosity' and not 0 < value <= 1):
+            raise ValueError('입력값의 허용 부호·범위를 확인해 주세요: '+key)
+
+
+def layout_blocks(layout):
+    require_object(layout, 'layout', ('blocks',))
+    blocks = layout['blocks']
+    if not isinstance(blocks, list) or not 1 <= len(blocks) <= 200:
+        raise ValueError('배치별 블록은 1~200개여야 합니다')
+    for block in blocks:
+        box(block)
+    return blocks
+
+
 def box(value):
     if not isinstance(value, dict) or not {'min', 'max'} <= set(value):
         raise ValueError('영역의 min/max 좌표가 필요합니다')
@@ -55,7 +83,9 @@ def inside(point, bounds):
 def constraints(common, layout, sources, spacing):
     """값을 이동·보정하지 않고 위반 객체와 이유를 반환한다."""
     reasons = []
-    geometry = common['geometry']
+    require_object(common, 'common', ('geometry', 'wall_clearance_m', 'maximum_stack_height_m',
+                                     'stored_mass_kg', 'mass_tolerance_kg', 'source_count'))
+    geometry = require_object(common['geometry'], 'geometry', ('length_m', 'width_m', 'eaves_m'))
     length, width, height = [number(geometry[k]) for k in ('length_m', 'width_m', 'eaves_m')]
     if min(length, width, height) <= 0:
         raise ValueError('저장동 치수는 양수여야 합니다')
@@ -64,11 +94,7 @@ def constraints(common, layout, sources, spacing):
     minimum_gap = number(spacing)
     if clearance < 0 or maximum_height <= 0 or minimum_gap < 0:
         raise ValueError('벽·블록 간격과 적재 높이를 확인해 주세요')
-    if not isinstance(layout, dict):
-        raise ValueError('배치 객체가 필요합니다')
-    blocks = layout.get('blocks')
-    if not isinstance(blocks, list) or not 1 <= len(blocks) <= 200:
-        raise ValueError('배치별 블록은 1~200개여야 합니다')
+    blocks = layout_blocks(layout)
     boxes, mass, ids = [], 0., set()
     for block in blocks:
         key = block.get('id')
@@ -104,7 +130,7 @@ def constraints(common, layout, sources, spacing):
         for aisle in aisles:
             bounds = box(aisle)
             axis = aisle.get('width_axis')
-            if axis not in (0, 1) or isinstance(axis, bool):
+            if type(axis) is not int or axis not in (0, 1):
                 raise ValueError('통로 폭 기준 축은 0(x) 또는 1(y)입니다')
             required = number(aisle.get('minimum_width_m'))
             if required <= 0:
@@ -123,7 +149,10 @@ def constraints(common, layout, sources, spacing):
         reasons.append({'code': 'SOURCE_COUNT', 'message': '공통 공급원 수 불일치'})
     if not isinstance(sources, list):
         return reasons
-    allowed = [box(region) for region in common.get('allowed_source_regions', [])]
+    regions = common.get('allowed_source_regions', [])
+    if not isinstance(regions, list):
+        raise ValueError('allowed_source_regions는 영역 목록이어야 합니다')
+    allowed = [box(region) for region in regions]
     seen_sources = set()
     for index, point in enumerate(sources):
         point = vector(point, '공급 좌표')
@@ -144,6 +173,7 @@ def preview(design):
     variables, common = design['variables'], design['common']
     if not isinstance(variables, dict) or set(variables) != KEYS:
         raise ValueError('세 그룹의 변수 정의를 모두 제공해 주세요')
+    require_object(common, 'common', ('supply_duration_s',))
     duration = number(common.get('supply_duration_s'))
     if duration <= 0:
         raise ValueError('공통 공급시간이 필요합니다')
@@ -167,7 +197,10 @@ def preview(design):
         else:
             values = entry.get('choices')
             if values is None and key == 'spacing_m':
-                lo, hi = entry.get('bounds', [None, None]); lo, hi = number(lo), number(hi)
+                bounds = entry.get('bounds')
+                if not isinstance(bounds, list) or len(bounds) != 2:
+                    raise ValueError('간격 범위에는 숫자 두 개가 필요합니다')
+                lo, hi = map(number, bounds)
                 count = entry.get('count')
                 if isinstance(count, bool) or not isinstance(count, int) or not 2 <= count <= 32 or lo >= hi:
                     raise ValueError('간격 범위·후보 수를 확인해 주세요')
@@ -176,12 +209,15 @@ def preview(design):
                 raise ValueError('탐색 후보 목록이 필요합니다: '+key)
         if values == [None] and key in ('layout', 'spacing_m', 'supply_positions', 'total_supply'):
             raise ValueError('설계값을 먼저 확정해 주세요: '+key)
+        for value in values:
+            validate_fixed_value(key, value)
         choices[key] = values
     supply = choices['total_supply'][0]
-    if not isinstance(supply, dict) or not supply.get('unit') or not supply.get('evidence') or number(supply.get('value')) <= 0:
+    if (not isinstance(supply, dict) or not isinstance(supply.get('unit'), str)
+            or not supply['unit'].strip() or not supply.get('evidence') or number(supply.get('value')) <= 0):
         raise ValueError('총 공급량은 값·단위·근거를 명시해야 합니다. 자동 추천하지 않습니다')
     sampling = design['sampling']
-    if set(sampling) != {'method', 'seed'} or sampling['method'] != 'cartesian_choices' or isinstance(sampling['seed'], bool) or not isinstance(sampling['seed'], int):
+    if not isinstance(sampling, dict) or set(sampling) != {'method', 'seed'} or sampling['method'] != 'cartesian_choices' or isinstance(sampling['seed'], bool) or not isinstance(sampling['seed'], int):
         raise ValueError('공동 비교는 명시된 후보의 Cartesian 조합입니다. 정수 시드를 기록해 주세요')
     if math.prod(len(values) for values in choices.values()) > 128:
         raise ValueError('한 버전의 조합 수는 128개 이하로 나누어 주세요')
@@ -190,12 +226,16 @@ def preview(design):
     combinations = [baseline]+[dict(zip(choices, values)) for values in itertools.product(*choices.values())]
     for index, resolved in enumerate(combinations):
         resolved = copy.deepcopy(resolved)
+        require_object(resolved, 'baseline/candidate', KEYS-set(derived))
+        if set(resolved)-KEYS:
+            raise ValueError('기준안에 알 수 없는 변수가 있습니다')
+        blocks = layout_blocks(resolved['layout'])
         # 간격 탐색은 사용자가 지정한 축의 단일 열 배치에만 적용한다.
         # 기존 블록 크기·질량·첫 블록 위치는 유지하며 임의 배치 최적화는 하지 않는다.
         if index and variables['spacing_m']['mode'] == 'search':
             layout = resolved['layout']
             axis = layout.get('spacing_axis')
-            if isinstance(axis, bool) or axis not in (0, 1):
+            if type(axis) is not int or axis not in (0, 1):
                 raise ValueError('간격 탐색 배치에는 spacing_axis 0(x) 또는 1(y)를 명시해 주세요')
             blocks = layout['blocks']
             gap = number(resolved['spacing_m'])
@@ -214,6 +254,7 @@ def preview(design):
         if set(resolved) != KEYS:
             raise ValueError('기준안은 실제 적용 변수 전체가 필요합니다')
         for key in LOCKED:
+            validate_fixed_value(key, resolved[key])
             if canonical(resolved[key]) != canonical(choices[key][0]):
                 raise ValueError('기준안과 공통 고정 조건이 다릅니다: '+key)
         if index == 0:

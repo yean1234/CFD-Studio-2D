@@ -1,5 +1,6 @@
 """OpenFOAM 환경에서 불변 입력 한 건을 실행한다. 결과는 실행별로 분리한다."""
 import argparse
+import errno
 import hashlib
 import json
 import os
@@ -9,18 +10,38 @@ import shutil
 import sys
 import time
 
-import numpy as np
-from tracer_transport.run import execute
-from tracer_transport.restart import restart
-from tracer_transport.export_studio import export_case
+class EnvironmentFailure(RuntimeError):
+    pass
 
 
 def run(folder, resume=None):
     folder = Path(folder).resolve()
+    try:
+        return _run(folder, resume)
+    except Exception as exc:
+        category = 'case'
+        if (isinstance(exc, (EnvironmentFailure, ImportError, MemoryError))
+                or isinstance(exc, OSError) and exc.errno != errno.ENOENT):
+            category = 'environment'
+        report = {'category': category, 'error': str(exc), 'type': type(exc).__name__}
+        try:
+            (folder/'failure.json').write_text(json.dumps(report, ensure_ascii=False), encoding='utf-8')
+        except OSError:
+            # 오류 보고서를 쓰지 못하면 호출 측이 안전하게 대기열을 보류한다.
+            pass
+        raise
+
+
+def _run(folder, resume):
+    import numpy as np
+    from tracer_transport.run import execute
+    from tracer_transport.restart import restart
+    from tracer_transport.export_studio import export_case
+
     spec = json.loads((folder/'input.json').read_text(encoding='utf-8'))
-    for exe in ('blockMesh', 'checkMesh', 'porousTracerFoam'):
+    for exe in ('blockMesh', 'checkMesh', 'porousTracerFoam', '/usr/bin/time'):
         if not shutil.which(exe):
-            raise RuntimeError(f'{exe} unavailable; configure OpenFOAM first')
+            raise EnvironmentFailure(f'{exe} 실행 파일을 찾을 수 없습니다. OpenFOAM 환경을 확인해 주세요')
     solver = Path(shutil.which('porousTracerFoam'))
     environment = {'python': sys.version, 'numpy': np.__version__, 'platform': platform.platform(),
                    'openfoam': os.environ.get('WM_PROJECT_VERSION'), 'solver_sha256': hashlib.sha256(solver.read_bytes()).hexdigest(),

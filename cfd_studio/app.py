@@ -4535,6 +4535,9 @@ INDEX_HTML = r'''<!DOCTYPE html>
  .dot.run{background:var(--s1);box-shadow:0 0 7px rgba(57,135,229,.9);animation:pulse 1.6s infinite}
  @keyframes pulse{50%{opacity:.4}}
  #hdr .path{margin-left:auto;color:var(--muted);font-size:11px;font-family:Consolas,monospace}
+ #hdr .path{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ #studiesLink{flex:none;color:var(--ink2);font-size:12px;text-decoration:none;white-space:nowrap;padding:8px 4px}
+ #studiesLink:hover,#studiesLink:focus-visible{color:var(--acc);text-decoration:underline}
  #hdr .tag2{color:var(--ink2);font-size:11.5px;margin-left:14px;white-space:nowrap}
  #modeSeg{display:flex;background:var(--surface2);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
  .seg{border:none;background:none;color:var(--ink2);padding:5px 15px;border-radius:999px;font-size:12px;
@@ -4916,11 +4919,18 @@ INDEX_HTML = r'''<!DOCTYPE html>
   box-shadow:0 18px 60px rgba(0,0,0,.6)}
  #modal h3{margin:0 0 9px;font-size:14.5px} #modal p{margin:0 0 18px;color:var(--ink2);font-size:12.5px;line-height:1.65}
  #modal .row{display:flex;gap:8px;justify-content:flex-end}
+ @media(max-width:1100px){
+  #envPath,#appContext,#hdr .pill{display:none}
+  #studiesLink{margin-left:auto}
+ }
  @media(max-width:700px){
-  body.tracerView #hdr{gap:8px;padding:0 10px}
-  body.tracerView #logo{white-space:nowrap;font-size:13px}
-  body.tracerView #logo img,body.tracerView #logo span,body.tracerView #hdr .pill,
-  body.tracerView #envPath,body.tracerView #appContext,body.tracerView #infoBtn{display:none}
+  #hdr{display:grid;grid-template-columns:minmax(0,1fr) auto;height:88px;gap:4px 8px;padding:8px 10px}
+  #logo{grid-column:1;grid-row:1;white-space:nowrap;font-size:13px}
+  #logo img,#logo span,#infoBtn{display:none}
+  #settingsBtn{grid-column:2;grid-row:1;justify-self:end;margin:0}
+  #modeSeg{grid-column:1;grid-row:2;justify-self:start}
+  #studiesLink{grid-column:2;grid-row:2;margin:0}
+  #app{height:calc(100% - 88px)}
   body.tracerView #app{flex-direction:column}
   body.tracerView #side{width:100%;min-width:0;flex:0 0 140px;border-bottom:1px solid var(--line)}
   body.tracerView #main{min-height:0;min-width:0;border-left:0}
@@ -4948,6 +4958,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
     <button class="seg on" id="mCFD" onclick="setMode('cfd')">CFD</button>
     <button class="seg" id="mViz" onclick="setMode('viz')">Viewer</button>
   </div>
+  <a id="studiesLink" href="/studies">실험 묶음</a>
   <span class="pill"><span class="dot" id="stDot"></span><span id="stTxt">연결 확인 중…</span></span>
   <span class="path" id="envPath">환경 확인 중…</span><span class="tag2" id="appContext">액침냉각 디지털트윈 · __APP_VER__</span>
   <button id="settingsBtn" onclick="showSettings()" title="환경 설정">⚙</button>
@@ -5837,6 +5848,7 @@ function prefetchViz(start,reset=false){
  const gen=VFRAMEGEN,token=VPREFETCHTOKEN;VPREFETCHBUSY=true;
  (async()=>{
   try{
+   if(isTracerConfig(VIZCFG||CFG))await ensureVizFrame(Math.max(0,Math.min(start,FRAMES.length-1)));
    let p=Math.ceil(Math.max(0,start)/stride)*stride;
    while(gen===VFRAMEGEN&&token===VPREFETCHTOKEN&&p<=VPREFETCHEND){
     const batch=[];for(let n=0;n<4&&p<=VPREFETCHEND;n++,p+=stride)batch.push(ensureVizFrame(p));
@@ -5852,7 +5864,8 @@ function playbackBufferReady(from,wallSeconds=.4){
  const first=Math.ceil(Math.max(0,from)/stride)*stride;
  // 마지막 프레임 인덱스가 표본 간격의 배수가 아니어도 끝 구간을 버퍼 부족으로
  // 오판하지 않는다. 준비된 마지막 표본을 보여준 뒤 첫 구간으로 반복한다.
- if(first>end)return readyFrameAtOrBefore(Math.min(from,FRAMES.length-1))>=0;
+ if(first>end)return isTracerConfig(VIZCFG||CFG)?tracerFrameReady(Math.min(from,FRAMES.length-1)):
+  readyFrameAtOrBefore(Math.min(from,FRAMES.length-1))>=0;
  for(let i=first;i<=end;i+=stride)if(!vizFrameReady(i,true))return false;
  return true;
 }
@@ -7363,7 +7376,7 @@ function togglePlay(){
  if(!FRAMES.length){vizRun();return;}
  if(PLAYENDED){resetPlaybackToStart();startBufferedPlayback(false);return;}
  if(PLAYBUFFERING){PLAYBUFSEQ++;PLAYBUFFERING=false;setPlay(false,true);loadMsg('프레임 '+FRAMES.length+'개');return;}
- if(playing)setPlay(false,true);else startBufferedPlayback(false);
+ if(playing)setPlay(false,true);else startBufferedPlayback(isTracerConfig(VIZCFG||CFG));
 }
 function changePlaybackSpeed(){const resume=playing||PLAYBUFFERING;PLAYBUFSEQ++;PLAYBUFFERING=false;setPlay(false,true);if(resume)startBufferedPlayback(true);saveUI(false);}
 function scrub(v){PLAYBUFSEQ++;PLAYBUFFERING=false;idx=+v;clock=FRAMES[idx]?framePlayTime(FRAMES[idx]):0;PLAYENDED=FRAMES.length>0&&idx>=FRAMES.length-1;setPlay(false,true);uploadPoints();trimVizCache(idx);prefetchViz(idx,true);
@@ -7376,7 +7389,7 @@ function setMode(m){
  document.body.classList.toggle('tracerView',m==='viz'&&isTracerConfig(VIZCFG||CFG));
  // Viewer에서 보관 프로젝트를 본 뒤 CFD로 돌아와도 그 프로젝트의 config가
  // 콘피그·에너지 수지에 남지 않도록 모드별 설정을 즉시 복원한다.
- if(m==='cfd'&&RUNCFG){setConfig(RUNCFG);fillRunInputs(RUNCFG);}
+ if(m==='cfd'&&RUNCFG){const viewerConfig=VIZCFG;setConfig(RUNCFG);VIZCFG=viewerConfig;fillRunInputs(RUNCFG);}
  else if(m==='viz'){if(VIZCFG)setConfig(VIZCFG);else if(IMMERSIONCFG)setConfig(IMMERSIONCFG);}
  document.getElementById('mCFD').classList.toggle('on',m==='cfd');
  document.getElementById('mViz').classList.toggle('on',m==='viz');
@@ -7408,7 +7421,12 @@ function playbackDuration(c,p){
 }
 function fmtPlaybackSeconds(v){return Number(v).toLocaleString(undefined,{maximumFractionDigits:2});}
 function applyAnalysisTypeUI(){
- if(isTracerConfig(MODE==='viz'?(VIZCFG||CFG):CFG)){configureTracerFields(VIZCFG||CFG);return;}
+ const active=MODE==='viz'?(VIZCFG||CFG):CFG;
+ if(isTracerConfig(active)){
+  document.getElementById('appContext').textContent='가스 수송 CFD · 정규화 추적자';
+  document.getElementById('dash').style.display=MODE==='cfd'?'flex':'none';
+  configureOutputFields(CFG);configureViewerFields(VIZCFG||CFG);return;
+ }
  const silo=isSiloConfig(MODE==='viz'?(VIZCFG||CFG):CFG);
  const setup=document.getElementById('immersionSetup');
  const context=document.getElementById('appContext');if(context)context.textContent=(silo?'식량 저장고 CFD':'액침냉각 CFD')+' · __APP_VER__';

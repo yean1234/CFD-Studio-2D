@@ -2,6 +2,8 @@
 
 Windows에서 OpenFOAM 계산과 프로젝트별 데이터 보관, 브라우저 3D 시각화를 운영하는 연구용 소프트웨어입니다. 이중 액침냉각과 단상 다공성 저장고 해석을 설정에서 선택합니다.
 
+**처음 사용한다면 [빠른 사용 안내](docs/quickstart-ko.md)를 확인하세요.** 화면별 용도, 실행·시각화 순서와 현재 지원 범위를 한곳에 정리했습니다.
+
 ## 설치 및 실행
 
 **필수:** Windows 10/11 x64, WSL2 Ubuntu, WebGL2 브라우저, 인터넷 연결(최초 OpenFOAM 설치).
@@ -62,6 +64,7 @@ v174 기반 코드를 보존하고 연구 작업 경로를 v177에 추가했습�
 
 ## 문서와 라이선스
 
+- [빠른 사용 안내](docs/quickstart-ko.md)
 - [앱 사용법](cfd_studio/README.md)
 - [배포 및 검증 범위](docs/distribution.md)
 - [모델 근거](docs/model-evidence.md)
@@ -69,5 +72,7 @@ v174 기반 코드를 보존하고 연구 작업 경로를 v177에 추가했습�
 - [외부 구성요소 안내](THIRD_PARTY_NOTICES.md)
 - [개발 규칙](docs/code-conventions.md)
 - [2026-09-26 구현·검증 범위](docs/research-status-20260926.md)
+- [2026-09-26 기능·UX 검토 및 수정](docs/ux-review-20260926.md)
+- [ClO2 문헌·적용 범위 검토 및 참고문헌](docs/clo2-literature-review-20260927.md)
 
 저작권자의 별도 명시가 없는 자체 코드에 신규 오픈소스 라이선스를 임의 부여하지 않았습니다. 외부 구성요소는 각 라이선스를 따릅니다.

@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import shutil
 import sqlite3
@@ -18,6 +19,12 @@ from .contracts import ROOT, CAPABILITIES, canonical, candidates, digest
 
 class Conflict(ValueError):
     pass
+
+
+class ExecutionFailure(RuntimeError):
+    def __init__(self, message, category):
+        super().__init__(message)
+        self.category = category
 
 
 def uid():
@@ -141,7 +148,8 @@ class Service:
             return [dict(row) for row in db.execute('SELECT * FROM studies ORDER BY created DESC')]
 
     def detail(self, study):
-        with self.db() as db:
+        with owner_lock(self.root/'worker.lock') as worker_idle, self.db() as db:
+            db.execute('BEGIN')
             row = db.execute('SELECT * FROM studies WHERE id=?', (study,)).fetchone()
             if row is None:
                 raise ValueError('실험을 찾을 수 없습니다')
@@ -155,7 +163,14 @@ class Service:
             result['attempts'] = [dict(r) for r in db.execute('SELECT a.* FROM attempts a JOIN cases c ON a.case_id=c.id JOIN revisions r ON c.revision_id=r.id WHERE r.study_id=? ORDER BY a.created', (study,))]
             for attempt in result['attempts']:
                 attempt['result'] = json.loads(attempt['result']) if attempt['result'] else None
+                attempt['recovery_available'] = worker_idle and attempt['state'] in ('running', 'recovery_required')
             result['paused'] = bool(db.execute('SELECT paused FROM control WHERE id=1').fetchone()[0])
+            blocker = db.execute('''SELECT s.id AS study_id,s.name AS study_name,a.id AS attempt_id,a.state
+                                    FROM attempts a JOIN cases c ON a.case_id=c.id
+                                    JOIN revisions r ON c.revision_id=r.id JOIN studies s ON r.study_id=s.id
+                                    WHERE a.state='recovery_required' OR (? AND a.state='running')
+                                    ORDER BY a.created LIMIT 1''', (worker_idle,)).fetchone()
+            result['recovery_blocker'] = {**dict(blocker), 'recovery_available': worker_idle} if blocker else None
         return result
 
     def commit(self, study, design, preview_hash, expected_revision):
@@ -180,35 +195,99 @@ class Service:
         return {'revision': revision, 'cases': keys}
 
     def enqueue(self, case_ids, request_key, resume_from=None):
-        if (not isinstance(case_ids, list) or not 1 <= len(case_ids) <= 33 or len(set(case_ids)) != len(case_ids)
-                or not all(isinstance(k, str) for k in case_ids) or not isinstance(request_key, str) or not 1 <= len(request_key) <= 128):
-            raise ValueError('예약할 후보와 요청 ID를 확인해 주세요')
-        payload = digest({'cases': case_ids, 'resume_from': resume_from})
         with self.db() as db:
             db.execute('BEGIN IMMEDIATE')
-            old = db.execute('SELECT * FROM requests WHERE key=?', (request_key,)).fetchone()
-            if old:
-                if old['payload_hash'] != payload:
-                    raise Conflict('요청 ID가 다른 예약에 사용됐습니다')
-                return json.loads(old['response'])
-            ids = []
-            for key in case_ids:
-                case = db.execute('SELECT input FROM cases WHERE id=?', (key,)).fetchone()
-                if not case:
-                    raise ValueError('확정된 후보를 찾을 수 없습니다')
-                if json.loads(case['input']).get('profile') != CAPABILITIES['profile']:
-                    raise ValueError('저장고 후보는 형상 검토·저장 단계입니다. 실제 저장고 수송 어댑터 연결 전에는 실행할 수 없습니다')
-                if db.execute("SELECT 1 FROM attempts WHERE case_id=? AND state IN ('queued','running','recovery_required')", (key,)).fetchone():
-                    raise Conflict('이미 예약·실행 중이거나 복구 확인이 필요한 후보입니다')
-                if resume_from:
-                    old_attempt = db.execute('SELECT * FROM attempts WHERE id=? AND case_id=?', (resume_from, key)).fetchone()
-                    if not old_attempt or old_attempt['state'] not in ('failed', 'finished') or len(case_ids) != 1:
-                        raise ValueError('종료된 동일 후보의 체크포인트만 재개할 수 있습니다')
-                attempt = uid(); ids.append(attempt)
-                db.execute('INSERT INTO attempts VALUES(?,?,?,?,?,?,?,?)', (attempt, key, 'queued', 'unchecked', None, time.time(), None, resume_from))
-            response = {'attempts': ids}
-            db.execute('INSERT INTO requests VALUES(?,?,?)', (request_key, payload, canonical(response)))
+            return self._enqueue(db, case_ids, request_key, resume_from)
+
+    def _enqueue(self, db, case_ids, request_key, resume_from=None, request_context=None):
+        if (not isinstance(case_ids, list) or not 1 <= len(case_ids) <= 33
+                or not all(isinstance(k, str) and k for k in case_ids)
+                or len(set(case_ids)) != len(case_ids)
+                or not isinstance(request_key, str) or not request_key.strip() or len(request_key) > 128):
+            raise ValueError('예약할 후보와 요청 ID를 확인해 주세요')
+        if resume_from is not None and (not isinstance(resume_from, str)
+                or not re.fullmatch(r'[a-f0-9]{32}', resume_from)):
+            raise ValueError('재개할 실행 ID를 확인해 주세요')
+        data = {'cases': case_ids, 'resume_from': resume_from}
+        if request_context is not None:
+            data['context'] = request_context
+        payload = digest(data)
+        old = db.execute('SELECT * FROM requests WHERE key=?', (request_key,)).fetchone()
+        if old:
+            if old['payload_hash'] != payload:
+                raise Conflict('요청 ID가 다른 예약에 사용됐습니다')
+            return json.loads(old['response'])
+        ids = []
+        for key in case_ids:
+            case = db.execute('SELECT input FROM cases WHERE id=?', (key,)).fetchone()
+            if not case:
+                raise ValueError('확정된 후보를 찾을 수 없습니다')
+            if json.loads(case['input']).get('profile') != CAPABILITIES['profile']:
+                raise ValueError('저장고 후보는 형상 검토·저장 단계입니다. 실제 저장고 수송 어댑터 연결 전에는 실행할 수 없습니다')
+            if db.execute("SELECT 1 FROM attempts WHERE case_id=? AND state IN ('queued','running','recovery_required')", (key,)).fetchone():
+                raise Conflict('이미 예약·실행 중이거나 복구 확인이 필요한 후보입니다')
+            if resume_from is not None:
+                old_attempt = db.execute('SELECT * FROM attempts WHERE id=? AND case_id=?', (resume_from, key)).fetchone()
+                if not old_attempt or old_attempt['state'] not in ('failed', 'finished') or len(case_ids) != 1:
+                    raise ValueError('종료된 동일 후보의 체크포인트만 재개할 수 있습니다')
+            attempt = uid(); ids.append(attempt)
+            db.execute('INSERT INTO attempts VALUES(?,?,?,?,?,?,?,?)', (attempt, key, 'queued', 'unchecked', None, time.time(), None, resume_from))
+        response = {'attempts': ids}
+        db.execute('INSERT INTO requests VALUES(?,?,?)', (request_key, payload, canonical(response)))
         return response
+
+    @staticmethod
+    def _study_attempt(db, study, attempt):
+        row = db.execute('''SELECT a.* FROM attempts a JOIN cases c ON a.case_id=c.id
+                            JOIN revisions r ON c.revision_id=r.id WHERE a.id=? AND r.study_id=?''',
+                         (attempt, study)).fetchone()
+        if row is None:
+            raise ValueError('이 실험의 실행을 찾을 수 없습니다')
+        return row
+
+    def attempt_action(self, study, attempt, action, request_id=None,
+                       confirmed_stopped=None, operator_note=None):
+        """사용자의 명시적 실행 작업. 복구 확인은 프로세스를 시작하거나 종료하지 않는다."""
+        if action == 'resolve_recovery':
+            if (confirmed_stopped is not True or not isinstance(operator_note, str)
+                    or not operator_note.strip() or len(operator_note) > 2000):
+                raise ValueError('confirmed_stopped=true와 1~2000자의 operator_note가 필요합니다')
+            with owner_lock(self.root/'worker.lock') as locked:
+                if not locked:
+                    raise Conflict('실행 작업자가 연결되어 있습니다. 종료를 확인한 뒤 복구해 주세요')
+                with self.db() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    row = self._study_attempt(db, study, attempt)
+                    result = json.loads(row['result']) if row['result'] else {}
+                    audit = result.get('recovery_audit')
+                    if row['state'] == 'failed' and audit and audit['operator_note'] == operator_note.strip():
+                        return {'attempt': attempt, 'state': 'failed', 'recovery_audit': audit,
+                                'paused': bool(db.execute('SELECT paused FROM control WHERE id=1').fetchone()[0])}
+                    if row['state'] not in ('running', 'recovery_required'):
+                        raise Conflict('복구 확인이 필요한 실행만 처리할 수 있습니다')
+                    audit = {'confirmed_stopped': True, 'operator_note': operator_note.strip(),
+                             'resolved_at': time.time(), 'previous_state': row['state'], 'previous_owner': row['owner']}
+                    result.update(recovery_audit=audit, failure_category='interrupted')
+                    result.setdefault('error', '사용자가 중단된 솔버의 종료를 확인했습니다')
+                    db.execute("UPDATE attempts SET state='failed',quality='unchecked',result=? WHERE id=?",
+                               (canonical(result), attempt))
+                    db.execute('UPDATE control SET paused=1 WHERE id=1')
+                return {'attempt': attempt, 'state': 'failed', 'paused': True, 'recovery_audit': audit}
+        if action not in ('cancel', 'retry', 'resume'):
+            raise ValueError('지원하지 않는 실행 작업입니다')
+        with self.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = self._study_attempt(db, study, attempt)
+            if action == 'cancel':
+                if row['state'] not in ('queued', 'cancelled'):
+                    raise Conflict('대기 중인 작업만 취소할 수 있습니다')
+                db.execute("UPDATE attempts SET state='cancelled' WHERE id=?", (attempt,))
+                return {'attempt': attempt, 'state': 'cancelled'}
+            allowed = ('failed', 'finished', 'cancelled') if action == 'retry' else ('failed', 'finished')
+            if row['state'] not in allowed:
+                raise Conflict('종료되거나 복구 확인이 완료된 실행만 재시도·재개할 수 있습니다')
+            return self._enqueue(db, [row['case_id']], request_id, attempt if action == 'resume' else None,
+                                 {'study': study, 'attempt': attempt, 'action': action})
 
     def pause(self, paused):
         if not isinstance(paused, bool):
@@ -276,9 +355,11 @@ class Service:
                     with self.db() as db:
                         db.execute("UPDATE attempts SET state='finished',quality=?,result=? WHERE id=? AND owner=?", (quality, canonical(result), row['id'], owner))
                 except Exception as exc:
+                    category = (exc.category if isinstance(exc, ExecutionFailure) else
+                                'environment' if isinstance(exc, (OSError, subprocess.SubprocessError)) else 'case')
                     with self.db() as db:
-                        db.execute("UPDATE attempts SET state='failed',quality='unchecked',result=? WHERE id=? AND owner=?", (canonical({'error': str(exc)}), row['id'], owner))
-                        if isinstance(exc, OSError):
+                        db.execute("UPDATE attempts SET state='failed',quality='unchecked',result=? WHERE id=? AND owner=?", (canonical({'error': str(exc), 'failure_category': category}), row['id'], owner))
+                        if category == 'environment':
                             db.execute('UPDATE control SET paused=1')
 
     def _real_adapter(self, folder, spec, code, resume_from):
@@ -292,24 +373,38 @@ class Service:
                 prefix += ['-d', self.settings['wsl_distro']]
             paths = [subprocess.check_output(prefix+['--', 'wslpath', '-u', p], text=True, timeout=15).strip() for p in paths]
             prefix += ['--']
-        bashrc = self.settings.get('openfoam_bashrc', 'auto')
-        load = ('rcs=(/usr/lib/openfoam/openfoam*/etc/bashrc); test -f "${rcs[-1]}" && source "${rcs[-1]}"'
-                if bashrc == 'auto' else 'source '+shlex.quote(bashrc))
+        bashrc = self.settings.get('openfoam_bashrc') or 'auto'
+        if not isinstance(bashrc, str):
+            raise OSError('openfoam_bashrc는 경로 문자열 또는 auto여야 합니다')
+        source_path = ('"$HOME"/'+shlex.quote(bashrc[2:]) if bashrc.startswith('~/') else shlex.quote(bashrc))
+        load = ('shopt -s nullglob; rcs=(/opt/openfoam*/etc/bashrc /usr/lib/openfoam/openfoam*/etc/bashrc); '
+                '((${#rcs[@]})) && source "${rcs[-1]}"'
+                if bashrc == 'auto' else 'source '+source_path)
         command = load+' && cd '+shlex.quote(paths[0])+' && python3 -m study_platform.runner '+shlex.quote(paths[1])
         if resume_from:
             command += ' --resume '+shlex.quote(paths[2])
         with (folder/'execution.log').open('w') as log:
             result = subprocess.run(prefix+['bash', '-c', command], stdout=log, stderr=subprocess.STDOUT)
+        failure = folder/'failure.json'
+        if failure.exists():
+            report = json.loads(failure.read_text(encoding='utf-8'))
+            if not isinstance(report, dict) or report.get('category') not in ('case', 'environment'):
+                raise OSError('실행 오류 보고서가 올바르지 않습니다. execution.log를 확인해 주세요')
+            raise ExecutionFailure(str(report.get('error') or '계산 실행에 실패했습니다'), report['category'])
         checks = folder/'raw/checks.json'
         if not checks.exists():
             raise OSError(f'계산 환경 또는 실행 오류 ({result.returncode}). execution.log를 확인해 주세요')
         verdict = json.loads(checks.read_text(encoding='utf-8'))
+        if not isinstance(verdict, dict) or not isinstance(verdict.get('pass'), bool):
+            raise ValueError('수치 검사 보고서가 올바르지 않습니다')
         if result.returncode != 0 and verdict.get('pass'):
             raise RuntimeError(f'수치 검사 후 처리 오류 ({result.returncode}). execution.log를 확인해 주세요')
         return verdict
 
-    def comparison(self, study):
-        detail = self.detail(study)
+    def comparison(self, study, *, detail=None):
+        detail = self.detail(study) if detail is None else detail
+        if detail['id'] != study:
+            raise ValueError('다른 실험의 비교 스냅샷입니다')
         rows, excluded = [], []
         cases_by_id = {c['id']: c for c in detail['cases']}
         for attempt in detail['attempts']:

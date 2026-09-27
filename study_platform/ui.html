@@ -137,6 +137,26 @@
       gap: 12px;
       flex-wrap: wrap;
     }
+    dialog {
+      width: min(520px, calc(100% - 24px));
+      border: 1px solid #a7b3be;
+      border-radius: 6px;
+      padding: 20px;
+    }
+    dialog::backdrop {
+      background: #0006;
+    }
+    dialog textarea {
+      width: 100%;
+      min-height: 80px;
+      font: inherit;
+    }
+    dialog .check {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      margin: 12px 0;
+    }
     @media (max-width: 620px) {
       header {
         gap: 12px;
@@ -229,6 +249,7 @@
         ><button id="enqueue" class="primary" disabled>
           확정 후보 실행 예약
         </button>
+        <button id="revert" disabled>저장된 설정 불러오기</button>
       </div>
       <p id="dirty"></p>
       <div class="scroll">
@@ -266,6 +287,7 @@
           <tbody id="attempts"></tbody>
         </table>
       </div>
+      <p id="queueBlocker" role="status"></p>
       <details>
         <summary>선택 실행 로그</summary>
         <pre id="log"></pre>
@@ -297,429 +319,30 @@
       <p id="packageStatus"></p>
     </section>
   </main>
-  <script>
-    const $ = (id) => document.getElementById(id);
-    let study = "",
-      detail = null,
-      preview = null,
-      requestId = crypto.randomUUID(),
-      loading = false,
-      lastRows = "",
-      lastComparison = "",
-      dirty = false;
-    const states = {
-        queued: "대기",
-        running: "계산 중",
-        finished: "프로세스 종료",
-        failed: "실행 오류",
-        cancelled: "취소",
-        recovery_required: "복구 확인 필요",
-      },
-      qualities = { unchecked: "미검사", pass: "통과", fail: "미통과" };
-    async function api(path, data) {
-      const r = await fetch(
-        path,
-        data === undefined
-          ? {}
-          : {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(data),
-            },
-      );
-      const v = await r.json();
-      if (!r.ok || v.ok === false)
-        throw Error(v.msg || v.err || "서버 요청 실패");
-      return v;
-    }
-    function message(error) {
-      $("msg").textContent = error.message || error;
-    }
-    function guardProfile() {
-      const active = detail?.revisions.find(
-        (r) => r.id === detail.current_revision,
-      );
-      if (active?.data.design.profile === "warehouse_joint_v1") {
-        $("preview").disabled = true;
-        $("commit").disabled = true;
-        $("enqueue").disabled = true;
-        message(
-          "저장고 형상 후보입니다. 연구 변수·3D 후보 화면에서 확인해 주세요. 실제 저장고 계산은 미연결입니다.",
-        );
-      }
-    }
-    function design() {
-      const variable = $("variable").value,
-        method = $("method").value;
-      return method === "manual"
-        ? {
-            variable,
-            method,
-            values: $("values")
-              .value.split(",")
-              .map((x) => {
-                if (!x.trim()) throw Error("빈 후보값을 지워 주세요");
-                return Number(x);
-              }),
-            seed: 42,
-          }
-        : {
-            variable,
-            method,
-            low: Number($("low").value),
-            high: Number($("high").value),
-            count: Number($("count").value),
-            seed: Number($("seed").value),
-          };
-    }
-    function changed() {
-      dirty = true;
-      preview = null;
-      $("commit").disabled = true;
-      $("dirty").textContent = "미확정 변경 · 후보 확인이 필요합니다";
-      localStorage.setItem(
-        "cfd-study-draft",
-        JSON.stringify(
-          Object.fromEntries(
-            [
-              "variable",
-              "method",
-              "values",
-              "low",
-              "high",
-              "count",
-              "seed",
-            ].map((k) => [k, $(k).value]),
-          ),
-        ),
-      );
-    }
-    for (const id of [
-      "variable",
-      "method",
-      "values",
-      "low",
-      "high",
-      "count",
-      "seed",
-    ])
-      $(id).oninput = () => {
-        changed();
-        $("range").hidden = $("method").value === "manual";
-        $("valuesLabel").hidden = $("method").value !== "manual";
-      };
-    window.addEventListener("beforeunload", (e) => {
-      if (dirty) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    });
-    async function list() {
-      const data = await api("/api/studies"),
-        prior = study;
-      $("studies").replaceChildren(new Option("실험 선택", ""));
-      for (const item of data.studies)
-        $("studies").add(
-          new Option(item.name + " · " + item.id.slice(0, 6), item.id),
-        );
-      $("studies").value = prior;
-    }
-    $("create").onclick = async () => {
-      try {
-        const r = await api("/api/studies", { name: $("name").value });
-        study = r.result.id;
-        await list();
-        await refresh();
-      } catch (e) {
-        message(e);
-      }
-    };
-    $("studies").onchange = async () => {
-      if (dirty && !confirm("미확정 입력을 유지한 채 실험을 바꾸시겠습니까?")) {
-        $("studies").value = study;
-        return;
-      }
-      study = $("studies").value;
-      preview = null;
-      requestId = crypto.randomUUID();
-      lastRows = "";
-      lastComparison = "";
-      $("commit").disabled = true;
-      await refresh().catch(message);
-    };
-    $("preview").onclick = async () => {
-      try {
-        preview = (
-          await api("/api/studies/" + study + "/preview", { design: design() })
-        ).result;
-        $("candidates").replaceChildren();
-        for (const row of preview.candidates) {
-          const tr = document.createElement("tr");
-          for (const val of [
-            row.baseline ? "기준안" : "후보",
-            row.value,
-            row.valid ? "유효" : row.violations.join(", "),
-          ]) {
-            const td = document.createElement("td");
-            td.textContent = val;
-            tr.append(td);
-          }
-          $("candidates").append(tr);
-        }
-        $("commit").disabled = false;
-        message(
-          "후보 " +
-            preview.candidates.filter((x) => x.valid).length +
-            "개 확정 가능",
-        );
-      } catch (e) {
-        message(e);
-      }
-    };
-    $("commit").onclick = async () => {
-      try {
-        await api("/api/studies/" + study + "/commit", {
-          design: preview.design,
-          preview_hash: preview.preview_hash,
-          expected_revision: detail.current_revision,
-        });
-        dirty = false;
-        $("dirty").textContent = "실행용 입력 확정됨";
-        $("commit").disabled = true;
-        requestId = crypto.randomUUID();
-        await refresh();
-      } catch (e) {
-        message(e);
-      }
-    };
-    $("enqueue").onclick = async () => {
-      try {
-        $("enqueue").disabled = true;
-        await api("/api/studies/" + study + "/enqueue", {
-          cases: detail.cases
-            .filter((x) => x.revision_id === detail.current_revision)
-            .map((x) => x.id),
-          request_id: requestId,
-        });
-        message("순차 실행을 예약했습니다");
-        await refresh();
-      } catch (e) {
-        message(e);
-      }
-    };
-    $("pause").onclick = async () => {
-      try {
-        await api("/api/study-queue", { paused: true });
-        await refresh();
-      } catch (e) {
-        message(e);
-      }
-    };
-    $("resume").onclick = async () => {
-      try {
-        await api("/api/study-queue", { paused: false });
-        await refresh();
-      } catch (e) {
-        message(e);
-      }
-    };
-    function chart(data) {
-      const canvas = $("chart"),
-        ctx = canvas.getContext("2d"),
-        rows = data.rows,
-        colors = ["#167b70", "#c55d29", "#765caa", "#277eae"];
-      ctx.clearRect(0, 0, 1100, 260);
-      $("legend").replaceChildren();
-      if (!rows.length) return;
-      const maxTime = Math.max(...rows.map((x) => x.metrics.physical_end_s)),
-        maxC = Math.max(...rows.flatMap((x) => x.metrics.mean_C)) * 1.05;
-      ctx.strokeStyle = "#65727a";
-      ctx.beginPath();
-      ctx.moveTo(50, 15);
-      ctx.lineTo(50, 220);
-      ctx.lineTo(1080, 220);
-      ctx.stroke();
-      ctx.fillStyle = "#334";
-      ctx.font = "14px sans-serif";
-      ctx.fillText("C/C_ref", 5, 13);
-      ctx.fillText("0", 28, 238);
-      ctx.fillText(maxTime + " s", 1010, 243);
-      ctx.fillText(maxC.toFixed(3), 2, 35);
-      rows.forEach((row, index) => {
-        ctx.strokeStyle = colors[index % colors.length];
-        ctx.beginPath();
-        row.metrics.times.forEach((t, i) => {
-          const x = 50 + (t / maxTime) * 1020,
-            y = 220 - (row.metrics.mean_C[i] / maxC) * 190;
-          i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-        });
-        ctx.stroke();
-        const label = document.createElement("span");
-        label.style.color = colors[index % colors.length];
-        label.style.marginRight = "18px";
-        label.textContent =
-          row.attempt.slice(0, 8) + (row.baseline ? " 기준안" : "");
-        $("legend").append(label);
-      });
-    }
-    async function refresh() {
-      if (loading) return;
-      loading = true;
-      try {
-        if (!study) {
-          $("preview").disabled = true;
-          return;
-        }
-        const current = study,
-          d = await api("/api/studies/" + study);
-        if (current !== study) return;
-        detail = d;
-        $("preview").disabled = false;
-        $("revision").textContent = d.current_revision
-          ? "확정 버전 " + d.current_revision.slice(0, 8)
-          : "확정 버전 없음";
-        $("queueState").textContent = d.paused ? "대기열 보류" : "순차 실행";
-        $("enqueue").disabled =
-          !d.current_revision ||
-          d.attempts.some((a) =>
-            ["queued", "running", "recovery_required"].includes(a.state),
-          );
-        const serialized = JSON.stringify(d.attempts);
-        if (lastRows !== serialized) {
-          lastRows = serialized;
-          $("attempts").replaceChildren();
-          for (const a of d.attempts) {
-            const tr = document.createElement("tr");
-            for (const val of [
-              a.id.slice(0, 8),
-              states[a.state],
-              qualities[a.quality],
-              a.result?.metrics?.physical_end_s != null
-                ? a.result.metrics.physical_end_s + " s"
-                : "-",
-              a.result?.metrics?.wall_s != null
-                ? a.result.metrics.wall_s.toFixed(2) + " s"
-                : "-",
-            ]) {
-              const td = document.createElement("td");
-              td.textContent = val;
-              tr.append(td);
-            }
-            const td = document.createElement("td"),
-              log = document.createElement("button");
-            log.textContent = "로그";
-            log.onclick = async () => {
-              try {
-                $("log").textContent = (
-                  await api("/api/attempts/" + a.id + "/log")
-                ).log;
-                document.querySelector("details").open = true;
-              } catch (e) {
-                message(e);
-              }
-            };
-            td.append(log);
-            if (a.result?.project_id) {
-              const link = document.createElement("a");
-              link.textContent = " 3D 보기";
-              link.href =
-                "/?study_project=" + encodeURIComponent(a.result.project_id);
-              td.append(link);
-            }
-            if (a.result?.error)
-              td.append(document.createTextNode(" " + a.result.error));
-            tr.append(td);
-            $("attempts").append(tr);
-          }
-        }
-        const comp = await api("/api/studies/" + study + "/comparison"),
-          s = JSON.stringify(comp);
-        if (s !== lastComparison) {
-          lastComparison = s;
-          chart(comp);
-        }
-        $("export").disabled = !comp.rows.length;
-        $("connection").textContent = "연결됨";
-        guardProfile();
-      } catch (e) {
-        $("connection").textContent = "연결 오류";
-        message(e);
-      } finally {
-        loading = false;
-      }
-    }
-    $("export").onclick = async () => {
-      try {
-        const r = (await api("/api/studies/" + study + "/export", {})).result;
-        $("download").href = "/api/study-packages/" + r.filename;
-        $("download").download = r.filename;
-        $("download").hidden = false;
-        $("packageStatus").textContent =
-          "수준 B · 대표 사례 재계산 / " +
-          (r.bytes / 1024 / 1024).toFixed(2) +
-          " MiB";
-      } catch (e) {
-        message(e);
-      }
-    };
-    $("import").onchange = () => {
-      const f = $("import").files[0];
-      if (!f) return;
-      if (f.size > 20 * 1024 * 1024) {
-        message("20 MiB 이하 ZIP을 선택해 주세요");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          const r = (
-            await api("/api/study-packages/import", {
-              base64: String(reader.result).split(",")[1],
-            })
-          ).result;
-          $("packageStatus").textContent =
-            r.files +
-            "개 파일 무결성 검사·가져오기 완료 / 코드 실행 없음 / " +
-            r.id;
-        } catch (e) {
-          message(e);
-        }
-      };
-      reader.readAsDataURL(f);
-    };
-    $("studies").addEventListener("change", () =>
-      localStorage.setItem("cfd-selected-study", $("studies").value),
-    );
-    (async () => {
-      try {
-        const caps = await api("/api/capabilities");
-        for (const [key, v] of Object.entries(caps.variables))
-          $("variable").add(new Option(v.label + " (" + v.unit + ")", key));
-        const draft = JSON.parse(
-          localStorage.getItem("cfd-study-draft") || "null",
-        );
-        if (draft) {
-          for (const [key, v] of Object.entries(draft))
-            if ($(key)) $(key).value = v;
-          changed();
-        }
-        $("range").hidden = $("method").value === "manual";
-        await list();
-        const saved = localStorage.getItem("cfd-selected-study");
-        if ([...$("studies").options].some((o) => o.value === saved)) {
-          study = saved;
-          $("studies").value = study;
-          await refresh();
-        }
-        $("connection").textContent = "연결됨";
-      } catch (e) {
-        message(e);
-        $("connection").textContent = "설정 로딩 실패";
-      }
-    })();
-    setInterval(() => {
-      if (study) localStorage.setItem("cfd-selected-study", study);
-      refresh();
-    }, 2000);
-  </script>
+  <dialog id="recoveryDialog" aria-labelledby="recoveryTitle">
+    <form id="recoveryForm">
+      <h2 id="recoveryTitle">중단 상태 확인</h2>
+      <p>
+        솔버가 실제로 종료되었는지 확인한 경우에만 진행하세요. 실행 자료는
+        보존되며 대기열은 보류됩니다.
+      </p>
+      <label class="check"
+        ><input id="stoppedConfirmed" type="checkbox" required />솔버 종료를
+        확인했습니다</label
+      >
+      <label
+        >확인 내용<textarea
+          id="recoveryNote"
+          required
+          maxlength="2000"
+        ></textarea>
+      </label>
+      <p id="recoveryError" role="status"></p>
+      <div class="actions">
+        <button id="recoveryCancel" type="button">취소</button
+        ><button id="recoverySubmit" type="submit">중단으로 기록</button>
+      </div>
+    </form>
+  </dialog>
+  <script type="module" src="/studies/study.js"></script>
 </html>
