@@ -27,6 +27,14 @@ int main(int argc, char *argv[])
         dimensionedScalar("zero", dimless/dimTime, 0));
     IOdictionary controls(IOobject("transportControl", "constant", mesh, IOobject::READ_IF_PRESENT, IOobject::NO_WRITE));
     const scalar sourceEnd = controls.lookupOrDefault<scalar>("sourceEnd", 0);
+    const List<scalar> diffusionTimes = controls.lookupOrDefault<List<scalar>>("diffusionTimes", List<scalar>());
+    const List<scalar> diffusionScales = controls.lookupOrDefault<List<scalar>>("diffusionScales", List<scalar>());
+    if (diffusionTimes.size() != diffusionScales.size())
+        FatalErrorInFunction << "Diffusion schedule lengths differ" << exit(FatalError);
+    forAll(diffusionTimes, i)
+        if (diffusionScales[i] <= 0 || (i && diffusionTimes[i] <= diffusionTimes[i-1]))
+            FatalErrorInFunction << "Invalid diffusion schedule" << exit(FatalError);
+    const volScalarField baseK("baseK", K);
     const bool steadyEnabled = controls.lookupOrDefault<bool>("steadyEnabled", false);
     const scalar relRate = controls.lookupOrDefault<scalar>("relativeRate", 1e-4);
     const scalar absRate = controls.lookupOrDefault<scalar>("absoluteRate", 1e-8);
@@ -46,6 +54,21 @@ int main(int argc, char *argv[])
     Info<< "SORBED " << runTime.value() << " " << fvc::domainIntegrate(Q).value() << " " << gMin(Q) << " " << gMax(Q) << endl;
     while (runTime.loop())
     {
+        if (diffusionTimes.size())
+        {
+            const scalar t = runTime.value();
+            label i = 0;
+            while (i+1 < diffusionTimes.size() && diffusionTimes[i+1] <= t) ++i;
+            scalar scale = diffusionScales[i];
+            if (i+1 < diffusionTimes.size() && t > diffusionTimes[i])
+            {
+                const scalar f = (t-diffusionTimes[i])/(diffusionTimes[i+1]-diffusionTimes[i]);
+                scale = (1-f)*diffusionScales[i] + f*diffusionScales[i+1];
+            }
+            K = baseK*scale;
+            Kf = scalar(1)/fvc::interpolate(scalar(1)/K);
+            Info<< "DIFFUSIVITY_SCALE " << t << " " << scale << endl;
+        }
         volScalarField previousC("previousC", C);
         const scalar dt = runTime.deltaTValue();
         // 공급 종료가 시간 격자와 어긋나도 실제 공급 구간의 겹침 길이로 적분한다.

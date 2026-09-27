@@ -2,12 +2,14 @@
 
 이 문서는 포대식 쌀 저장고의 ClO₂ 훈증 CFD 연구를 위한 **현재 구현 범위**와 재현 절차를 설명한다. 실험 기록이 없는 값을 현장 조건으로 확정하지 않는다. 일반 프로젝트의 설치·실행은 [앱 사용법](../cfd_studio/README.md)을 참고한다.
 
+**새 계산:** 상세계획서 도면과 적재 제약, 문헌의 기온 곡선, 명시적 초기 농도를 사용한 7일 확산 시나리오를 실행했다. [도면 정의·입력 가정·농도장 결과](warehouse-plan-scenario-20260928.md)를 확인한다. 이 시나리오는 실측 자료 없이 실행할 수 있다.
+
 ## 화면에서 사용하는 순서
 
 1. Windows에서 `cfd_studio/실행.bat`으로 Studio를 연다. 기존 계산·Raw 폴더를 삭제하거나 이동하지 않는다.
 2. `/warehouse`(저장고 설정·격자)에서 도면 공칭 형상을 확인한다. 설정을 저장한 뒤 **격자 검사**를 실행하면 `blockMesh`와 `checkMesh` 결과를 확인할 수 있다. 이 동작은 농도 계산이 아니다.
 3. `/warehouse/results`(저장고 수송 결과)에서 **완료된 계산**을 선택한다. 프레임을 바꾸면 OpenFOAM 원본 `C`와 조회 배열을 대조한 뒤 셀 중심 농도를 색 점으로 표시한다. 점 표시는 셀의 실제 체적 렌더링이 아니다.
-4. x·y·z(m), 시간(s), 허용 셀 중심 거리(m)를 입력해 농도를 조회한다. 가장 가까운 셀과 저장 시점 간 선형 보간값, 단위, 원본 파일 경로가 나온다. 계산 영역 밖·저장 시간 밖·허용 거리 밖은 오류로 표시한다. **온도장은 현재 계산되지 않는다.**
+4. x·y·z(m), 시간(s), 허용 셀 중심 거리(m)를 입력해 농도를 조회한다. 가장 가까운 셀과 저장 시점 간 선형 보간값, 단위, 원본 파일 경로가 나온다. 계산 영역 밖·저장 시간 밖·허용 거리 밖은 오류로 표시한다. 계획서 시나리오는 **공간 균일 가정 기온**도 표시한다. 열 방정식으로 구한 온도장은 아니다.
 5. 메인 화면의 오른쪽 위 `!`에서 모델·단위·검증 상태를 다시 확인한다. `/studies/design`의 적재·공급 위치는 후보 미리보기이며 실제 저장고 CFD 최적화가 아니다.
 
 메인 프로젝트 Viewer는 액침냉각·단상 저장고·기존 정규화 추적자 결과를 다룬다. 별도 박공지붕 저장고 수송 계산은 위의 읽기 전용 결과 화면에 표시된다. 저장고 수송 솔버의 실행은 아직 Studio의 Study 실행 버튼과 연결되지 않았다.
@@ -43,7 +45,7 @@ python3 -m tracer_transport.verify_gable_convergence \
   --output output/my_new_warehouse_convergence
 ```
 
-`--max-cells`는 사용자 지정 계산 예산이다. 격자 세분화가 이를 넘으면 검사기는 실행 전에 중단한다. 결과의 `model_contract.json`, `transport_input.json`, `input_hashes.json`, `mesh_quality.json`, `checks.json`, 원본 시간 폴더와 `concentration.npz`를 함께 보관한다. `state.json`이 `complete`이고 수치 검사가 통과한 최상위 `output/warehouse_transport_*` 폴더만 Studio 결과 목록에 나타난다. 위 예시처럼 이름에 `warehouse_transport_`를 포함해 만든다.
+`--max-cells`는 사용자 지정 계산 예산이다. 격자 세분화가 이를 넘으면 검사기는 실행 전에 중단한다. 결과의 `model_contract.json`, `transport_input.json`, `input_hashes.json`, `mesh_quality.json`, `checks.json`, 원본 시간 폴더와 `concentration.npz`를 함께 보관한다. `state.json`이 `complete`이고 해당 수치시험 또는 실행·보존 검사가 통과한 최상위 `output/warehouse_transport_*` 폴더만 Studio 결과 목록에 나타난다. 시나리오의 실행·보존 검사 통과는 수렴·실험 검증 완료와 구분된다.
 
 독립 실측 CSV가 확보되면 `tracer_transport/compare_measurements.py`의 계약에 따라 `sensor_id,x_m,y_m,z_m,time_s,concentration_mg_m3,uncertainty_mg_m3,split`을 준비한다. `split`은 `calibration` 또는 `validation`이다. 비교 결과가 계산되었다는 사실만으로 모델이 검증되었다고 판정하지 않는다.
 

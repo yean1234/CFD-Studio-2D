@@ -1,7 +1,7 @@
 import * as THREE from '/studies/three.module.js';
 
 const $ = id => document.getElementById(id);
-let meta = null, scene, camera, renderer, points, frameGeneration = 0, rotation = 0;
+let meta = null, scene, camera, renderer, points, frameGeneration = 0, caseGeneration = 0, rotation = 0;
 
 async function api(path) {
   const response = await fetch(path);
@@ -57,7 +57,7 @@ function rendererReady() {
 }
 function showFrame(data) {
   rendererReady();
-  if (points) {scene.remove(points); points.geometry.dispose(); points.material.dispose();}
+  if (points) {scene.remove(points); points.traverse(p => {p.geometry?.dispose(); p.material?.dispose();});}
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(data.displayed_cells * 3);
   const colors = new Float32Array(data.displayed_cells * 3);
@@ -73,12 +73,23 @@ function showFrame(data) {
   }
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  points = new THREE.Points(geometry, new THREE.PointsMaterial({size: 1.0, vertexColors: true, sizeAttenuation: true}));
+  points = new THREE.Group();
+  points.add(new THREE.Points(geometry, new THREE.PointsMaterial({size: 1.0, vertexColors: true, sizeAttenuation: true})));
+  for (const block of meta.loading?.blocks || []) {
+    const lo=block.min_m, hi=block.max_m;
+    const box = new THREE.BoxGeometry(hi[0]-lo[0],hi[2]-lo[2],hi[1]-lo[1]);
+    const outline = new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({color:0xffffff}));
+    box.dispose();
+    outline.position.set((hi[0]+lo[0]-meta.geometry.length_m)/2,
+      (hi[2]+lo[2]-meta.geometry.eaves_m-meta.geometry.roof_rise_m)/2,
+      (hi[1]+lo[1]-meta.geometry.width_m)/2);
+    points.add(outline);
+  }
   points.rotation.y = rotation;
   scene.add(points);
   renderer.render(scene, camera);
   $('time').value = data.time_s;
-  $('legend').textContent = `${data.time_s} s · ${data.minimum.toPrecision(5)}–${data.maximum.toPrecision(5)} ${data.concentration_unit} · 표시 ${data.displayed_cells.toLocaleString()} / 전체 ${data.total_cells.toLocaleString()}셀 · 원본장 대조 통과`;
+  $('legend').textContent = `${data.time_s} s (${(data.time_s/3600).toFixed(1)} h) · ${data.minimum.toPrecision(5)}–${data.maximum.toPrecision(5)} ${data.concentration_unit} · 표시 ${data.displayed_cells.toLocaleString()} / 전체 ${data.total_cells.toLocaleString()}셀 · 원본장 대조 통과` + (data.temperature_C == null ? '' : ` · 가정 기온 ${data.temperature_C.toFixed(2)} °C · 흰 선: 적재 블록`);
   $('status').textContent = `원본장: ${data.raw_file}`;
 }
 async function loadFrame() {
@@ -90,19 +101,27 @@ async function loadFrame() {
   } catch (error) {if (generation === frameGeneration) $('status').textContent = error.message;}
 }
 async function loadCase() {
+  const caseRequest = ++caseGeneration;
   ++frameGeneration;
   $('facts').replaceChildren();
+  $('probeResult').textContent = '';
+  $('legend').textContent = '계산 결과를 읽는 중입니다.';
+  if (points && scene) {scene.remove(points); points.traverse(p => {p.geometry?.dispose(); p.material?.dispose();}); points=null; renderer.render(scene,camera);}
   $('frame').disabled = true;
   meta = null;
   if (!$('case').value) return;
   try {
-    meta = await api(`/api/warehouse/results/meta?id=${encodeURIComponent($('case').value)}`);
+    const loaded = await api(`/api/warehouse/results/meta?id=${encodeURIComponent($('case').value)}`);
+    if (caseRequest !== caseGeneration) return;
+    meta = loaded;
     fact('연구 대상', '포대식 쌀 저장고의 ClO₂ 훈증');
-    fact('계산 모델', meta.model === 'normalized_gable_verification' ? '정규화 추적자 수치시험' : 'ClO₂ 공기 중 가스 입력 시험');
+    fact('계산 모델', meta.model === 'normalized_gable_verification' ? '정규화 추적자 수치시험' : meta.model === 'clo2_plan_scenario' ? '계획도면·가정 기반 ClO₂ 확산' : 'ClO₂ 공기 중 가스 입력 시험');
     fact('농도 단위', meta.model === 'normalized_gable_verification' ? 'C/C_ref' : 'mg/m³ (저장 원본 kg/m³)');
-    fact('수치 검증', meta.numerical_pass ? '해당 시험 통과' : '미검증');
+    fact('수치 검증', meta.numerical_pass ? '해당 시험 통과' : '실행·질량수지 검사 통과 / 수렴 미검증');
     fact('실험 검증', '미완료');
-    fact('온도장', '계산되지 않음');
+    fact('온도', meta.temperature_timeseries_C ? '논문 외기온 곡선을 공간 균일 입력으로 가정' : '계산되지 않음');
+    if (meta.loading) fact('적재 가정', `${meta.loading.blocks.length}개 블록 · 공극률 ${meta.loading.porosity} · 굴곡도 ${meta.loading.tortuosity}`);
+    if (meta.model === 'clo2_plan_scenario') fact('수송 가정', '정지 공기·폐쇄 경계·초기 농도 펄스 · 반응/누출 생략');
     fact('형상', `${meta.geometry_basis} · 저장동 공칭 외형`);
     fact('질량수지 상대오차', meta.relative_balance_error);
     fact('원본 배열', meta.array_file);
@@ -121,7 +140,7 @@ $('probe').addEventListener('submit', async e => {
     z: $('z').value, time: $('time').value, max_distance: $('distance').value});
   try {
     const v = await api('/api/warehouse/results/sample?' + params);
-    $('probeResult').textContent = `농도: ${v.concentration.toPrecision(7)} ${v.concentration_unit}\n셀 #${v.cell_index} · 중심 거리 ${v.cell_centre_distance_m.toPrecision(4)} m · ${v.sampling}\n온도: 계산되지 않음\n원본: ${v.source_files.join(' , ')}`;
+    $('probeResult').textContent = `농도: ${v.concentration.toPrecision(7)} ${v.concentration_unit}\n셀 #${v.cell_index} · 중심 거리 ${v.cell_centre_distance_m.toPrecision(4)} m · ${v.sampling}\n온도: ${v.temperature == null ? '계산되지 않음' : v.temperature.toFixed(2)+' °C (공간 균일 입력 가정)'}\n원본: ${v.source_files.join(' , ')}`;
   } catch (error) {$('probeResult').textContent = error.message;}
 });
 try {

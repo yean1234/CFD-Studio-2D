@@ -66,6 +66,7 @@ v174 기반 코드를 보존하고 연구 작업 경로를 v177에 추가했습�
 
 - [빠른 사용 안내](docs/quickstart-ko.md)
 - [포대식 저장고 수송 사용·검증 안내](docs/CFD-STUDIO-USER-GUIDE.md)
+- [상세계획서 기반 첫 ClO₂ 농도장 결과](docs/warehouse-plan-scenario-20260928.md)
 - [앱 사용법](cfd_studio/README.md)
 - [배포 및 검증 범위](docs/distribution.md)
 - [모델 근거](docs/model-evidence.md)

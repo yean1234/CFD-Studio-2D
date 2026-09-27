@@ -90,7 +90,7 @@ class WarehouseResults:
         model = json.loads((case/'model_contract.json').read_text(encoding='utf-8'))
         checks = json.loads((case/'checks.json').read_text(encoding='utf-8'))
         config = json.loads((case/'transport_input.json').read_text(encoding='utf-8'))
-        if not checks.get('numerical_pass') or model.get('kind') not in ('normalized_gable_verification', 'clo2_gas_in_air'):
+        if not (checks.get('numerical_pass') or checks.get('execution_checks_pass')) or model.get('kind') not in ('normalized_gable_verification', 'clo2_gas_in_air', 'clo2_plan_scenario'):
             raise ValueError('검사된 저장고 수송 결과가 아닙니다')
         with ZipFile(case/'concentration.npz') as archive:
             time_shape, times = npy_member(archive, 'times_s')
@@ -98,10 +98,11 @@ class WarehouseResults:
             centre_shape, centres = npy_member(archive, 'cell_centres_m')
             _, unit = npy_member(archive, 'concentration_unit')
         cells = model['geometry']['cells']
+        expected_unit = 'C/C_ref' if model['kind'] == 'normalized_gable_verification' else 'kg/m3'
         if (len(time_shape) != 1 or len(times) < 2 or times[0] != 0
                 or any(b <= a for a, b in zip(times, times[1:]))
                 or field_shape != (len(times), cells) or centre_shape != (cells, 3)
-                or unit != model['initial_unit'] or checks.get('cells') != cells
+                or unit != expected_unit or unit != model['initial_unit'] or checks.get('cells') != cells
                 or checks.get('frames') != len(times)):
             raise ValueError('저장 배열 또는 모델 계약이 일치하지 않습니다')
         return case, model, checks, config, times, fields, centres, unit
@@ -117,22 +118,35 @@ class WarehouseResults:
                 case, model, checks, config, times, fields, centres, unit = self._load(path.name)
                 results.append({'id': path.name, 'model': model['kind'], 'unit': unit,
                                 'frames': len(times), 'cells': len(centres)//3,
-                                'numerical_pass': True, 'experimental_validation': False})
+                                'numerical_pass': bool(checks.get('numerical_pass')), 'experimental_validation': False})
             except (OSError, ValueError, KeyError, TypeError, BadZipFile, EOFError, struct.error):
                 continue
         return results
 
     def metadata(self, name):
         case, model, checks, config, times, fields, centres, unit = self._load(name)
+        temperatures = self._temperatures(case, model, times)
         return {'id': name, 'model': model['kind'], 'model_validation': model['model_validation'],
-                'concentration_unit': unit, 'temperature_field': 'unavailable',
-                'numerical_pass': True, 'experimental_validation': False,
+                'concentration_unit': unit, 'temperature_field': model.get('temperature_representation', 'unavailable'),
+                'temperature_timeseries_C': temperatures, 'loading': model.get('loading'),
+                'assumptions': model.get('assumptions', []),
+                'numerical_pass': bool(checks.get('numerical_pass')), 'experimental_validation': False,
                 'times_s': list(times), 'cells': len(centres)//3,
                 'geometry': config['geometry_spec']['geometry'],
                 'geometry_basis': checks['geometry_basis'],
                 'relative_balance_error': checks['relative_balance_error'],
                 'diffusivity_source': model.get('diffusivity_source'),
                 'raw_folder': str(case), 'array_file': str(case/'concentration.npz')}
+
+    @staticmethod
+    def _temperatures(case, model, times):
+        if model['kind'] != 'clo2_plan_scenario':
+            return None
+        with ZipFile(case/'concentration.npz') as archive:
+            shape, values = npy_member(archive, 'temperature_C')
+        if shape != (len(times),):
+            raise ValueError('온도 입력 시계열 크기가 프레임과 다릅니다')
+        return list(values)
 
     def frame(self, name, index, maximum_points=25000):
         case, model, checks, config, times, fields, centres, unit = self._load(name)
@@ -146,7 +160,9 @@ class WarehouseResults:
         stride = max(1, math.ceil(cells/maximum_points))
         selected = range(0, cells, stride)
         scale = 1e6 if unit == 'kg/m3' else 1
+        temperatures = self._temperatures(case, model, times)
         return {'index': index, 'time_s': times[index], 'total_cells': cells,
+                'temperature_C': temperatures[index] if temperatures else None,
                 'displayed_cells': len(selected), 'sampling_stride': stride,
                 'cell_centres_m': [list(centres[i*3:i*3+3]) for i in selected],
                 'concentration': [values[i]*scale for i in selected],
@@ -182,10 +198,12 @@ class WarehouseResults:
         fraction = 0 if right == left else (time_s-times[left])/(times[right]-times[left])
         value = fields[left*cells+cell]*(1-fraction)+fields[right*cells+cell]*fraction
         scale = 1e6 if unit == 'kg/m3' else 1
+        temperatures = self._temperatures(case, model, times)
+        temperature = temperatures[left]*(1-fraction)+temperatures[right]*fraction if temperatures else None
         return {'requested_xyz_m': list(xyz), 'time_s': time_s,
                 'cell_index': cell, 'cell_centre_m': list(centres[cell*3:cell*3+3]),
                 'cell_centre_distance_m': distance, 'sampling': 'nearest_cell_linear_time',
                 'concentration': value*scale,
                 'concentration_unit': 'mg/m3' if scale != 1 else 'C/C_ref',
-                'temperature': None, 'temperature_status': 'not_calculated',
+                'temperature': temperature, 'temperature_status': 'prescribed_uniform_C' if temperatures else 'not_calculated',
                 'source_files': [str(p) for p in source_files], 'raw_npz_match': True}

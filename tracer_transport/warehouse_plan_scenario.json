@@ -1,0 +1,343 @@
+{
+  "schema": 1,
+  "geometry_spec": {
+    "schema": 1,
+    "geometry": {
+      "length_m": 78,
+      "width_m": 25,
+      "eaves_m": 7.2,
+      "roof_rise_m": 3.5,
+      "coordinate_basis": "nominal_drawing_envelope"
+    },
+    "mesh": {
+      "nx": 78,
+      "ny_per_half": 25,
+      "nz": 22,
+      "maximum_cells": 100000
+    },
+    "evidence": "PNS/PAES 419:2015 Annex A example drawing; nominal storage-building envelope only, not measured interior clearance",
+    "unresolved": [
+      "Nominal drawing boundary assumed to be air boundary; wall thickness omitted",
+      "Annex isolated by closed interface; no annex air or leakage modeled",
+      "Stacks generated from plan constraints; not a measured layout"
+    ]
+  },
+  "provenance": {
+    "plan": "Detailed research plan 2026-09-25 pp.4-5; PNS/PAES 419:2015 Annex A",
+    "plan_sha256": "2d92c28ff0444530af2c30b8c1ee1cf456da9df1e622262212ed342e07d2fbc3",
+    "temperature_paper": "https://doi.org/10.1016/j.compag.2021.106087",
+    "temperature_paper_sha256": "7d3847d2dcfd8c193aa6814bbf88606ddda2a7ffa478f50b1fe44af5efaec2e6",
+    "temperature_basis": "Figure 1 page 3, container 5 ambient-temperature curve, graphical digitization at 3-hour intervals; approximate +/-0.5 C; imposed spatially uniform, not coupled heat-flow reproduction",
+    "digitization": "render page at scale 3, crop PDF rect (150,418,475,506); x=57..957 px maps day0..7; y=241..28 maps10..30C; dark-pixel median"
+  },
+  "temperature": {
+    "times_s": [
+      0,
+      10800,
+      21600,
+      32400,
+      43200,
+      54000,
+      64800,
+      75600,
+      86400,
+      97200,
+      108000,
+      118800,
+      129600,
+      140400,
+      151200,
+      162000,
+      172800,
+      183600,
+      194400,
+      205200,
+      216000,
+      226800,
+      237600,
+      248400,
+      259200,
+      270000,
+      280800,
+      291600,
+      302400,
+      313200,
+      324000,
+      334800,
+      345600,
+      356400,
+      367200,
+      378000,
+      388800,
+      399600,
+      410400,
+      421200,
+      432000,
+      442800,
+      453600,
+      464400,
+      475200,
+      486000,
+      496800,
+      507600,
+      518400,
+      529200,
+      540000,
+      550800,
+      561600,
+      572400,
+      583200,
+      594000,
+      604800
+    ],
+    "values_C": [
+      14.6,
+      14.93,
+      20.05,
+      23.05,
+      22.3,
+      20.19,
+      17.04,
+      16.48,
+      16.48,
+      15.82,
+      18.87,
+      24.23,
+      25.26,
+      25.87,
+      20.38,
+      17.89,
+      16.24,
+      15.77,
+      18.97,
+      24.27,
+      26.57,
+      25.12,
+      21.13,
+      17.79,
+      15.82,
+      14.93,
+      16.57,
+      22.68,
+      26.15,
+      23.99,
+      22.86,
+      18.54,
+      16.62,
+      15.4,
+      15.26,
+      19.62,
+      23.94,
+      25.45,
+      24.13,
+      19.11,
+      16.15,
+      14.69,
+      13.9,
+      19.11,
+      24.41,
+      27.28,
+      27.42,
+      23.15,
+      18.97,
+      16.38,
+      14.93,
+      17.04,
+      22.63,
+      26.71,
+      26.85,
+      23.24,
+      17.7
+    ]
+  },
+  "loading": {
+    "blocks": [
+      {
+        "id": "row1-block1",
+        "min_m": [
+          2.0,
+          1,
+          0.15
+        ],
+        "max_m": [
+          13.5,
+          11.5,
+          3
+        ]
+      },
+      {
+        "id": "row1-block2",
+        "min_m": [
+          14.5,
+          1,
+          0.15
+        ],
+        "max_m": [
+          26.0,
+          11.5,
+          3
+        ]
+      },
+      {
+        "id": "row1-block3",
+        "min_m": [
+          27.0,
+          1,
+          0.15
+        ],
+        "max_m": [
+          38.5,
+          11.5,
+          3
+        ]
+      },
+      {
+        "id": "row1-block4",
+        "min_m": [
+          39.5,
+          1,
+          0.15
+        ],
+        "max_m": [
+          51.0,
+          11.5,
+          3
+        ]
+      },
+      {
+        "id": "row1-block5",
+        "min_m": [
+          52.0,
+          1,
+          0.15
+        ],
+        "max_m": [
+          63.5,
+          11.5,
+          3
+        ]
+      },
+      {
+        "id": "row1-block6",
+        "min_m": [
+          64.5,
+          1,
+          0.15
+        ],
+        "max_m": [
+          76.0,
+          11.5,
+          3
+        ]
+      },
+      {
+        "id": "row2-block1",
+        "min_m": [
+          2.0,
+          13.5,
+          0.15
+        ],
+        "max_m": [
+          13.5,
+          24.0,
+          3
+        ]
+      },
+      {
+        "id": "row2-block2",
+        "min_m": [
+          14.5,
+          13.5,
+          0.15
+        ],
+        "max_m": [
+          26.0,
+          24.0,
+          3
+        ]
+      },
+      {
+        "id": "row2-block3",
+        "min_m": [
+          27.0,
+          13.5,
+          0.15
+        ],
+        "max_m": [
+          38.5,
+          24.0,
+          3
+        ]
+      },
+      {
+        "id": "row2-block4",
+        "min_m": [
+          39.5,
+          13.5,
+          0.15
+        ],
+        "max_m": [
+          51.0,
+          24.0,
+          3
+        ]
+      },
+      {
+        "id": "row2-block5",
+        "min_m": [
+          52.0,
+          13.5,
+          0.15
+        ],
+        "max_m": [
+          63.5,
+          24.0,
+          3
+        ]
+      },
+      {
+        "id": "row2-block6",
+        "min_m": [
+          64.5,
+          13.5,
+          0.15
+        ],
+        "max_m": [
+          76.0,
+          24.0,
+          3
+        ]
+      }
+    ],
+    "porosity": 0.4,
+    "tortuosity": 2.0,
+    "basis": "Scenario assumptions: 12 blocks respecting plan clearances; effective block porosity 0.4 and tortuosity 2 are uncalibrated; pallet gap0.15m"
+  },
+  "initial": {
+    "background_mg_m3": 0.001,
+    "gaussian_peak_mg_m3": 1.0,
+    "centre_m": [
+      4,
+      12.5,
+      1.5
+    ],
+    "sigma_m": [
+      1.5,
+      0.5,
+      0.5
+    ],
+    "basis": "Computational initial pulse only; not a recommended fumigation dose or measured time series"
+  },
+  "numerics": {
+    "dt_s": 900,
+    "end_s": 604800,
+    "write_interval_s": 10800
+  },
+  "assumptions": [
+    "Zero air velocity; no momentum or heat PDE solved",
+    "Closed walls, doors, vents and annex interface; zero leakage",
+    "No chemical decay or sorption for first transport-only scenario",
+    "Piecewise linear interpolation of Lee2015 air diffusivity at5/23/40C",
+    "No gas generation or controlled supply boundary"
+  ]
+}
