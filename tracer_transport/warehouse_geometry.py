@@ -7,6 +7,7 @@ import argparse
 import json
 import math
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import time
@@ -78,6 +79,38 @@ mergePatchPairs ();
 '''
 
 
+def checked_mesh_quality(log_text, expected_cells, expected_volume_m3):
+    """Read independent checkMesh measurements, failing closed on missing data."""
+    if 'Mesh OK.' not in log_text:
+        raise RuntimeError('checkMesh did not report Mesh OK; inspect preserved logs')
+    number = r'([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)'
+
+    def metric(pattern, name, convert=float):
+        found = re.search(pattern, log_text, re.MULTILINE)
+        if not found:
+            raise RuntimeError(f'checkMesh did not report {name}; inspect preserved logs')
+        value = convert(found.group(1))
+        if not math.isfinite(value):
+            raise RuntimeError(f'checkMesh reported invalid {name}')
+        return value
+
+    cells = metric(r'^\s*cells:\s*(\d+)\s*$', 'cell count', int)
+    volume = metric(r'\bTotal volume\s*=\s*'+number, 'total volume')
+    regions = metric(r'\bNumber of regions:\s*(\d+)', 'region count', int)
+    nonorthogonality = metric(r'\bMesh non-orthogonality Max:\s*'+number, 'non-orthogonality')
+    skewness = metric(r'\bMax skewness\s*=\s*'+number, 'skewness')
+    patches = {}
+    for name in ('floor', 'roof', 'sideWalls', 'endWall', 'annexInterface'):
+        patches[name] = metric(r'^\s*'+name+r'\s+(\d+)\s+', name+' patch', int)
+    if cells != expected_cells or regions != 1 or any(count < 1 for count in patches.values()):
+        raise RuntimeError('checkMesh topology disagrees with the requested domain')
+    if volume <= 0 or not math.isclose(volume, expected_volume_m3, rel_tol=1e-4, abs_tol=1e-6):
+        raise RuntimeError('checkMesh volume disagrees with the requested geometry')
+    return {'checked_cells': cells, 'checked_volume_m3': volume, 'connected_regions': regions,
+            'max_nonorthogonality_deg': nonorthogonality, 'max_skewness': skewness,
+            'boundary_faces': patches}
+
+
 def build(spec, destination, check=False):
     report = validate(spec)
     destination = Path(destination)
@@ -106,8 +139,8 @@ def build(spec, destination, check=False):
                     args += ['-allTopology', '-allGeometry']
                 with (destination/f'log.{tool}').open('w') as log:
                     subprocess.run(args, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=300)
-            if 'Mesh OK.' not in (destination/'log.checkMesh').read_text():
-                raise RuntimeError('checkMesh did not report Mesh OK; inspect preserved logs')
+            report['mesh_quality'] = checked_mesh_quality(
+                (destination/'log.checkMesh').read_text(), report['cells'], report['volume_m3'])
             report['status'] = 'mesh_checked'
     except (subprocess.SubprocessError, OSError, RuntimeError) as exc:
         report.update(status='failed', error=str(exc))

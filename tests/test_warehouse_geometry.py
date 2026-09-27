@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from tracer_transport.warehouse_geometry import build, mesh_dictionary, validate
+from tracer_transport.warehouse_geometry import build, checked_mesh_quality, mesh_dictionary, validate
 
 
 class WarehouseGeometryTests(unittest.TestCase):
@@ -43,6 +43,29 @@ class WarehouseGeometryTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 build(self.spec, destination)
             self.assertEqual(before, (destination/'geometry.json').read_bytes())
+
+    def test_checked_mesh_report_requires_matching_topology_and_volume(self):
+        log = '''Mesh stats
+    cells:            22308
+    Number of regions: 1 (OK).
+    floor               2028     2133     ok
+    roof                2028     2133     ok
+    sideWalls           1716     1896     ok
+    endWall             286      324      ok
+    annexInterface      286      324      ok
+    Total volume = 17452.5.  Cell volumes OK.
+    Mesh non-orthogonality Max: 14.9638 average: 7.21419
+    Max skewness = 0.39503 OK.
+Mesh OK.
+'''
+        quality = checked_mesh_quality(log, 22308, 17452.5)
+        self.assertEqual(quality['checked_cells'], 22308)
+        self.assertEqual(quality['boundary_faces']['annexInterface'], 286)
+        self.assertAlmostEqual(quality['max_skewness'], .39503)
+        for changed in (log.replace('22308', '22307'), log.replace('17452.5', '17000'),
+                        log.replace('Mesh OK.', 'Mesh failed.')):
+            with self.subTest(changed=changed[-20:]), self.assertRaises(RuntimeError):
+                checked_mesh_quality(changed, 22308, 17452.5)
 
 
 if __name__ == '__main__':

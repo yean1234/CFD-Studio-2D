@@ -33,6 +33,14 @@ class TracerTests(unittest.TestCase):
             for pos,t,r in [([-.1,0,0],0,None),([1,0,0],0,None),([0,0,0],2,None),([0,0,0],0,1),([float('nan'),0,0],0,None)]:
                 self.assertFalse(f.sample_concentration(pos,t,r)['valid'])
 
+    def test_sampling_rejects_fractional_region_ids(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'field.npz'
+            np.savez(p,times=[0,1],concentration=[[1],[2]],region_id=[.5],
+                     shape_xyz=[1,1,1],lengths_m=[1,1,1])
+            with self.assertRaises(ValueError):
+                ConcentrationField(p)
+
     def test_three_dimensional_block_and_mesh_alignment(self):
         cfg=json.loads((Path(__file__).parents[1]/'tracer_transport/block3d_test.json').read_text())
         with tempfile.TemporaryDirectory() as tmp:

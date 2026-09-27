@@ -18,6 +18,10 @@ class ConcentrationField:
                 or self.times.ndim!=1 or len(self.times)<1 or not np.isfinite(self.times).all()
                 or self.c.shape!=(len(self.times),int(np.prod(self.shape)))
                 or self.regions.shape!=(int(np.prod(self.shape)),)
+                or not (np.issubdtype(self.regions.dtype,np.integer)
+                        or np.issubdtype(self.regions.dtype,np.floating))
+                or not np.isfinite(self.regions).all()
+                or not np.all(self.regions==np.floor(self.regions))
                 or not np.isfinite(self.c).all() or not np.all(np.diff(self.times)>0)):
             raise ValueError('Invalid concentration series')
 

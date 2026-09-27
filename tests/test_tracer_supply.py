@@ -5,7 +5,7 @@ import tempfile
 import unittest
 import numpy as np
 from tracer_transport.run import generate, read_field
-from tracer_transport.protocol import contract
+from tracer_transport.protocol import contract, fingerprint
 from tracer_transport.export_studio import export_case
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -59,6 +59,60 @@ class SupplyTests(unittest.TestCase):
             self.assertEqual(before,(project/'concentration_1.bin').stat().st_mtime_ns)
             cfg['dt_s']=.025;(case/'config.json').write_text(json.dumps(cfg))
             with self.assertRaises(ValueError):export_case(case,project)
+
+    def test_export_rejects_colliding_names_without_creating_project(self):
+        with tempfile.TemporaryDirectory() as temp:
+            case=Path(temp)/'case';project=Path(temp)/'project'
+            cfg,_,c=generate(case,20,.05,'porous',self.config())
+            values=np.stack([c,c+1,c+2])
+            np.savez(case/'concentration.npz',times=[0,1,1+1e-11],concentration=values,
+                     sorbed_bulk=values,shape_xyz=cfg['shape_xyz'],lengths_m=cfg['lengths_m'])
+            (case/'checks.json').write_text(json.dumps({'pass':True}))
+            with self.assertRaisesRegex(ValueError,'collide'):
+                export_case(case,project)
+            self.assertFalse(project.exists())
+
+    def test_export_preflights_late_conflict_and_preserves_existing_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            case=Path(temp)/'case';project=Path(temp)/'project'
+            cfg,_,c=generate(case,20,.05,'porous',self.config())
+            values=np.stack([c,c+1,c+2])
+            np.savez(case/'concentration.npz',times=[0,1,2],concentration=values,
+                     sorbed_bulk=values,shape_xyz=cfg['shape_xyz'],lengths_m=cfg['lengths_m'])
+            (case/'checks.json').write_text(json.dumps({'pass':True}))
+            project.mkdir()
+            sentinel=project/'meta.json'
+            sentinel.write_text(json.dumps({'tracer_config_sha256':fingerprint(cfg),
+                                            'run_id':'original'}))
+            conflict=project/'concentration_2.bin'
+            conflict.write_bytes(b'original result')
+            before=sentinel.read_bytes()
+            with self.assertRaisesRegex(ValueError,'Existing frame changed'):
+                export_case(case,project)
+            self.assertEqual(sentinel.read_bytes(),before)
+            self.assertEqual(conflict.read_bytes(),b'original result')
+            self.assertFalse((project/'concentration_0.bin').exists())
+            self.assertFalse((project/'tracer_frames.json').exists())
+
+    def test_export_rejects_float32_overflow_and_unrelated_directory(self):
+        with tempfile.TemporaryDirectory() as temp:
+            case=Path(temp)/'case';project=Path(temp)/'project'
+            cfg,_,c=generate(case,20,.05,'porous',self.config())
+            values=np.stack([c,c+1])
+            values[1,0]=1e100
+            np.savez(case/'concentration.npz',times=[0,1],concentration=values,
+                     sorbed_bulk=values,shape_xyz=cfg['shape_xyz'],lengths_m=cfg['lengths_m'])
+            (case/'checks.json').write_text(json.dumps({'pass':True}))
+            with self.assertRaisesRegex(ValueError,'Invalid scalar'):
+                export_case(case,project)
+            self.assertFalse(project.exists())
+            values[1,0]=1
+            np.savez(case/'concentration.npz',times=[0,1],concentration=values,
+                     sorbed_bulk=values,shape_xyz=cfg['shape_xyz'],lengths_m=cfg['lengths_m'])
+            project.mkdir();(project/'keep.txt').write_text('original')
+            with self.assertRaisesRegex(ValueError,'not a published'):
+                export_case(case,project)
+            self.assertEqual((project/'keep.txt').read_text(),'original')
 
 
 if __name__=='__main__':unittest.main()

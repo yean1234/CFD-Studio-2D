@@ -156,6 +156,7 @@ function viewer() {
     gl: new Proxy({}, {get: () => () => {}}),
     mesh: () => ({b: {}}), boxEdges: () => [], boxTris: () => [],
     cylinderTris: () => [], cylinderEdges: () => [],
+    esc: value => String(value),
     LY: id => get(id).checked, uiTick: async () => {},
     toast: message => messages.push(message),
     drawTvol: grid => draws.push(grid.v[0]), updateScalarBar() {}, dL() {},
@@ -291,6 +292,35 @@ test('loading tracer results without Play stays paused', async () => {
   const {ctx} = viewer(); ctx.MODE = 'viz';
   await ctx.loadFrames(false); await eventually(() => !ctx.VPREFETCHBUSY);
   assert.equal(ctx.playing, false);
+});
+
+test('tracer parser rejects a nonfinite spatial header', () => {
+  const {ctx} = viewer(); ctx.setConfig(tracerConfig());
+  const buffer = scalarBuffer('concentration_0.bin');
+  new DataView(buffer).setFloat32(16, NaN, true);
+  assert.throws(() => ctx.parseTracer(buffer, 'concentration'), /공간 범위/);
+});
+
+test('result settings show target, model, units, and validation separately', () => {
+  const {ctx, get} = viewer();
+  const result = {...tracerConfig(), performance: {pass: true}};
+  ctx.showTracerSettings(get('settingsBody'), result);
+  const html = get('settingsBody').innerHTML;
+  for (const label of ['연구 대상', '계산 모델', '표시 단위', '수치 검사', '실험 비교']) {
+    assert.ok(html.includes(label), label);
+  }
+  assert.ok(html.includes('별도 기록 없음'));
+  assert.ok(html.includes('정규화 비반응 추적자'));
+  assert.ok(html.includes('검증 기록 없음'));
+});
+
+test('failed initial result read does not report a loaded timeline', async () => {
+  const {ctx, messages} = viewer(); ctx.MODE = 'viz';
+  ctx.fetchVizBuffer = async () => new ArrayBuffer(4);
+  await ctx.loadFrames(false);
+  assert.equal(ctx.FRAMES.length, 0);
+  assert.equal(ctx.playing, false);
+  assert.ok(messages.some(message => message.includes('읽기 실패')));
 });
 
 test('Studies is a direct header link with a mobile layout in all analysis modes', () => {
