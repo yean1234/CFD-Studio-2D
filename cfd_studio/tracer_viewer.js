@@ -58,7 +58,11 @@ function configureTracerFields(c){
 }
 function showTracerSettings(body,c){
  const p=c.tracer,s=p.source||{},stop=p.termination||{mode:'time'};
- const rows=[['솔버','porousTracerFoam'],['대상 필드','정규화 추적자 (실제 가스 물성 미적용)'],
+ const rows=[['연구 대상',c.research_target||'이 결과에 별도 기록 없음'],
+  ['계산 모델','정규화 비반응 추적자 (실제 가스 물성 미적용)'],
+  ['표시 단위','농도 C/C_ref (공극), 흡착량 Q/C_ref (벌크 체적)'],
+  ['수치 검사',c.performance?.pass===true?'저장본 검사 통과':'통과 기록 없음'],
+  ['실험 비교','검증 기록 없음'],['솔버','porousTracerFoam'],
   ['계산 영역',p.lengths_m.join(' × ')+' m'],['격자',p.shape_xyz.join(' × ')],
   ['초기 농도',p.initial_mean+' C/C_ref'],['계산 시간 간격',p.dt_s+' s'],['저장 간격',p.write_interval_s+' s'],
   ['공급 시작','0 s'],['공급 종료',s.end_s==null?'공급 없음':s.end_s+' s'],
@@ -67,6 +71,9 @@ function showTracerSettings(body,c){
  body.innerHTML=rows.map(([label,value])=>'<div class="cr"><span>'+esc(label)+'</span><em>'+esc(value)+'</em><small></small></div>').join('');
 }
 function updateTracerSlots(){
+ const project=LASTPROJS.find(p=>p.rid===(vzrid()||CURC));
+ const projectName=document.getElementById('projDataName');
+ if(projectName)projectName.textContent=project?(project.name||project.rid):'';
  for(const [id,title,text] of [['slBub','농도장',SRV.concentration+'개'],['slPhase','흡착량',SRV.concentration+'개'],['slFlow','속도장','해당 없음'],['slTherm','온도장','해당 없음'],['slC','격자','구조 격자']]){
   const e=document.getElementById(id);if(!e)continue;e.textContent=text;const b=e.parentElement.querySelector('b');if(b)b.textContent=title;
  }
@@ -82,6 +89,7 @@ function parseTracer(buf,field){
  for(let i=0;i<6;i++)bb.push(dv.getFloat32(16+i*4,true));
  const cfg=(VIZCFG||CFG).tracer,shape=cfg.shape_xyz;
  if(nx!==shape[0]||ny!==shape[1]||nz!==shape[2]||buf.byteLength!==40+nx*ny*nz*4)throw Error('농도 격자 불일치');
+ if(bb.some(x=>!Number.isFinite(x)))throw Error('농도 공간 범위 불일치');
  for(let i=0;i<3;i++)if(Math.abs(bb[i])>1e-7||Math.abs(bb[i+3]-cfg.lengths_m[i])>1e-6*Math.max(1,cfg.lengths_m[i]))throw Error('농도 공간 범위 불일치');
  const v=new Float32Array(buf.slice(40));
  for(const x of v)if(!Number.isFinite(x))throw Error('유효하지 않은 농도');
@@ -109,7 +117,9 @@ async function loadTracerFrames(info,fileUrl,target,live){
  FLOWMAP={};THERMMAP={};PHASEMAP={};PRESSUREMAP={};TURBMAP={};Cxyz=null;BUBLOADED=0;
  FRAMES=rows.map(r=>({t:r.t,pt:r.t,tracer:r,n:0,v:0}));idx=0;clock=0;
  TRACERMEASURE={wall:0,physical:0,frames:0};
- finishFrames(false);await ensureTracerFrame(0);if(!live())return;
+ finishFrames(false);
+ const initialReady=await ensureTracerFrame(0);if(!live())return;
+ if(!initialReady){FRAMES=[];throw Error('첫 결과 프레임을 읽지 못했습니다');}
  finishFrames(!!loadFrames.autoplay);
  prefetchViz(0,true);setDataAvail();SRVDIRTY=false;
  document.getElementById('frSt').textContent=FRAMES.length+'프레임';

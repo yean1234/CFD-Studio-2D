@@ -79,22 +79,22 @@ function draftKey(id = study) {
 }
 function controls() {
   const blocked = !ready || creating || committing;
+  const designBlocked = blocked || incompatible;
   $("study").disabled = !listed || creating || committing;
   $("name").disabled = blocked;
   $("create").disabled = blocked || importing || !$("name").value.trim();
   for (const id of ["common", "seed", "baseline", "download"])
-    $(id).disabled = blocked;
-  $("import").disabled = blocked || importing;
-  $("preview").disabled = blocked || !study || incompatible || previewing;
+    $(id).disabled = designBlocked;
+  $("import").disabled = designBlocked || importing;
+  $("preview").disabled = designBlocked || !study || previewing;
   $("commit").disabled =
-    blocked ||
+    designBlocked ||
     importing ||
-    incompatible ||
     previewReadOnly ||
     !preview?.candidates.some((r) => r.valid);
   for (const f of Object.values(fields))
     for (const [kind, el] of Object.entries(f))
-      el.disabled = blocked || (kind === "value" && f.mode.value === "derived");
+      el.disabled = designBlocked || (kind === "value" && f.mode.value === "derived");
   $("groups").setAttribute("aria-busy", String(loading));
 }
 function rememberSelection() {
@@ -402,9 +402,9 @@ async function select(id = study, carried = null) {
             sampling: schema.sampling,
             baseline: null,
           };
-    let raw = carried || drafts.get(id),
+    let raw = incompatible ? null : carried || drafts.get(id),
       draftError = "";
-    if (!raw) {
+    if (!raw && !incompatible) {
       try {
         const stored = storage("getItem", draftKey(id));
         if (stored) {

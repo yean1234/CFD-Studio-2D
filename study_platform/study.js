@@ -97,6 +97,8 @@ const activeAttempts = () =>
 function syncActions() {
   const ready = !!detail && !warehouse(),
     busy = !!action;
+  $("studies").disabled = busy;
+  $("name").disabled = busy;
   for (const key of fieldIds) $(key).disabled = !ready || busy;
   $("preview").disabled = !ready || busy;
   $("commit").disabled =
@@ -121,7 +123,7 @@ function syncActions() {
   $("pause").disabled = !detail || busy || detail.paused;
   $("resume").disabled =
     !detail || busy || !detail.paused || !!detail.recovery_blocker;
-  $("create").disabled = busy;
+  $("create").disabled = busy || !$("name").value.trim();
   for (const button of document.querySelectorAll("[data-attempt-action]"))
     button.disabled = busy;
   $("revert").disabled = !detail || busy || (!dirty && !preview);
@@ -220,6 +222,7 @@ function clearSelection() {
   $("attempts").replaceChildren();
   $("log").textContent = "";
   $("legend").replaceChildren();
+  $("comparisonEmpty").hidden = false;
   $("chart")
     .getContext("2d")
     .clearRect(0, 0, $("chart").width, $("chart").height);
@@ -278,6 +281,7 @@ $("studies").onchange = async () => {
   }
   await choose($("studies").value);
 };
+$("name").oninput = syncActions;
 $("revert").onclick = async () => {
   if (dirty && !confirm("미확정 입력을 버리고 마지막 확정 설정을 불러올까요?"))
     return;
@@ -582,6 +586,7 @@ function chart() {
   ctx.clearRect(0, 0, width, height);
   $("legend").replaceChildren();
   const rows = comparison?.rows || [];
+  $("comparisonEmpty").hidden = rows.length > 0;
   if (!rows.length) return;
   const colors = ["#167b70", "#c55d29", "#765caa", "#277eae"],
     end = Math.max(...rows.map((x) => x.metrics.physical_end_s), 1e-12),
@@ -608,8 +613,8 @@ function chart() {
     });
     ctx.stroke();
     const label = document.createElement("span");
+    label.className = "legendItem";
     label.style.color = colors[index % colors.length];
-    label.style.marginRight = "18px";
     label.textContent =
       (row.changed_variable?.label || "후보") +
       " " +

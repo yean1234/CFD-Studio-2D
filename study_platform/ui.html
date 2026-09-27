@@ -116,6 +116,20 @@
       height: 260px;
       background: white;
     }
+    #legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .legendItem {
+      display: inline-block;
+      padding: 6px 9px;
+      border: 1px solid currentColor;
+      border-radius: 4px;
+      background: white;
+      overflow-wrap: anywhere;
+    }
     #msg {
       min-height: 22px;
       color: #864000;
@@ -197,7 +211,7 @@
         ><label
           >새 실험 이름<input
             id="name"
-            value="확산계수 비교"
+            placeholder="예: 확산계수 비교"
             maxlength="80" /></label
         ><button id="create">실험 만들기</button>
       </div>
@@ -301,6 +315,7 @@
         height="260"
         aria-label="공통 물리시간의 평균 농도 비교"
       ></canvas>
+      <p id="comparisonEmpty" role="status">수치 검사에 통과한 결과가 생기면 비교 그래프가 표시됩니다.</p>
       <div id="legend"></div>
       <p>
         동일 셀 체적 가중 평균 · 물리시간 s · 수치 검사 통과 결과만 포함 ·

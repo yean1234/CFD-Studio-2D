@@ -2,20 +2,29 @@
 <html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CFD Studio · 저장고 설정</title><link rel="icon" href="data:,">
 <style>
-*{box-sizing:border-box}body{margin:0;background:#f5f6f8;color:#222;font:14px system-ui;letter-spacing:0}header{padding:18px 24px;background:#fff;border-bottom:1px solid #d4d8de;display:flex;justify-content:space-between;gap:16px}a{color:#236657}main{max-width:1000px;margin:24px auto;padding:0 20px}h1{font-size:22px;margin:0}h2{font-size:16px;margin:0 0 16px}section{border-bottom:1px solid #ccd2da;padding:24px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 24px}label{display:flex;flex-direction:column;gap:6px}input,select,button{font:inherit;padding:10px;border:1px solid #adb6c2;border-radius:4px;min-width:0}input,select{width:100%;background:white}button{cursor:pointer;background:#fff}button.primary{background:#246a59;color:#fff;border-color:#246a59}button:disabled{opacity:.5;cursor:default}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}.status{color:#704b09;background:#fff2cf;padding:12px;margin-top:18px}#message{white-space:pre-wrap;overflow-wrap:anywhere}li{margin:8px 0}table{width:100%;border-collapse:collapse}td,th{text-align:left;border-bottom:1px solid #ddd;padding:12px 8px;overflow-wrap:anywhere}.table{overflow:auto}small{color:#60656e}@media(max-width:560px){.grid{grid-template-columns:1fr}header{padding:14px}main{padding:0 14px}h1{font-size:20px}}
+*{box-sizing:border-box}body{margin:0;background:#f5f6f8;color:#222;font:14px system-ui;letter-spacing:0}header{padding:18px 24px;background:#fff;border-bottom:1px solid #d4d8de;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}header nav{display:flex;gap:16px;flex-wrap:wrap}a{color:#236657}main{max-width:1000px;margin:24px auto;padding:0 20px}h1{font-size:22px;margin:0}h2{font-size:16px;margin:0 0 16px}section{border-bottom:1px solid #ccd2da;padding:24px 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 24px}label{display:flex;flex-direction:column;gap:6px}input,select,button{font:inherit;padding:10px;border:1px solid #adb6c2;border-radius:4px;min-width:0}input,select{width:100%;background:white}button{cursor:pointer;background:#fff}button.primary{background:#246a59;color:#fff;border-color:#246a59}button:disabled{opacity:.5;cursor:default}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}.status{color:#704b09;background:#fff2cf;padding:12px;margin-top:18px}#message{white-space:pre-wrap;overflow-wrap:anywhere}li{margin:8px 0}table{width:100%;border-collapse:collapse}td,th{text-align:left;border-bottom:1px solid #ddd;padding:12px 8px;overflow-wrap:anywhere}.table{overflow:auto}.table:focus{outline:2px solid #1685a6;outline-offset:2px}small{color:#60656e}@media(max-width:560px){.grid{grid-template-columns:1fr}header{padding:14px}main{padding:0 14px}h1{font-size:20px}}
 </style>
-<header><strong>CFD Studio</strong><a href="/studies">실험 묶음</a><a href="/">프로젝트·시각화</a></header>
+<header><strong>CFD Studio</strong><nav aria-label="주요 화면"><a href="/studies">실험 묶음</a><a href="/studies/design">연구 변수·3D 후보</a><a href="/">프로젝트·시각화</a></nav></header>
 <main><h1>저장고 설정</h1><div class="status">형상 사전 검사 · 열·유동·가스 해석 미연결</div>
 <section><div class="grid"><label>저장된 설정<select id="presets"><option value="">새 설정</option></select></label><label>설정 이름<input id="name" value="저장고 기준 형상" maxlength="80"></label></div></section>
 <form id="form"><section><h2>형상</h2><div class="grid" id="geometry"></div><p><small>좌표: x 길이 · y 폭 · z 바닥 위 높이 / 도면 공칭 치수, 벽 두께 미반영</small></p></section>
 <section><h2>격자</h2><div class="grid" id="mesh"></div></section>
 <div class="actions"><button type="submit" id="save" class="primary">새 설정으로 저장</button><button type="button" id="check" disabled>격자 검사</button></div></form>
 <p id="message" role="status"></p>
-<section><h2>검사 결과</h2><div class="table"><table><thead><tr><th>설정</th><th>상태</th><th>셀 수</th><th>형상 체적</th></tr></thead><tbody id="jobs"></tbody></table></div></section>
+<section><h2>검사 결과</h2><div class="table" tabindex="0" role="region" aria-label="격자 검사 결과, 좌우로 스크롤 가능"><table><thead><tr><th>설정</th><th>상태</th><th>셀 수</th><th>형상 체적</th><th>격자 품질</th></tr></thead><tbody id="jobs"></tbody></table></div></section>
 <section><h2>본 해석 전 확인 항목</h2><ul id="unresolved"></ul></section></main>
 <script>
 let spec,template,entries=[],selected='',presetChoice='',busy=false,dirty=false,pending='',refreshGen=0;
 const $=id=>document.getElementById(id),labels={length_m:'길이 (m)',width_m:'폭 (m)',eaves_m:'처마 높이 (m)',roof_rise_m:'지붕 상승 (m)',nx:'길이 방향 셀 수',ny_per_half:'폭 반쪽 셀 수',nz:'높이 방향 셀 수',maximum_cells:'최대 셀 수'};
+const unresolvedLabels={
+ 'Wall thickness and internal clear dimensions; nominal envelope is not confirmed air volume':'벽 두께와 실내 유효 치수 미확정 · 도면 공칭 외형은 실제 공기 체적이 아닙니다',
+ 'Approved loading layout, pallets, common storage mass and porous material parameters':'확정된 적재 배치·팔레트·공통 저장량·다공성 물성 필요',
+ 'Thermal and flow boundary conditions; validated temperature and velocity fields':'열·유동 경계조건과 검증된 온도·속도장 필요',
+ 'Measured species transport and reaction properties; no PH3 coefficients transferred to ClO2':'ClO₂ 전달·반응 물성 근거 필요 · 과거 PH₃ 계수를 전용하지 않습니다',
+ 'Boundary segmentation for doors, vents and actual annex connections; current end face is only a named placeholder':'출입문·환기구·부속실 연결 개구의 경계 구분 필요 · 현재 끝면은 이름만 지정되어 있습니다',
+ 'Residual leakage model and independent comparison data':'잔류 누출 조건과 독립 비교 실측 자료 필요',
+ 'Physical duration, internal time step and field output interval for the transport calculation':'수송 계산의 물리적 종료 시간·내부 시간 간격·결과 저장 간격 필요'
+};
 function updateControls(){
  const locked=!!pending||!spec;
  for(const input of document.querySelectorAll('[data-group]'))input.disabled=locked;
@@ -23,7 +32,7 @@ function updateControls(){
  $('check').disabled=locked||dirty||!selected||busy;
 }
 function markDirty(){dirty=true;selected='';updateControls();}
-function show(s){spec=structuredClone(s);for(const group of ['geometry','mesh']){$(group).replaceChildren();for(const [key,value]of Object.entries(spec[group])){if(!(key in labels))continue;const label=document.createElement('label'),input=document.createElement('input');label.textContent=labels[key];input.type='number';input.step=group==='mesh'?'1':'any';input.min=group==='mesh'?'1':'0.000001';input.required=true;input.value=value;input.dataset.group=group;input.dataset.key=key;input.oninput=markDirty;label.append(input);$(group).append(label);}}$('unresolved').replaceChildren();for(const text of spec.unresolved){const li=document.createElement('li');li.textContent=text;$('unresolved').append(li);}}
+function show(s){spec=structuredClone(s);for(const group of ['geometry','mesh']){$(group).replaceChildren();for(const [key,value]of Object.entries(spec[group])){if(!(key in labels))continue;const label=document.createElement('label'),input=document.createElement('input');label.textContent=labels[key];input.type='number';input.step=group==='mesh'?'1':'any';input.min=group==='mesh'?'1':'0.000001';input.required=true;input.value=value;input.dataset.group=group;input.dataset.key=key;input.oninput=markDirty;label.append(input);$(group).append(label);}}$('unresolved').replaceChildren();for(const text of spec.unresolved){const li=document.createElement('li');li.textContent=unresolvedLabels[text]||text;$('unresolved').append(li);}}
 async function request(path,data){const response=await fetch(path,data?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}:{});const result=await response.json();if(!response.ok||result.ok===false)throw Error(result.msg||result.err||'요청 실패');return result;}
 async function refresh(){
  const gen=++refreshGen,data=await request('/api/warehouse');if(gen!==refreshGen)return;
@@ -34,7 +43,8 @@ async function refresh(){
  busy=data.jobs.some(x=>['queued','running'].includes(x.status));updateControls();
  for(const job of data.jobs){
   const row=document.createElement('tr');
-  for(const value of [job.name,job.error||({queued:'대기',running:'검사 중',complete:'격자 통과',failed:'실패'})[job.status],job.report?.cells??'-',job.report?job.report.volume_m3+' m³':'-']){
+  const quality=job.report?.mesh_quality;
+  for(const value of [job.name,job.error||({queued:'대기',running:'검사 중',complete:'격자 통과',failed:'실패'})[job.status],job.report?.cells??'-',job.report?job.report.volume_m3+' m³':'-',quality?'최대 비직교 '+quality.max_nonorthogonality_deg+'° · 최대 왜도 '+quality.max_skewness:job.status==='complete'?'이전 검사 · 품질 수치 없음':'-']){
    const cell=document.createElement('td');cell.textContent=value;row.append(cell);
   }
   $('jobs').append(row);
