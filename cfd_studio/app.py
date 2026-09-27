@@ -5287,25 +5287,33 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <button id="ifT3" onclick="infoTab(3)">제작자</button>
   </div>
   <div class="ibx" id="ifB0">
-   <p style="margin:0 0 10px">한동대학교 <b>이권영 교수님 연구실의 이중 액침냉각 시스템</b>에 맞추어 제작된 CFD 인터페이스입니다.
-      범용 CFD 도구가 아니라, 그 실증 장치의 형상·조건·계측 구성을 그대로 재현하도록 만들어졌습니다.</p>
+   <p style="margin:0 0 10px">CFD Studio는 액침냉각, 단상 저장고, 포대식 저장고 연구를 위한 계산·결과 관리 화면입니다. 각 결과의 연구 대상과 계산 모델을 확인한 뒤 해석하세요.</p>
    <div class="kv">
     <table>
-     <tr><td>대상 장치</td><td>2유체 액침냉각 수조 — 아래 <b>비전도 액체</b>(듀얼 CPU 보드 침지) / 위 <b>상단 액체</b>(핀 코일 열교환기). 기본값은 TMC-49와 DI수입니다.</td></tr>
-     <tr><td>해석</td><td>OpenFOAM v2312 · <code>icoReactingMultiphaseInterFoam</code> 3상 VOF + Lee 상변화</td></tr>
-     <tr><td>계측 대응</td><td>열전대 T1~T6 배치를 가상 프로브로 재현 · 냉각수 유량과 입구온도 직접 입력</td></tr>
+     <tr><td>액침냉각</td><td>이중 액침냉각 수조 · OpenFOAM v2312의 3상 VOF·상변화 계산. T1~T6 가상 프로브와 결과 Viewer가 있습니다.</td></tr>
+     <tr><td>단상 저장고</td><td>설정별 OpenFOAM 솔버·단위를 확인하세요. 저장된 원본장과 별도 실험 검증 여부는 각각 확인해야 합니다.</td></tr>
+     <tr><td>포대식 쌀 저장고</td><td>ClO₂ 훈증이 연구 대상입니다. 현재 78 m 공칭 저장동의 격자 검사와 정지 공기 수송 수치시험을 지원합니다. <b>정규화 추적자 결과는 실제 ClO₂ 농도가 아닙니다.</b></td></tr>
+     <tr><td>검증 경계</td><td>파일 무결성·수치시험 통과와 실제 저장고의 물리적 정확도·실험 검증은 별개입니다. 실내 치수, 적재, 개구, 유동 및 독립 실측은 아직 확정되지 않았습니다.</td></tr>
     </table>
    </div>
   </div>
   <div class="ibx" id="ifB1" style="display:none">
-   <h4>처음 계산 — 이 순서대로 누르세요</h4>
+   <h4>액침냉각·단상 저장고 계산</h4>
    <div class="kv"><table>
     <tr><td>1. 설정</td><td>목록에서 기존 설정을 고릅니다. 상세값을 바꾸려면 카드 오른쪽 <b>＋</b>로 새 설정을 만듭니다.</td></tr>
     <tr><td>2. 프로젝트</td><td><b>＋ 새 프로젝트</b>를 누릅니다. 설정을 바꾸려면 실행 전에 카드 오른쪽 <b>＋</b>를 사용합니다.</td></tr>
-    <tr><td>3. 출력</td><td>기포 · 액체 상분율 · 유동 · 온도장 중 필요한 데이터만 선택합니다.</td></tr>
+    <tr><td>3. 출력</td><td>해석 유형에 맞는 데이터만 선택합니다. 액침냉각은 기포·상분율·유동·온도장, 단상 저장고는 유동·압력·난류 출력 등을 확인합니다.</td></tr>
     <tr><td>4. 계산</td><td><b>실행</b>을 누릅니다. 검은 콘솔은 계산 로그이며, CFD Studio 창은 켜 둡니다.</td></tr>
     <tr><td>5. 결과</td><td>위쪽 <b>Viewer</b> → 프로젝트 클릭 → <b>생성</b> → 하단 재생. 새 스냅샷만 더 받을 때는 <b>업데이트</b>를 누릅니다.</td></tr>
    </table></div>
+   <h4>포대식 저장고 수치시험</h4>
+   <ol>
+    <li><a href="/warehouse">저장고 설정·격자</a>에서 공칭 형상을 확인하고 새 설정으로 저장한 뒤 격자 검사를 실행합니다.</li>
+    <li><a href="/warehouse/results">저장고 수송 결과</a>에서 완료된 시험을 선택합니다. 프레임 색 점은 셀 중심 표본이며 실제 체적 렌더링이 아닙니다.</li>
+    <li>좌표·시간 조회에서 농도 단위, 셀 중심 거리, 원본 파일을 확인합니다. 온도장은 아직 계산되지 않습니다.</li>
+    <li>수송 계산과 격자·시간 세분화 재현 명령은 저장소의 <a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer">별도 사용·검증 문서</a>를 참고하세요. 이 계산은 현재 Studio의 Study 실행 버튼과 연결되지 않았습니다.</li>
+   </ol>
+   <p class="mhint">연구 변수·3D 후보 화면의 적재 배치와 공급 위치는 설계 미리보기입니다. 실측 검증에 근거한 공급량 최적화 결과로 해석하지 마세요.</p>
    <h4>버튼이 헷갈릴 때</h4>
    <ul>
     <li><b>실행</b> — 진행 자료가 없을 때 0초부터 새 계산</li>
@@ -5325,8 +5333,8 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <p class="mhint" style="margin-top:12px">자세한 내용은 케이스 폴더의 <b>CFD_Studio_사용법 PDF</b> 와 <b>README.md</b> 에 있습니다.</p>
   </div>
   <div class="ibx" id="ifB2" style="display:none">
-   <h4 style="margin-top:0">CFD Studio 권장 사양</h4>
-   <p class="mhint">기본 3 mm 격자는 약 94만 셀, 고정밀 2 mm 격자는 약 311만 셀입니다. 아래 수치는 이 프로젝트를 기준으로 한 운용 권장치입니다.</p>
+   <h4 style="margin-top:0">액침냉각 사례 권장 사양</h4>
+   <p class="mhint">아래 3 mm·2 mm 격자와 하드웨어 수치는 액침냉각 사례 기준입니다. 저장고 수송 계산의 권장 사양으로 적용하지 마세요.</p>
    <div class="kv"><table>
     <tr><td>최소</td><td><b>4코어 / 8스레드 · RAM 16 GB · SSD 여유 40 GB</b><br>Windows 10/11 x64 + WSL2 Ubuntu · GPU 선택. 3 mm 단기 시험과 저장 결과 확인은 가능하지만 계산 시간이 매우 길 수 있습니다.</td></tr>
     <tr><td>권장</td><td><b>12코어 / 24스레드 · RAM 32 GB · NVMe 여유 100 GB</b><br>3 mm 약 94만 셀 표준 계산용. GPU 압력 계산은 CUDA 지원 NVIDIA GPU와 VRAM 8 GB 이상 권장.</td></tr>

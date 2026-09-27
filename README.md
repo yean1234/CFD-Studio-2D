@@ -2,7 +2,7 @@
 
 Windows에서 OpenFOAM 계산과 프로젝트별 데이터 보관, 브라우저 3D 시각화를 운영하는 연구용 소프트웨어입니다. 이중 액침냉각과 단상 다공성 저장고 해석을 설정에서 선택합니다.
 
-**처음 사용한다면 [빠른 사용 안내](docs/quickstart-ko.md)를 확인하세요.** 화면별 용도, 실행·시각화 순서와 현재 지원 범위를 한곳에 정리했습니다.
+**처음 사용한다면 [빠른 사용 안내](docs/quickstart-ko.md)를 확인하세요.** 포대식 쌀 저장고의 계산·조회·검증 상태는 [별도 저장고 사용·검증 안내](docs/CFD-STUDIO-USER-GUIDE.md)에 정리했습니다.
 
 ## 설치 및 실행
 
@@ -65,6 +65,7 @@ v174 기반 코드를 보존하고 연구 작업 경로를 v177에 추가했습�
 ## 문서와 라이선스
 
 - [빠른 사용 안내](docs/quickstart-ko.md)
+- [포대식 저장고 수송 사용·검증 안내](docs/CFD-STUDIO-USER-GUIDE.md)
 - [앱 사용법](cfd_studio/README.md)
 - [배포 및 검증 범위](docs/distribution.md)
 - [모델 근거](docs/model-evidence.md)

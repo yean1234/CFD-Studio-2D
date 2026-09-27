@@ -10,11 +10,13 @@ import sys
 import threading
 import time
 import uuid
+from zipfile import BadZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from tracer_transport.warehouse_geometry import validate
+from cfd_studio.warehouse_results import WarehouseResults
 
 
 class Workspace:
@@ -124,6 +126,31 @@ def get_route(handler, path, workspace):
         handler._send(200, (Path(__file__).with_name('warehouse_workspace.html')).read_bytes(), 'text/html; charset=utf-8')
     elif path == '/api/warehouse':
         handler._json(workspace.read())
+    elif path == '/warehouse/results':
+        handler._send(200, (Path(__file__).with_name('warehouse_results.html')).read_bytes(), 'text/html; charset=utf-8')
+    elif path == '/warehouse/results.js':
+        handler._send(200, (Path(__file__).with_name('warehouse_results.js')).read_bytes(), 'text/javascript; charset=utf-8')
+    elif path.startswith('/api/warehouse/results'):
+        from urllib.parse import parse_qs, urlparse
+        query = parse_qs(urlparse(handler.path).query)
+        results = WarehouseResults(ROOT/'output')
+        try:
+            if path == '/api/warehouse/results':
+                payload = {'results': results.list()}
+            elif path == '/api/warehouse/results/meta':
+                payload = results.metadata(query.get('id', [''])[0])
+            elif path == '/api/warehouse/results/frame':
+                payload = results.frame(query.get('id', [''])[0], int(query.get('index', [''])[0]))
+            elif path == '/api/warehouse/results/sample':
+                payload = results.sample(query.get('id', [''])[0],
+                                         [float(query.get(k, [''])[0]) for k in ('x', 'y', 'z')],
+                                         float(query.get('time', [''])[0]),
+                                         float(query.get('max_distance', [''])[0]))
+            else:
+                return False
+            handler._json(payload)
+        except (ValueError, KeyError, TypeError, OSError, BadZipFile, EOFError) as exc:
+            handler._json({'error': str(exc)}, 400)
     else:
         return False
     return True
