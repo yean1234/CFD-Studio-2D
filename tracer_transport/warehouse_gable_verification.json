@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "geometry_spec": {
+    "schema": 1,
+    "geometry": {
+      "length_m": 78,
+      "width_m": 25,
+      "eaves_m": 7.2,
+      "roof_rise_m": 3.5,
+      "coordinate_basis": "nominal_drawing_envelope"
+    },
+    "mesh": {"nx": 78, "ny_per_half": 13, "nz": 11, "maximum_cells": 100000},
+    "evidence": "PNS/PAES 419:2015 Annex A example drawing; nominal storage-building envelope only, not measured interior clearance",
+    "unresolved": [
+      "Five-metre annex and its openings are excluded",
+      "Wall thickness and internal clearance are unknown",
+      "Bag stacks, sheet, vents and leakage paths are unresolved"
+    ]
+  },
+  "transport": {
+    "kind": "normalized_gable_verification",
+    "initial_mean": 1,
+    "initial_cosine_amplitude": 0.5,
+    "diffusivity_m2_s": 1,
+    "evidence": "numerical_test_assumption"
+  },
+  "numerics": {"dt_s": 1, "end_s": 10, "write_interval_s": 1}
+}

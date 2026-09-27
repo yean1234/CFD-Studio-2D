@@ -5404,12 +5404,14 @@ function askClear(){confirmBox('시각화 캐시를 비울까요?',
 // ══════════════ OpenFOAM 바이너리 파서 ══════════════
 function findStr(u8,s,from){const n=s.length;outer:for(let i=from||0;i<u8.length-n;i++){for(let j=0;j<n;j++)if(u8[i+j]!==s.charCodeAt(j))continue outer;return i;}return -1;}
 function parseFoam(buf,ncomp){
+ if(Object.prototype.toString.call(buf)!=='[object ArrayBuffer]'||![1,3].includes(ncomp))throw Error('OpenFOAM 필드 입력 형식 오류');
  const u8=new Uint8Array(buf);
  const i0=findStr(u8,"internalField",0); if(i0<0) throw "internalField 없음";
  const head=String.fromCharCode.apply(null,u8.subarray(i0,i0+220));
  const m=head.match(/List<(?:scalar|vector)>\s*\n(\d+)\s*\n\(/); if(!m) throw "binary 형식 인식 실패";
  const n=parseInt(m[1]); const start=i0+m.index+m[0].length;
- return {n, data:new Float64Array(buf.slice(start,start+n*8*ncomp))};
+ if(!Number.isSafeInteger(n)||n<1||start+n*8*ncomp>buf.byteLength)throw Error('OpenFOAM 필드 길이 불일치');
+ return {n, data:finitePacked(new Float64Array(buf.slice(start,start+n*8*ncomp)),'OpenFOAM')};
 }
 
 // ══════════════ 흐름장 (10mm 격자 압축 U) ══════════════
@@ -5436,12 +5438,25 @@ function chkGrid(g,name){ // 흐름·온도 격자 범위 vs 현재 형상 — �
   GRIDWARNED=true;
   showErr(name+' 격자 범위가 현재 형상(config)과 다릅니다',
    '다른 격자·형상의 파일이 섞였습니다. 해당 Project 폴더의 config.json과 결과 파일이 같은 해석인지 확인하세요.');}}
+function packedGridHeader(buf,magicText,channels,bytesPerValue=4){
+ if(Object.prototype.toString.call(buf)!=='[object ArrayBuffer]'||buf.byteLength<40)throw Error(magicText+' 헤더 길이 불일치');
+ const dv=new DataView(buf),magic=[...magicText].reduce((n,c)=>(n<<8)|c.charCodeAt(0),0)>>>0;
+ if(dv.getUint32(0,false)!==magic)throw Error(magicText+' 형식 아님');
+ const nx=dv.getUint32(4,true),ny=dv.getUint32(8,true),nz=dv.getUint32(12,true),n=nx*ny*nz;
+ if(!nx||!ny||!nz||!Number.isSafeInteger(n)||buf.byteLength!==40+n*channels*bytesPerValue)
+  throw Error(magicText+' 격자·데이터 길이 불일치');
+ const bb=[];for(let i=0;i<6;i++)bb.push(dv.getFloat32(16+4*i,true));
+ if(bb.some(x=>!Number.isFinite(x))||bb.some((x,i)=>i<3&&x>=bb[i+3]))
+  throw Error(magicText+' 공간 범위 불일치');
+ return {nx,ny,nz,n,bb};
+}
+function finitePacked(values,name){
+ for(const value of values)if(!Number.isFinite(value))throw Error(name+' 유효하지 않은 필드값');
+ return values;
+}
 function parseFlow(buf){
- const dv=new DataView(buf);
- if(dv.getUint32(0,false)!==0x464C5731) throw "flow 형식 아님";   // 'FLW1'
- const nx=dv.getUint32(4,true), ny=dv.getUint32(8,true), nz=dv.getUint32(12,true);
- const bb=[]; for(let i=0;i<6;i++) bb.push(dv.getFloat32(16+4*i,true));
- const g=compactSparsePlanes({nx,ny,nz,bb,u:new Float32Array(buf.slice(40,40+nx*ny*nz*3*4))},['u'],3);
+ const {nx,ny,nz,bb}=packedGridHeader(buf,'FLW1',3);
+ const g=compactSparsePlanes({nx,ny,nz,bb,u:finitePacked(new Float32Array(buf.slice(40)),'유동')},['u'],3);
  chkGrid(g,'유동(flow)'); return g;
 }
 function flowFor(t){ // 현재 프레임 t와 가장 가까운 흐름장 (0.6s 이내)
@@ -5452,12 +5467,10 @@ function flowFor(t){ // 현재 프레임 t와 가장 가까운 흐름장 (0.6s �
 // ── 액체 상분율 (10mm 격자 alpha.water + alpha.vapour, liquid는 합=1로 복원) ──
 let PHASEMAP={},PHASETIMES=[],PHASESEQ=0,PHASECACHE=new Map();
 function parsePhase(buf){
- const dv=new DataView(buf);
- const magic=dv.getUint32(0,false);
- if(magic!==0x50485331&&magic!==0x50485332) throw "phase 형식 아님"; // PHS1/PHS2
- const nx=dv.getUint32(4,true),ny=dv.getUint32(8,true),nz=dv.getUint32(12,true),n=nx*ny*nz;
- if(buf.byteLength<40+n*2||(magic===0x50485332&&buf.byteLength<40+n*3))throw "phase 데이터 길이 부족";
- const bb=[];for(let i=0;i<6;i++)bb.push(dv.getFloat32(16+4*i,true));
+ if(Object.prototype.toString.call(buf)!=='[object ArrayBuffer]'||buf.byteLength<40)throw Error('phase 헤더 길이 불일치');
+ const magic=new DataView(buf).getUint32(0,false),version=magic===0x50485331?'PHS1':magic===0x50485332?'PHS2':null;
+ if(!version)throw Error('phase 형식 아님');
+ const {nx,ny,nz,n,bb}=packedGridHeader(buf,version,version==='PHS2'?3:2,1);
  const g={nx,ny,nz,bb,w:new Uint8Array(buf,40,n),v:new Uint8Array(buf,40+n,n),
   m:magic===0x50485332?new Uint8Array(buf,40+2*n,n):null,_pid:++PHASESEQ};
  chkGrid(g,'액체 상분율(phase)');return g;
@@ -5499,11 +5512,8 @@ function samplePhase(P,x,y,z,out){
 // ── 온도장 (10mm 격자 압축 T) ──
 let THERMMAP={};
 function parseTherm(buf){
- const dv=new DataView(buf);
- if(dv.getUint32(0,false)!==0x54484D31) throw "therm 형식 아님";   // 'THM1'
- const nx=dv.getUint32(4,true), ny=dv.getUint32(8,true), nz=dv.getUint32(12,true);
- const bb=[]; for(let i=0;i<6;i++) bb.push(dv.getFloat32(16+4*i,true));
- const g={nx,ny,nz,bb,v:new Float32Array(buf.slice(40,40+nx*ny*nz*4))};
+ const {nx,ny,nz,bb}=packedGridHeader(buf,'THM1',1);
+ const g={nx,ny,nz,bb,v:finitePacked(new Float32Array(buf.slice(40)),'온도')};
  chkGrid(g,'온도(therm)'); return g;
 }
 function thermFor(t){
@@ -5536,17 +5546,15 @@ function compactSparsePlanes(g,fields,components=1){
  g.nz=keep.length;g._sparsePlanesCompacted=missing;return g;
 }
 function parseScalarField(buf,magicText,channels){
- const dv=new DataView(buf),magic=[...magicText].reduce((n,c)=>(n<<8)|c.charCodeAt(0),0)>>>0;
- if(dv.getUint32(0,false)!==magic)throw magicText+' 형식 아님';
- const nx=dv.getUint32(4,true),ny=dv.getUint32(8,true),nz=dv.getUint32(12,true),n=nx*ny*nz;
- if(buf.byteLength!==40+n*4*channels)throw magicText+' 데이터 길이 불일치';
- const bb=[];for(let i=0;i<6;i++)bb.push(dv.getFloat32(16+4*i,true));
- const g={nx,ny,nz,bb,v:new Float32Array(buf.slice(40,40+n*4))};
- if(channels>1)g.epsilon=new Float32Array(buf.slice(40+n*4,40+n*8));
+ const {nx,ny,nz,n,bb}=packedGridHeader(buf,magicText,channels);
+ const g={nx,ny,nz,bb,v:finitePacked(new Float32Array(buf.slice(40,40+n*4)),magicText)};
+ if(channels>1)g.epsilon=finitePacked(new Float32Array(buf.slice(40+n*4,40+n*8)),magicText);
  compactSparsePlanes(g,channels>1?['v','epsilon']:['v']);
  chkGrid(g,magicText);return g;
 }
-const parsePressure=b=>{const g=parseScalarField(b,'PRS1',1),rho=+(((VIZCFG||CFG||{}).published||{}).rho_kg_m3)||1;for(let i=0;i<g.v.length;i++)g.v[i]*=rho;return g;};
+const parsePressure=b=>{const g=parseScalarField(b,'PRS1',1),density=((VIZCFG||CFG||{}).published||{}).rho_kg_m3;
+ const rho=density==null?1:+density;if(!Number.isFinite(rho)||rho<=0)throw Error('압력 변환 밀도 오류');
+ for(let i=0;i<g.v.length;i++)g.v[i]*=rho;finitePacked(g.v,'압력');return g;};
 const parseTurbulence=b=>parseScalarField(b,'TRB1',2);
 function scalarFor(map,t){let best=null,bd=Infinity;for(const k in map){const d=Math.abs(+k-t);if(d<bd){bd=d;best=map[k];}}return best;}
 function sampleU(F,x,y,z,out){ // m 단위 좌표 → 삼선형 보간
@@ -5563,11 +5571,14 @@ function sampleU(F,x,y,z,out){ // m 단위 좌표 → 삼선형 보간
 }
 
 function parseBub(buf){
+ if(Object.prototype.toString.call(buf)!=='[object ArrayBuffer]'||buf.byteLength<12)throw Error('bub 헤더 길이 불일치');
  const dv=new DataView(buf);
  if(dv.getUint32(0,false)!==0x42554231) throw "bub 형식 아님";   // 'BUB1'
  const n=dv.getUint32(4,true), total=dv.getUint32(8,true);
+ if(!total||n>total||buf.byteLength!==12+n*8)throw Error('bub 데이터 길이 불일치');
  const idx=new Uint32Array(n), al=new Float32Array(n);
- for(let i=0;i<n;i++){idx[i]=dv.getUint32(12+8*i,true);al[i]=dv.getFloat32(16+8*i,true);}
+ for(let i=0;i<n;i++){idx[i]=dv.getUint32(12+8*i,true);al[i]=dv.getFloat32(16+8*i,true);
+  if(idx[i]>=total||!Number.isFinite(al[i]))throw Error('bub 필드값 오류');}
  return {idx,al,total};
 }
 function pushFrame(f){
@@ -7479,6 +7490,15 @@ function fluidRef(role,c){
  const tk=303.15,rho=tableAt(f,'rho',tk),r0=tableAt(f,'rho',tk-5),r1=tableAt(f,'rho',tk+5);
  return {name:f.name||'DI수',manual:false,T:30,rho,cp:tableAt(f,'cp',tk),mu:tableAt(f,'mu',tk),k:tableAt(f,'kappa',tk),beta:rho>0?-(r1-r0)/10/rho:0};
 }
+function resultEvidenceHtml(c){
+ const silo=isSiloConfig(c),model=silo?'단상 저장고 · '+(c.openfoam_mapping?.solver||'솔버 기록 없음'):'액침냉각 · 설정 기반 해석';
+ const units=silo?'속도 m/s · 압력 Pa · 난류 운동에너지 m²/s²':'온도 °C · 속도 m/s · 기포·상분율 무차원';
+ const rows=[['연구 대상',c.research_target||'이 설정에 별도 기록 없음'],['계산 모델',model],
+  ['결과 필드 단위',units],['수치 검사',c.performance?.pass===true?'저장본 검사 통과':'결과별 통과 기록 없음'],
+  ['실험 비교','독립 실측 비교 기록 없음']];
+ return '<div class="cgrp"><div class="ct">모델·검증 상태</div>'+rows.map(([label,value])=>
+  '<div class="cr"><span>'+esc(label)+'</span><em>'+esc(value)+'</em><small></small></div>').join('')+'</div>';
+}
 async function showCfg(){
  const bg=document.getElementById('cfgBg'),body=document.getElementById('cfgBody');
  bg.style.display='flex';
@@ -7512,7 +7532,7 @@ async function showCfg(){
    ['유체·다공성',[['입구 속도',p.inlet_speed_m_s,'m/s'],['공기 밀도',p.rho_kg_m3,'kg/m³'],['공기 점성계수',p.mu_Pa_s,'Pa·s'],['곡물 공극률',p.grain_porosity,''],['Darcy d',p.darcy_d_1_m2,'1/m²'],['Forchheimer f',p.forchheimer_f_1_m,'1/m']]],
    ['덕트',[['A',s.design&&s.design.A,'mm'],['B',s.design&&s.design.B,'층'],['C',s.design&&s.design.C,'mm'],['D',s.design&&s.design.D,'개']]],
    ['계산',[['난류 강도',ctl.turbulence_intensity,''],['난류 길이',ctl.turbulence_length_scale_m,'m'],['수렴 기준',ctl.convergence_tolerance,''],['목표 격자',m.target_cells,'cells'],...runItems]]];
-  let h='';for(const [g,items] of groups){h+='<div class="cgrp"><div class="ct">'+g+'</div>';for(const [label,value,unit] of items)h+='<div class="cr"><span>'+label+'</span><em>'+esc(value==null?'—':value)+'</em><small>'+unit+'</small></div>';h+='</div>';}body.innerHTML=h;return;
+  let h='';for(const [g,items] of groups){h+='<div class="cgrp"><div class="ct">'+g+'</div>';for(const [label,value,unit] of items)h+='<div class="cr"><span>'+label+'</span><em>'+esc(value==null?'—':value)+'</em><small>'+unit+'</small></div>';h+='</div>';}body.innerHTML=resultEvidenceHtml(CFG)+h;return;
  }
  const c=CFG,air=(c.layers.air_mm!=null)?c.layers.air_mm:200;
  const d=c.dielectric_fluid||{},w=c.water||{},v=c.vapour||{},dl=fluidRef('lower',c),ul=fluidRef('upper',c),pc=c.phase_change||{},rn=c.run||{};
@@ -7556,7 +7576,7 @@ async function showCfg(){
    h+='<div class="cr"><span>'+label+'</span><em>'+shown+'</em><small>'+unit+'</small></div>';
   }
   h+='</div>';}
- body.innerHTML=h;
+ body.innerHTML=resultEvidenceHtml(CFG)+h;
 }
 
 // 키보드: Space 재생/정지 · ←→ 프레임 이동

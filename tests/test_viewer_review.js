@@ -314,6 +314,59 @@ test('result settings show target, model, units, and validation separately', () 
   assert.ok(html.includes('검증 기록 없음'));
 });
 
+test('immersion and silo settings distinguish model, field units and missing validation', () => {
+  const ctx = {isSiloConfig: c => c?._해석유형 === 'grain_silo', esc: value => String(value)};
+  vm.createContext(ctx);
+  vm.runInContext(declaration(app, 'function resultEvidenceHtml('), ctx);
+  const immersion = ctx.resultEvidenceHtml({_해석유형: 'immersion'});
+  const silo = ctx.resultEvidenceHtml({_해석유형: 'grain_silo', openfoam_mapping: {solver: 'simpleFoam'}});
+  for (const html of [immersion, silo]) {
+    for (const label of ['연구 대상', '계산 모델', '결과 필드 단위', '수치 검사', '실험 비교'])
+      assert.ok(html.includes(label), label);
+    assert.ok(html.includes('독립 실측 비교 기록 없음'));
+    assert.ok(html.includes('이 설정에 별도 기록 없음'));
+  }
+  assert.ok(immersion.includes('온도 °C'));
+  assert.ok(silo.includes('simpleFoam'));
+  assert.ok(silo.includes('압력 Pa'));
+});
+
+test('all packed Viewer field types reject truncated and nonfinite results', () => {
+  const ctx = {chkGrid() {}, PHASESEQ: 0};
+  vm.createContext(ctx);
+  const names = ['packedGridHeader', 'finitePacked', 'compactSparsePlanes', 'parseFlow',
+    'parsePhase', 'parseTherm', 'parseScalarField', 'parseBub'];
+  vm.runInContext(names.map(name => declaration(app, `function ${name}(`)).join('\n'), ctx);
+  const packed = (magic, channels, bytes = 4) => {
+    const buffer = new ArrayBuffer(40 + 8 * channels * bytes), view = new DataView(buffer);
+    for (let i = 0; i < 4; i++) view.setUint8(i, magic.charCodeAt(i));
+    for (let i = 0; i < 3; i++) {
+      view.setUint32(4 + 4*i, 2, true);
+      view.setFloat32(28 + 4*i, 1, true);
+    }
+    if (bytes === 4) for (let i = 0; i < 8*channels; i++) view.setFloat32(40 + 4*i, 1, true);
+    return buffer;
+  };
+  assert.equal(ctx.parseFlow(packed('FLW1', 3)).u.length, 24);
+  assert.equal(ctx.parseTherm(packed('THM1', 1)).v.length, 8);
+  assert.equal(ctx.parseScalarField(packed('PRS1', 1), 'PRS1', 1).v.length, 8);
+  assert.equal(ctx.parseScalarField(packed('TRB1', 2), 'TRB1', 2).epsilon.length, 8);
+  assert.equal(ctx.parsePhase(packed('PHS1', 2, 1)).w.length, 8);
+  assert.throws(() => ctx.parseFlow(packed('FLW1', 3).slice(0, -4)), /길이/);
+  const badTherm = packed('THM1', 1);
+  new DataView(badTherm).setFloat32(40, NaN, true);
+  assert.throws(() => ctx.parseTherm(badTherm), /필드값/);
+  const badPressure = packed('PRS1', 1);
+  new DataView(badPressure).setFloat32(16, Infinity, true);
+  assert.throws(() => ctx.parseScalarField(badPressure, 'PRS1', 1), /공간 범위/);
+  assert.throws(() => ctx.parsePhase(packed('PHS1', 2, 1).slice(0, -1)), /길이/);
+  const bub = new ArrayBuffer(20), view = new DataView(bub);
+  view.setUint32(0, 0x42554231, false);view.setUint32(4, 1, true);view.setUint32(8, 2, true);
+  view.setFloat32(16, 0.5, true);
+  assert.equal(ctx.parseBub(bub).al[0], 0.5);
+  assert.throws(() => ctx.parseBub(bub.slice(0, -1)), /길이/);
+});
+
 test('failed initial result read does not report a loaded timeline', async () => {
   const {ctx, messages} = viewer(); ctx.MODE = 'viz';
   ctx.fetchVizBuffer = async () => new ArrayBuffer(4);

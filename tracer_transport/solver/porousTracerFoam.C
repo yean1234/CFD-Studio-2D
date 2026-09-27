@@ -19,6 +19,12 @@ int main(int argc, char *argv[])
     // 공급원이 없던 기존 검증 케이스를 수정하지 않고 재사용할 수 있게 한다.
     volScalarField sourceRate(IOobject("sourceRate", "0", mesh, IOobject::READ_IF_PRESENT, IOobject::NO_WRITE), mesh,
         dimensionedScalar("zero", dimless/dimTime, 0));
+    // Both sinks are bulk gas removal rates. For physical cases C is kg/m3;
+    // the legacy dimensionless tracer cases retain their original units.
+    volScalarField decayRate(IOobject("decayRate", "0", mesh, IOobject::READ_IF_PRESENT, IOobject::NO_WRITE), mesh,
+        dimensionedScalar("zero", dimless/dimTime, 0));
+    volScalarField exchangeRate(IOobject("exchangeRate", "0", mesh, IOobject::READ_IF_PRESENT, IOobject::NO_WRITE), mesh,
+        dimensionedScalar("zero", dimless/dimTime, 0));
     IOdictionary controls(IOobject("transportControl", "constant", mesh, IOobject::READ_IF_PRESENT, IOobject::NO_WRITE));
     const scalar sourceEnd = controls.lookupOrDefault<scalar>("sourceEnd", 0);
     const bool steadyEnabled = controls.lookupOrDefault<bool>("steadyEnabled", false);
@@ -27,7 +33,7 @@ int main(int argc, char *argv[])
     const scalar holdTime = controls.lookupOrDefault<scalar>("holdTime", 1);
     const scalar minimumTime = controls.lookupOrDefault<scalar>("minimumTime", 1);
     const scalar supplyPerSecond = fvc::domainIntegrate(sourceRate).value();
-    scalar supplied = 0, qualified = 0;
+    scalar supplied = 0, removedReaction = 0, removedExchange = 0, qualified = 0;
     bool steadyReached = false;
     const auto wallStart = std::chrono::steady_clock::now();
     // U는 공극 속도가 아닌 겉보기 속도이다. phi에 공극률을 중복 곱하지 않는다.
@@ -51,15 +57,20 @@ int main(int argc, char *argv[])
         volScalarField previousQ("previousQ", Q);
         volScalarField denominator("denominator", scalar(1) + runTime.deltaT()*kDes);
         fvScalarMatrix equation(fvm::ddt(eps,C) + fvm::div(phi,C) - fvm::laplacian(Kf,C)
-            + fvm::Sp(kAds/denominator,C) == (kDes/denominator)*previousQ + (activeDt/dt)*sourceRate);
+            + fvm::Sp(kAds/denominator + eps*(decayRate + exchangeRate),C)
+            == (kDes/denominator)*previousQ + (activeDt/dt)*sourceRate);
         equation.solve();
         Q=(previousQ + runTime.deltaT()*kAds*C)/denominator;
+        removedReaction += dt*fvc::domainIntegrate(eps*decayRate*C).value();
+        removedExchange += dt*fvc::domainIntegrate(eps*exchangeRate*C).value();
         const scalar gasMass = fvc::domainIntegrate(eps*C).value();
         const scalar sorbedMass = fvc::domainIntegrate(Q).value();
         const scalar mass = gasMass+sorbedMass;
         Info<< "MASS " << runTime.value() << " " << gasMass << " " << gMin(C) << " " << gMax(C) << endl;
         Info<< "SORBED " << runTime.value() << " " << sorbedMass << " " << gMin(Q) << " " << gMax(Q) << endl;
-        const scalar budgetError = mag(mass-initial-supplied)/max(mag(initial)+supplied, scalar(1e-15));
+        Info<< "REMOVED " << runTime.value() << " " << removedReaction << " " << removedExchange << endl;
+        const scalar budgetError = mag(mass+removedReaction+removedExchange-initial-supplied)
+            /max(mag(initial)+supplied, scalar(1e-15));
         if (gMin(C) < -1e-10 || gMin(Q) < -1e-10 || budgetError > 1e-7)
         {
             FatalErrorInFunction << "Positivity or source-adjusted mass balance failed" << exit(FatalError);
