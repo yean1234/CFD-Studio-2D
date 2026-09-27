@@ -11,6 +11,47 @@ const app = fs.readFileSync(path.join(root, 'cfd_studio/app.py'), 'utf8');
 const tracer = fs.readFileSync(path.join(root, 'cfd_studio/tracer_viewer.js'), 'utf8');
 const warehouse = fs.readFileSync(path.join(root, 'cfd_studio/warehouse_workspace.html'), 'utf8');
 
+// 실제 프로젝트 없이 새 설정창의 저장·초안 상태만 검증한다.
+function configEditor() {
+  const {document, get} = dom(), messages = [], submitted = [];
+  let form = [];
+  const query = document.querySelectorAll;
+  document.querySelectorAll = selector => {
+    if (selector === '#cbForm input, #cbForm select') return form;
+    if (selector === '#cbBg input, #cbBg select, #cbBg button') return [...form, get('cbName'), get('cbSave'), get('cbType')];
+    return query(selector);
+  };
+  const silo = JSON.parse(fs.readFileSync(path.join(root, 'cfd_studio/configs/grain_silo.json'), 'utf8'));
+  const ctx = {document, console, CFG: silo, IMMERSIONCFG: null, SILOINFO: {config: silo},
+    PROJ: '', CURC: '', NEWMODE: true, CFGREF: 'cfg:grain_silo', LASTPROJS: [],
+    SAVEDCFG: [], SAVEDCFGTYPES: {},
+    isSiloConfig: c => c?._해석유형 === 'grain_silo',
+    runBusyNow: () => false, toast: text => messages.push(text),
+    updateImmersionTimeStepFields() {}, updateSiloRunFields() {},
+    renderSettings() {}, fillRunInputs() {}, fillConds() {}, setConfig: c => { ctx.applied = c; },
+    fetch: async (url, options) => {
+      submitted.push(JSON.parse(options.body));
+      return {json: async () => ({ok: false, msg: 'fixture'})};
+    },
+  };
+  vm.createContext(ctx);
+  const names = ['cbBase', 'cbFieldKey', 'captureCBDraft', 'restoreCBDraft', 'cbNumber',
+    'closeCB', 'preserveSelectedProjectConfig', 'finishConfigSave', 'saveCB', 'saveCBInput'];
+  vm.runInContext(declaration(app, 'let CBSAVING=') + '\n' + names.map(name =>
+    declaration(app, `${name.startsWith('saveCB') ? 'async ' : ''}function ${name}(`)).join('\n'), ctx);
+  get('cbName').value = 'new'; get('cbType').value = 'grain_silo'; get('cbBg').style.display = 'flex';
+  const values = {cbSiloA: 20, cbSiloB: 12, cbSiloC: 5, cbSiloD: 6, cbSiloSolver: 'simpleFoam',
+    cbSiloTurbulence: 'kEpsilon', cbSiloOuterD: 1, cbSiloTotalH: 1.4, cbSiloStorageD: .8,
+    cbSiloStorageH: 1.2, cbSiloGrainH: 1, cbSiloDuctD: .3, cbSiloInlet: 3,
+    cbSiloRho: 1.177, cbSiloMu: .0000185, cbSiloParticle: .00782, cbSiloPorosity: .411,
+    cbSiloDarcy: 0, cbSiloForch: 0, cbSiloIntensity: .05, cbSiloLength: .05,
+    cbSiloTolerance: .0001, cbSiloCells: 1000, cbSiloEnd: 10, cbSiloWrite: 1,
+    cbSiloDt: .01, cbSiloPlayback: 60, cbSiloStop: 'fixed'};
+  for (const [id, value] of Object.entries(values)) get(id).value = String(value);
+  form = Object.keys(values).map(get);
+  return {ctx, get, messages, submitted, form, run: code => vm.runInContext(code, ctx)};
+}
+
 function declaration(source, prefix) {
   const lines = source.split('\n');
   const start = lines.findIndex(line => line.startsWith(prefix));
@@ -323,4 +364,76 @@ test('warehouse failed save retains editable unsaved input and cannot check an o
   waiting[0].resolve({ok: false, json: async () => ({ok: false, msg: 'Save failed'})}); await save;
   assert.equal(get('save').disabled, false); assert.equal(get('check').disabled, true);
   assert.equal(inputs()[0].value, '85'); assert.equal(get('message').textContent, 'Save failed');
+});
+
+test('preset numeric inputs distinguish zero from missing and reject fractional cell counts', async () => {
+  const {ctx, get, messages, submitted} = configEditor();
+  get('cbSiloDarcy').value = '';
+  await ctx.saveCB(); assert.equal(submitted.length, 0); assert.match(messages.at(-1), /Darcy/);
+  get('cbSiloDarcy').value = '0'; get('cbSiloCells').value = '1000.5';
+  await ctx.saveCB(); assert.equal(submitted.length, 0); assert.match(messages.at(-1), /정수/);
+  get('cbSiloCells').value = '1000';
+  await ctx.saveCB(); assert.equal(submitted.length, 1);
+  assert.equal(submitted[0].config.published.darcy_d_1_m2, 0);
+});
+
+test('preset save locks its input, suppresses duplicate clicks, and unlocks after connection failure', async () => {
+  const {ctx, get, submitted, messages} = configEditor(), response = deferred();
+  ctx.fetch = (url, options) => { submitted.push(JSON.parse(options.body)); return response.promise; };
+  const saving = ctx.saveCB();
+  assert.equal(get('cbSiloEnd').disabled, true); assert.equal(get('cbSave').disabled, true);
+  ctx.closeCB(); assert.equal(get('cbBg').style.display, 'flex');
+  await ctx.saveCB(); assert.equal(submitted.length, 1);
+  response.reject(Error('offline')); await saving;
+  assert.equal(get('cbSiloEnd').disabled, false); assert.equal(get('cbSave').disabled, false);
+  assert.equal(get('cbSiloEnd').value, '10'); assert.equal(get('cbName').value, 'new');
+  assert.match(messages.at(-1), /offline/); assert.equal(get('cbBg').style.display, 'flex');
+});
+
+test('preset save rejects a running simulation without sending a request', async () => {
+  const {ctx, messages, submitted} = configEditor(); ctx.runBusyNow = () => true;
+  await ctx.saveCB(); assert.equal(submitted.length, 0); assert.match(messages.at(-1), /실행 중/);
+});
+
+test('preset save validates active solver fields only and preserves their time basis', async () => {
+  const {ctx, get, submitted} = configEditor();
+  get('cbSiloDt').value = '';
+  await ctx.saveCB(); assert.equal(submitted[0].config.run.time_basis, 'iterations');
+  assert.equal(submitted[0].config.run.max_dt_s, undefined);
+  get('cbSiloSolver').value = 'pimpleFoam'; get('cbSiloEnd').value = '1.5';
+  get('cbSiloWrite').value = '.1'; get('cbSiloDt').value = '.01'; get('cbSiloPlayback').value = '';
+  await ctx.saveCB(); assert.equal(submitted[1].config.run.time_basis, 'physical_time');
+  assert.equal(submitted[1].config.run.end_time_s, 1.5);
+  assert.equal(submitted[1].config.run.time_step_s, .01);
+});
+
+test('preset drafts restore exact values and solver-switch buffers', () => {
+  const {ctx, get, run} = configEditor();
+  get('cbSiloCells').value = ''; get('cbSiloEnd').value = '2.75';
+  get('cbForm').dataset.transientDt = '0.007';
+  const draft = ctx.captureCBDraft();
+  get('cbSiloCells').value = '999'; get('cbSiloEnd').value = '999';
+  get('cbForm').dataset.transientDt = '999';
+  run('CBFORMTYPE="grain_silo"'); ctx.restoreCBDraft(draft);
+  assert.equal(get('cbSiloCells').value, ''); assert.equal(get('cbSiloEnd').value, '2.75');
+  assert.equal(get('cbForm').dataset.transientDt, '0.007');
+});
+
+test('preset source snapshot survives a later background configuration change', async () => {
+  const {ctx, run, submitted} = configEditor();
+  run('CBBASES={grain_silo:JSON.parse(JSON.stringify(CFG))};');
+  ctx.CFG = {_해석유형: 'grain_silo', marker: 'other project'};
+  await ctx.saveCB();
+  assert.equal(submitted[0].config.marker, undefined);
+  assert.equal(submitted[0].config.schema_version, 3);
+});
+
+test('late preset-save response never selects a different active project', async () => {
+  const {ctx, get, run} = configEditor(), response = deferred();
+  ctx.fetch = () => response.promise;
+  const saving = ctx.saveCB(); ctx.CFGREF = 'cfg:different-selection';
+  response.resolve({json: async () => ({ok: true, saved: 'new', list: ['new']})});
+  await saving;
+  assert.equal(ctx.applied, undefined); assert.equal(ctx.CFGREF, 'cfg:different-selection');
+  assert.equal(get('cbBg').style.display, 'none'); assert.equal(run('CBSAVING'), false);
 });

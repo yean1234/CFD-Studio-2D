@@ -73,6 +73,7 @@ v174 기반 코드를 보존하고 연구 작업 경로를 v177에 추가했습�
 - [개발 규칙](docs/code-conventions.md)
 - [2026-09-26 구현·검증 범위](docs/research-status-20260926.md)
 - [2026-09-26 기능·UX 검토 및 수정](docs/ux-review-20260926.md)
+- [2026-09-27 공통 설정 보완](docs/configuration-update-20260927.md)
 - [ClO2 문헌·적용 범위 검토 및 참고문헌](docs/clo2-literature-review-20260927.md)
 
 저작권자의 별도 명시가 없는 자체 코드에 신규 오픈소스 라이선스를 임의 부여하지 않았습니다. 외부 구성요소는 각 라이선스를 따릅니다.

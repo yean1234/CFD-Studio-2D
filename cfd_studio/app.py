@@ -60,6 +60,7 @@ SILO_CONFIG = os.path.join(SILO_ROOT, "config.json")
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 from warehouse_workspace import Workspace, get_route as warehouse_get, post_route as warehouse_post
+from config_presets import finite_number, validate_numerics, save_new_preset
 WAREHOUSE_WORKSPACE = Workspace(os.path.join(HERE, "_runtime", "warehouse"), SCFG)
 from study_platform import http as study_http
 UISTF = os.path.join(RUNTIME_DIR, "uistate.json")          # 마지막 화면 상태 (재실행 시 복원)
@@ -356,6 +357,9 @@ def _normalize_silo_config(value):
         return False, None, "식량 저장고 설정 형식을 확인해 주세요"
     if not base:
         return False, None, "식량 저장고 기본 설정을 불러오지 못했습니다"
+    for section in ("published", "openfoam_mapping", "solver_controls", "mesh", "run", "silo"):
+        if section in value and not isinstance(value[section], dict):
+            return False, None, "저장고 설정 객체를 확인해 주세요: " + section
     out = json.loads(json.dumps(base))
     incoming_pub = value.get("published") or {}
     pub = out.setdefault("published", {})
@@ -370,7 +374,7 @@ def _normalize_silo_config(value):
     }
     try:
         for key, (lo, hi) in limits.items():
-            number = float(incoming_pub.get(key, pub.get(key)))
+            number = finite_number(incoming_pub.get(key, pub.get(key)), key)
             if not math.isfinite(number) or not lo <= number <= hi:
                 raise ValueError(key)
             pub[key] = number
@@ -404,9 +408,9 @@ def _normalize_silo_config(value):
     controls_in = value.get("solver_controls") or {}
     controls = out.setdefault("solver_controls", {})
     try:
-        intensity = float(controls_in.get("turbulence_intensity", controls.get("turbulence_intensity", 0.05)))
-        length = float(controls_in.get("turbulence_length_scale_m", controls.get("turbulence_length_scale_m", 0.05)))
-        tolerance = float(controls_in.get("convergence_tolerance", controls.get("convergence_tolerance", 1e-6)))
+        intensity = finite_number(controls_in.get("turbulence_intensity", controls.get("turbulence_intensity", 0.05)), "난류 강도")
+        length = finite_number(controls_in.get("turbulence_length_scale_m", controls.get("turbulence_length_scale_m", 0.05)), "난류 길이")
+        tolerance = finite_number(controls_in.get("convergence_tolerance", controls.get("convergence_tolerance", 1e-6)), "수렴 기준")
     except (TypeError, ValueError):
         return False, None, "난류·수렴 설정을 숫자로 입력해 주세요"
     if not (0 < intensity <= 1 and 1e-5 <= length <= pub["total_height_m"] and 1e-12 <= tolerance <= 0.1):
@@ -415,7 +419,7 @@ def _normalize_silo_config(value):
                     convergence_tolerance=tolerance)
 
     mesh_in = value.get("mesh") or {}
-    try: target_cells = int(mesh_in.get("target_cells", (out.get("mesh") or {}).get("target_cells", 1056000)))
+    try: target_cells = finite_number(mesh_in.get("target_cells", (out.get("mesh") or {}).get("target_cells", 1056000)), "목표 격자 수", integer=True)
     except (TypeError, ValueError): return False, None, "목표 격자 수는 정수로 입력해 주세요"
     if not 1000 <= target_cells <= 100000000:
         return False, None, "목표 격자 수는 1,000~100,000,000 범위여야 합니다"
@@ -429,20 +433,20 @@ def _normalize_silo_config(value):
         stop_mode = "fixed"
     try:
         if solver == "simpleFoam":
-            end = float(run_in.get("max_iterations", run_in.get("end_time_s", 1000)))
-            write = float(run_in.get("write_interval_iterations", run_in.get("write_interval_s", 100)))
-            playback_duration = float(run_in.get("playback_duration_s", 60))
+            end = finite_number(run_in.get("max_iterations", run_in.get("end_time_s", 1000)), "목표 반복 횟수")
+            write = finite_number(run_in.get("write_interval_iterations", run_in.get("write_interval_s", 100)), "저장 반복 간격")
+            playback_duration = finite_number(run_in.get("playback_duration_s", 60), "총 재생 시간")
         else:
-            end = float(run_in.get("end_time_s", 10))
-            write = float(run_in.get("write_interval_s", 0.1))
+            end = finite_number(run_in.get("end_time_s", 10), "목표 해석 시간")
+            write = finite_number(run_in.get("write_interval_s", 0.1), "저장 시간 간격")
             playback_duration = end
-        time_step = float(run_in.get("time_step_s", run_in.get("max_dt_s", 0.01)))
+        time_step = finite_number(run_in.get("time_step_s", run_in.get("max_dt_s", 0.01)), "계산 시간간격")
     except (TypeError, ValueError): return False, None, "계산 목표·계산 단위·저장 간격을 확인해 주세요"
     if not (end > 0 and 0 < write <= end and time_step > 0):
         return False, None, "계산 종료값보다 저장 간격이 크지 않아야 합니다"
     if solver == "simpleFoam" and not (end.is_integer() and write.is_integer()):
         return False, None, "simpleFoam의 목표·저장 간격은 정수 반복 횟수로 입력해 주세요"
-    if not 0.1 <= playback_duration <= 86400:
+    if solver == "simpleFoam" and not 0.1 <= playback_duration <= 86400:
         return False, None, "총 재생 시간은 0.1~86,400초 범위로 입력해 주세요"
     outputs = [x for x in (run_in.get("output_fields") or []) if x in ("flow", "pressure", "turbulence")]
     if not outputs: outputs = ["flow"]
@@ -465,12 +469,14 @@ def _normalize_silo_config(value):
                       "output_fields": outputs}
 
     silo = value.get("silo") or {}
-    design = silo.get("design") or {}
+    design = silo.get("design", {})
+    if not isinstance(design, dict):
+        return False, None, "덕트 설계 설정을 확인해 주세요"
     domains = out.get("design_domains") or {}
     values = {}
     for short, key, default in (("A", "A_mm", 20), ("B", "B_layers", 12),
                                 ("C", "C_mm", 5), ("D", "D_count", 6)):
-        try: number = int(design.get(short, default))
+        try: number = finite_number(design.get(short, default), short, integer=True)
         except (TypeError, ValueError): return False, None, "A/B/C/D 설정을 확인해 주세요"
         if number not in set(domains.get(key) or []):
             return False, None, f"{short} 설정이 허용 범위에 없습니다"
@@ -483,12 +489,14 @@ def _normalize_silo_config(value):
     if geometry_model:
         if geometry_model != "equivalent_boundary_ports_v1":
             return False, None, "선택할 수 없는 저장고 형상 모델입니다"
-        assumptions_in = silo.get("geometry_assumptions") or {}
+        assumptions_in = silo.get("geometry_assumptions", {})
+        if not isinstance(assumptions_in, dict):
+            return False, None, "저장고 등가 형상 설정을 확인해 주세요"
         try:
-            ports_per_layer = int(assumptions_in.get("ports_per_layer", 4))
-            z_min = float(assumptions_in.get("layer_z_min_m", 0.25 if kind == "original" else 0.05))
-            z_max = float(assumptions_in.get("layer_z_max_m", 0.75 if kind == "original" else 0.95))
-            ring_radius = float(assumptions_in.get("bottom_ring_radius_m", 0.34))
+            ports_per_layer = finite_number(assumptions_in.get("ports_per_layer", 4), "층별 개수", integer=True)
+            z_min = finite_number(assumptions_in.get("layer_z_min_m", 0.25 if kind == "original" else 0.05), "최소 높이")
+            z_max = finite_number(assumptions_in.get("layer_z_max_m", 0.75 if kind == "original" else 0.95), "최대 높이")
+            ring_radius = finite_number(assumptions_in.get("bottom_ring_radius_m", 0.34), "하부 반경")
         except (TypeError, ValueError):
             return False, None, "저장고 등가 형상 값을 확인해 주세요"
         if not (1 <= ports_per_layer <= 64 and 0 < z_min <= z_max < pub["grain_height_m"]
@@ -4248,7 +4256,7 @@ class H(BaseHTTPRequestHandler):
                 valid_immersion = isinstance(cfg, dict) and "tank" in cfg and "run" in cfg and cfg_type == "immersion"
                 valid_silo = isinstance(cfg, dict) and cfg_type == "grain_silo" and isinstance(cfg.get("silo"), dict)
                 if not (valid_immersion or valid_silo):
-                    self._json({"ok": False, "msg": "설정 형식이 올바르지 않습니다"}); return
+                    self._json({"ok": False, "msg": "설정 형식이 올바르지 않습니다"}, 400); return
                 if valid_silo:
                     ok_silo, normalized, msg_silo = _normalize_silo_config(cfg)
                     if not ok_silo:
@@ -4258,18 +4266,19 @@ class H(BaseHTTPRequestHandler):
                 else:
                     cfg["_해석유형"] = "immersion"
                     cfg, geometry_revised = _apply_board_floor_revision(cfg)
-                os.makedirs(CFGDIR, exist_ok=True)
+                validate_numerics(cfg)
                 cfg["_생성"] = f"CFD Studio [config.json 생성] {time.strftime('%Y-%m-%d %H:%M')} · 이름 {name}"
                 cfg["_설정이름"] = name
-                saved_path = os.path.join(CFGDIR, name + ".json")
-                meta_write(saved_path, cfg)
+                save_new_preset(CFGDIR, name, cfg)
                 # 저장 즉시 현재 WSL config에 쓰면 중단된 기존 프로젝트의
                 # 재개 설정이 바뀌다. 프리셋은 저장만 하고 실행 전환은 /api/run에서만 한다.
                 self._json({"ok": True, "saved": name, "applied": False,
                             "geometry_revised": geometry_revised,
                             "config": cfg, "list": saved_configs(), "types": saved_config_types()})
+            except FileExistsError as e:
+                self._json({"ok": False, "msg": str(e)[:120]}, 409)
             except Exception as e:
-                self._json({"ok": False, "msg": str(e)[:120]})
+                self._json({"ok": False, "msg": str(e)[:120]}, 400)
         elif u.path == "/api/config-del":
             try:
                 if get_status().get("running"):
@@ -5218,7 +5227,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
   <p class="mhint" id="cbHint">해석 유형과 조건을 선택해 독립 config.json으로 저장합니다.</p>
   <div class="cbr" style="padding:0 0 8px">
    <label style="flex:none;width:120px">해석 유형</label>
-   <select id="cbType" onchange="if(this.value==='warehouse'){location.href='/warehouse';}else{renderCBForm();}" style="flex:1;width:auto;margin:0">
+   <select id="cbType" onchange="renderCBForm()" style="flex:1;width:auto;margin:0">
     <option value="warehouse">포대식 저장고 · 형상 사전 검사</option>
     <option value="immersion">액침냉각용</option>
     <option value="grain_silo">식량 저장고용</option>
@@ -5231,7 +5240,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
   </div>
   <div id="cbForm"></div>
   <div class="btnrow" style="margin-top:14px">
-   <button class="btn pri" onclick="saveCB()">설정 저장</button>
+   <button class="btn pri" id="cbSave" onclick="saveCB()">설정 저장</button>
    <button class="btn sm" onclick="closeCB()">취소</button>
   </div>
 </div></div>
@@ -7891,6 +7900,49 @@ async function saveSettings(){
 // ══════════════ config.json 생성 창 ══════════════
 // config.json 을 손으로 편집하지 않고 값만 채워 새 설정을 만든다.
 // 유체 대표 물성을 바꾸면 build_case.py가 OpenFOAM icoTabulated 표로 직접 생성한다.
+let CBSAVING=false,CBFORMTYPE='',CBDRAFTS={},CBBASES=null,CBSAVECONTEXT=null;
+function cbBase(type){
+ if(CBBASES)return CBBASES[type];
+ return type==='grain_silo'?(isSiloConfig(CFG)?CFG:(SILOINFO||{}).config):(isSiloConfig(CFG)?IMMERSIONCFG:CFG);
+}
+function cbFieldKey(el){
+ if(el.id)return 'id:'+el.id;
+ const d=el.dataset;
+ if(d.g)return 'field:'+d.g+'.'+d.k;
+ if(d.fp)return 'fluid:'+d.fp+'.'+d.p;
+ if(d.fname)return 'name:'+d.fname;
+ return 'weight:'+d.fmw;
+}
+function captureCBDraft(){
+ return {values:Object.fromEntries([...document.querySelectorAll('#cbForm input, #cbForm select')].map(el=>[cbFieldKey(el),el.value])),dataset:{...document.getElementById('cbForm').dataset}};
+}
+function restoreCBDraft(draft){
+ if(!draft)return;
+ for(const el of document.querySelectorAll('#cbForm input, #cbForm select')){
+  const key=cbFieldKey(el);if(Object.hasOwn(draft.values,key))el.value=draft.values[key];
+ }
+ Object.assign(document.getElementById('cbForm').dataset,draft.dataset);
+ if(CBFORMTYPE==='grain_silo')updateSiloRunFields();else updateImmersionTimeStepFields();
+}
+function renderCBForm(){
+ if(CBSAVING)return;
+ if(CBFORMTYPE)CBDRAFTS[CBFORMTYPE]=captureCBDraft();
+ const selected=document.getElementById('cbType'),type=selected.value;
+ if(type==='warehouse'){
+  selected.value=CBFORMTYPE||'immersion';
+  if(confirm('저장고 형상 화면으로 이동할까요? 저장하지 않은 설정은 보관되지 않습니다.'))location.href='/warehouse';
+  return;
+ }
+ CBFORMTYPE=type;
+ const host=document.getElementById('cbForm');for(const key of Object.keys(host.dataset))delete host.dataset[key];
+ buildCBForm();restoreCBDraft(CBDRAFTS[type]);
+}
+function cbNumber(id,label,{integer=false}={}){
+ const text=document.getElementById(id).value.trim(),v=Number(text);
+ if(!text||!Number.isFinite(v))throw Error(label+' 값을 입력해 주세요');
+ if(integer&&!Number.isInteger(v))throw Error(label+'은 정수로 입력해 주세요');
+ return v;
+}
 const CBDEF=[
  ['tank','수조 (액체 영역)','실물 내부 치수 중 액체가 차는 부분만 격자화합니다',
   [['width_mm','폭','mm',456],['depth_mm','깊이','mm',70],['liquid_height_mm','액체 높이','mm',800]]],
@@ -7911,8 +7963,9 @@ const CBDEF=[
   [['evap_C','증발 C','1/s',50],['cond_C','응축 C','1/s',-50]]],
  ['mesh','격자','작을수록 정확하지만 셀 수는 세제곱으로 늘어납니다',
   [['dx_mm','목표 셀 크기','mm',3.0]]],
- ['run','계산 시간·데이터 추출','총 계산 시간 중 몇 초 간격으로 선택한 데이터를 남길지 정합니다. 재시작용 복구 저장은 프로그램이 자동 관리합니다',
+ ['run','계산 시간·데이터 추출','',
   [['end_time_s','총 계산 시간','s',60],
+   ['write_interval_s','전체 상태 저장 간격','s',null],
    ['viz_interval_s','데이터 추출 간격','s',0.1],['max_dt_s','최대 시간간격','s',0.002],
    ['maxCo','최대 Courant','',0.5],['maxAlphaCo','최대 계면 Courant','',0.5]]],
 ];
@@ -7961,11 +8014,11 @@ function updateSiloRunFields(){
  document.getElementById('cbSiloPlaybackRow').style.display=steady?'flex':'none';
  host.dataset.runSolver=solver;
 }
-function renderCBForm(){
+function buildCBForm(){
  const type=document.getElementById('cbType').value,host=document.getElementById('cbForm');host.innerHTML='';
  if(type==='grain_silo'){
   document.getElementById('cbHint').textContent='식량 저장고 CFD 설정을 새 프리셋으로 저장합니다.';
-  const sc=((SILOINFO||{}).config||{}),base=isSiloConfig(CFG)?CFG:sc,p=base.published||sc.published||{},m=base.mesh||sc.mesh||{},om=base.openfoam_mapping||sc.openfoam_mapping||{},ctl=base.solver_controls||sc.solver_controls||{},run=base.run||sc.run||{},design=(base.silo||{}).design||{A:20,B:12,C:5,D:6};
+  const sc=((SILOINFO||{}).config||{}),base=cbBase('grain_silo')||{},p=base.published||sc.published||{},m=base.mesh||sc.mesh||{},om=base.openfoam_mapping||sc.openfoam_mapping||{},ctl=base.solver_controls||sc.solver_controls||{},run=base.run||sc.run||{},design=(base.silo||{}).design||{A:20,B:12,C:5,D:6};
   const domain=sc.design_domains||base.design_domains||{},opts=(values,selected)=>(values||[]).map(v=>'<option value="'+v+'"'+(String(v)===String(selected)?' selected':'')+'>'+v+'</option>').join('');
   const solverOpts=Object.entries(sc.solver_options||base.solver_options||{}).map(([v,x])=>'<option value="'+v+'"'+(v===(om.solver||'simpleFoam')?' selected':'')+'>'+esc(x.label||v)+'</option>').join('');
   const turbulenceOpts=(sc.turbulence_options||base.turbulence_options||['kEpsilon']).map(v=>'<option value="'+v+'"'+(v===(om.turbulence||'kEpsilon')?' selected':'')+'>'+v+'</option>').join('');
@@ -7983,7 +8036,7 @@ function renderCBForm(){
   return;
  }
  document.getElementById('cbHint').textContent='현재 액침냉각 설정을 복제해 새 config.json으로 저장합니다.';
- const base=isSiloConfig(CFG)?IMMERSIONCFG:CFG;
+ const base=cbBase('immersion');
  if(!base){host.innerHTML='<div class="cbg"><div class="n">액침냉각 기본 설정을 불러오지 못했습니다.</div></div>';return;}
  for(const [grp,title,note,fields] of CBDEF){
   const src=base[grp]||{};let h='<div class="cbg"><div class="t">'+title+'</div>';
@@ -8000,6 +8053,7 @@ function renderCBForm(){
  }
 }
 async function openCB(){
+ if(CBSAVING)return;
  if(isTracerConfig(CFG)){toast('가스 수송 설정은 실행 JSON에서 변경해 주세요. 기존 결과의 설정은 유지됩니다.',true);return;}
  if(runBusyNow()){toast('실행 중에는 설정을 할 수 없습니다',true);return;}
  if(CFGLOAD){
@@ -8015,6 +8069,9 @@ async function openCB(){
  }
  if(!CFG){toast('설정이 아직 로딩되지 않았습니다 — 기본 설정을 먼저 확인하세요',true);return;}
  if(!SILOINFO){try{SILOINFO=await (await fetch('/api/silo/info')).json();}catch(_){}}
+ // 편집 중 뒤늦게 다른 설정 조회가 끝나도 복제 원본은 바꾸지 않는다.
+ CBBASES=JSON.parse(JSON.stringify({immersion:isSiloConfig(CFG)?IMMERSIONCFG:CFG,grain_silo:isSiloConfig(CFG)?CFG:((SILOINFO||{}).config||{})}));
+ CBDRAFTS={};CBFORMTYPE='';
  document.getElementById('cbType').value=isSiloConfig(CFG)?'grain_silo':'immersion';
  renderCBForm();
  const n=document.getElementById('cbName');
@@ -8022,7 +8079,7 @@ async function openCB(){
   n.value='설정 '+(d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
  document.getElementById('cbBg').style.display='flex';
 }
-function closeCB(){ document.getElementById('cbBg').style.display='none'; }
+function closeCB(force=false){ if(!CBSAVING||force)document.getElementById('cbBg').style.display='none'; }
 function preserveSelectedProjectConfig(){
  const rid=PROJ||CURC;
  return !NEWMODE&&!!rid&&LASTPROJS.some(p=>p.rid===rid&&!p.pending);
@@ -8030,38 +8087,60 @@ function preserveSelectedProjectConfig(){
 function finishConfigSave(r,out,conditionRows){
  SAVEDCFG=r.list||[];SAVEDCFGTYPES=r.types||SAVEDCFGTYPES;
  const saved=(r.config&&typeof r.config==='object')?r.config:out;
- const savedFile=r.saved+'.json',preserve=preserveSelectedProjectConfig();
+ const changedContext=CBSAVECONTEXT&&CBSAVECONTEXT!==JSON.stringify([PROJ,CURC,NEWMODE,CFGREF]);
+ const savedFile=r.saved+'.json',preserve=preserveSelectedProjectConfig()||changedContext;
  if(!preserve){
   CFGREF='cfg:'+r.saved;CFGFILE=savedFile;ACTIVE_CONFIG_FILE=null;CFGSRC='생성한 '+CFGFILE;
   setConfig(saved);fillRunInputs(saved,true);
   if(Array.isArray(conditionRows))fillConds(conditionRows,'');
  }
  renderSettings(CFGREF);
- document.getElementById('cbName').value='';closeCB();
+ document.getElementById('cbName').value='';closeCB(true);CBDRAFTS={};
  toast(savedFile+' 설정을 저장했습니다'+(preserve?' · 선택 프로젝트는 변경하지 않았습니다':' · 새 프로젝트에 적용했습니다')
   +(r.geometry_revised?' · 보드와 CPU를 바닥 기준으로 수정했습니다':''));
 }
 async function saveCB(){
+ if(CBSAVING)return;
+ if(runBusyNow()){toast('실행 중에는 설정을 할 수 없습니다',true);return;}
+ CBSAVING=true;CBSAVECONTEXT=JSON.stringify([PROJ,CURC,NEWMODE,CFGREF]);
+ const controls=[...document.querySelectorAll('#cbBg input, #cbBg select, #cbBg button')].map(el=>[el,el.disabled]);
+ for(const [el] of controls)el.disabled=true;
+ const button=document.getElementById('cbSave');button.textContent='저장 중';
+ try{await saveCBInput();}
+ catch(e){toast('저장 실패: '+(e.message||'연결 상태를 확인해 주세요'),true);}
+ finally{
+  CBSAVING=false;CBSAVECONTEXT=null;
+  for(const [el,disabled] of controls)el.disabled=disabled;
+  button.textContent='설정 저장';
+ }
+}
+async function saveCBInput(){
  const name=document.getElementById('cbName').value.trim();
  if(!name){toast('설정 이름을 입력하세요',true);return;}
  if(document.getElementById('cbType').value==='grain_silo'){
-  const src=((SILOINFO||{}).config||{}),base=isSiloConfig(CFG)?CFG:src,design={
+  const base=cbBase('grain_silo')||{},design={
    A:+document.getElementById('cbSiloA').value,B:+document.getElementById('cbSiloB').value,
    C:+document.getElementById('cbSiloC').value,D:+document.getElementById('cbSiloD').value};
-  const number=(id,label)=>{const v=Number(document.getElementById(id).value);if(!Number.isFinite(v))throw Error(label+' 값을 확인해 주세요');return v;};
+  const number=cbNumber;
   let out;
   try{
    out=JSON.parse(JSON.stringify(base));out._해석유형='grain_silo';out.schema_version=3;
    out.openfoam_mapping=out.openfoam_mapping||{};out.openfoam_mapping.solver=document.getElementById('cbSiloSolver').value;out.openfoam_mapping.turbulence=document.getElementById('cbSiloTurbulence').value;
    out.published=out.published||{};Object.assign(out.published,{outer_diameter_m:number('cbSiloOuterD','전체 외경'),total_height_m:number('cbSiloTotalH','전체 높이'),storage_diameter_m:number('cbSiloStorageD','저장부 직경'),storage_height_m:number('cbSiloStorageH','저장부 높이'),grain_height_m:number('cbSiloGrainH','곡물 높이'),bottom_central_duct_diameter_m:number('cbSiloDuctD','하부 유입구 직경'),inlet_speed_m_s:number('cbSiloInlet','입구 속도'),rho_kg_m3:number('cbSiloRho','공기 밀도'),mu_Pa_s:number('cbSiloMu','공기 점성계수'),grain_particle_diameter_m:number('cbSiloParticle','곡물 입경'),grain_porosity:number('cbSiloPorosity','곡물 공극률'),darcy_d_1_m2:number('cbSiloDarcy','Darcy d'),forchheimer_f_1_m:number('cbSiloForch','Forchheimer f')});
    out.solver_controls={turbulence_intensity:number('cbSiloIntensity','난류 강도'),turbulence_length_scale_m:number('cbSiloLength','난류 길이'),convergence_tolerance:number('cbSiloTolerance','수렴 기준')};
-   out.mesh=out.mesh||{};out.mesh.target_cells=Math.round(number('cbSiloCells','목표 격자 수'));
-   const end=number('cbSiloEnd',out.openfoam_mapping.solver==='simpleFoam'?'목표 반복 횟수':'목표 해석 시간'),write=number('cbSiloWrite',out.openfoam_mapping.solver==='simpleFoam'?'저장 반복 간격':'저장 시간 간격'),dt=number('cbSiloDt','계산 시간 간격'),playback=number('cbSiloPlayback','총 재생 시간');
-   if(out.openfoam_mapping.solver==='simpleFoam'){
+   out.mesh=out.mesh||{};out.mesh.target_cells=number('cbSiloCells','목표 격자 수',{integer:true});
+   const steady=out.openfoam_mapping.solver==='simpleFoam';
+   const end=number('cbSiloEnd',steady?'목표 반복 횟수':'목표 해석 시간'),write=number('cbSiloWrite',steady?'저장 반복 간격':'저장 시간 간격');
+   if(!(end>0&&write>0&&write<=end))throw Error('저장 간격은 0보다 크며 계산 종료값 이하여야 합니다');
+   if(steady){
+    const playback=number('cbSiloPlayback','총 재생 시간');
     if(!Number.isInteger(end)||!Number.isInteger(write))throw Error('목표 반복 횟수와 저장 반복 간격은 정수로 입력해 주세요');
     if(playback<.1||playback>86400)throw Error('총 재생 시간은 0.1~86,400초로 입력해 주세요');
-    out.run={time_basis:'iterations',stop_mode:document.getElementById('cbSiloStop').value,max_iterations:end,write_interval_iterations:write,end_time_s:end,write_interval_s:write,viz_interval_s:write,max_dt_s:dt,playback_duration_s:playback,output_fields:['flow','pressure','turbulence']};
-   }else out.run={time_basis:'physical_time',stop_mode:'fixed',end_time_s:end,time_step_s:dt,write_interval_s:write,viz_interval_s:write,max_dt_s:dt,output_fields:['flow','pressure','turbulence']};
+    out.run={time_basis:'iterations',stop_mode:document.getElementById('cbSiloStop').value,max_iterations:end,write_interval_iterations:write,end_time_s:end,write_interval_s:write,viz_interval_s:write,playback_duration_s:playback,output_fields:['flow','pressure','turbulence']};
+   }else{
+    const dt=number('cbSiloDt','계산 시간 간격');if(!(dt>0))throw Error('계산 시간간격은 0보다 커야 합니다');
+    out.run={time_basis:'physical_time',stop_mode:'fixed',end_time_s:end,time_step_s:dt,write_interval_s:write,viz_interval_s:write,max_dt_s:dt,output_fields:['flow','pressure','turbulence']};
+   }
    const priorSilo=(out.silo&&typeof out.silo==='object')?out.silo:{};
    out.silo={...priorSilo,kind:'custom',design};
   }catch(e){toast(e.message,true);return;}
@@ -8069,7 +8148,7 @@ async function saveCB(){
   if(!r.ok){toast('저장 실패: '+(r.msg||''),true);return;}
   finishConfigSave(r,out,null);return;
  }
- const base=isSiloConfig(CFG)?IMMERSIONCFG:CFG;
+ const base=cbBase('immersion');
  if(!base){toast('복제할 액침냉각 기본 설정을 찾을 수 없습니다',true);return;}
  const out=JSON.parse(JSON.stringify(base));      // 원본을 복제해 입력값만 덮어쓴다
  out._해석유형='immersion';
@@ -8087,9 +8166,9 @@ async function saveCB(){
  for(const role of ['lower','upper']){
   const base=role==='lower'?(out.dielectric_fluid||{}):(out.water||{}),nameEl=document.querySelector('[data-fname="'+role+'"]');
   base.name=(nameEl&&nameEl.value.trim())||(role==='lower'?'하단 비전도 액체':'상단 액체');
-  if(role==='upper'){const mw=Number(document.querySelector('[data-fmw="upper"]').value);if(!(mw>0)){toast('상단 액체 분자량은 0보다 커야 합니다',true);return;}base.molWeight=mw;}
+  if(role==='upper'){const mw=Number(document.querySelector('[data-fmw="upper"]').value);if(!(Number.isFinite(mw)&&mw>0)){toast('상단 액체 분자량은 0보다 커야 합니다',true);return;}base.molWeight=mw;}
   const vals={},els=[...document.querySelectorAll('[data-fp="'+role+'"]')];let changed=!!base.manual_properties;
-  for(const el of els){const v=Number(el.value),b=Number(el.dataset.base);if(!isFinite(v)){toast('「'+base.name+'」 물성값을 확인하세요',true);return;}vals[el.dataset.p]=v;if(Math.abs(v-b)>1e-10*Math.max(1,Math.abs(b)))changed=true;}
+  for(const el of els){const v=Number(el.value),b=Number(el.dataset.base);if(!el.value.trim()||!isFinite(v)){toast('「'+base.name+'」 물성값을 확인하세요',true);return;}vals[el.dataset.p]=v;if(Math.abs(v-b)>1e-10*Math.max(1,Math.abs(b)))changed=true;}
   if(!(vals.rho>0&&vals.cp>0&&vals.mu>0&&vals.k>0)){toast('밀도·비열·점성계수·열전도도는 0보다 커야 합니다',true);return;}
   if(!(vals.beta>=0&&vals.beta<=0.02)){toast('체적팽창계수는 0~0.02 1/K 범위여야 합니다',true);return;}
   if(!(vals.T>=-100&&vals.T<=500)){toast('물성 기준 온도는 -100~500 °C 범위여야 합니다',true);return;}
@@ -8110,6 +8189,7 @@ async function saveCB(){
  if(!(rr.viz_interval_s>0&&rr.end_time_s>0)){toast('총 계산 시간과 데이터 추출 간격은 0보다 커야 합니다',true);return;}
  if(!(rr.max_dt_s>0)){toast('시간 간격은 0보다 커야 합니다',true);return;}
  if(rr.viz_interval_s>rr.end_time_s){toast('데이터 추출 간격은 총 계산 시간보다 클 수 없습니다',true);return;}
+ if(!(rr.write_interval_s>0&&rr.write_interval_s<=rr.end_time_s)){toast('전체 상태 저장 간격은 0보다 크며 총 계산 시간 이하여야 합니다',true);return;}
  if(out.layers.init_T_dielectric_C>=out.dielectric_fluid.Tsat_C){
   toast('유전체 초기 온도가 기화점 이상입니다 — 시작과 동시에 전 영역이 비등합니다',true);return;}
  if(!(out.layers.dielectric_mm>0&&out.layers.dielectric_mm<out.tank.liquid_height_mm)){
