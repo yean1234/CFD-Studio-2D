@@ -72,7 +72,7 @@ function dom() {
     return {
       id, style: {}, dataset: {}, checked: false, disabled: false, value: '',
       textContent: '', innerHTML: '', children: [], listeners: {},
-      classList: {toggle() {}, remove() {}},
+      classList: {toggle() {}, remove() {}, contains() { return false; }},
       append(...children) { this.children.push(...children); },
       appendChild(child) { this.append(child); },
       add(child) { this.append(child); },

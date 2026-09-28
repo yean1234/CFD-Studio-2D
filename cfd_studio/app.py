@@ -63,6 +63,9 @@ from warehouse_workspace import Workspace, get_route as warehouse_get, post_rout
 from config_presets import finite_number, validate_numerics, save_new_preset
 WAREHOUSE_WORKSPACE = Workspace(os.path.join(HERE, "_runtime", "warehouse"), SCFG)
 from study_platform import http as study_http
+from execution_workspace import ExecutionWorkspace, get_route as execution_get, post_route as execution_post
+EXECUTION_WORKSPACE = ExecutionWorkspace(os.path.dirname(HERE), lambda: _project_search_roots(), settings=SCFG,
+    busy=lambda: bool(get_status().get("running")) or any(j.get("status") in ("queued", "running") for j in WAREHOUSE_WORKSPACE.jobs.values()))
 UISTF = os.path.join(RUNTIME_DIR, "uistate.json")          # 마지막 화면 상태 (재실행 시 복원)
 STUDIO_PIDF = os.path.join(RUNTIME_DIR, "studio.pid")      # 포트 없는 잔존 인스턴스까지 식별
 
@@ -3672,6 +3675,8 @@ class H(BaseHTTPRequestHandler):
 
     def _do_GET(self):
         u = urlparse(self.path)
+        if (u.path.startswith("/api/executions") or u.path == "/execution_workspace.js") and execution_get(self, EXECUTION_WORKSPACE):
+            return
         if u.path.startswith(('/studies', '/api/studies', '/api/attempts', '/api/study-packages', '/api/capabilities')):
             if study_http.get(self, study_http.service(HERE, SCFG, PROJECT_DIR)):
                 return
@@ -3800,7 +3805,7 @@ class H(BaseHTTPRequestHandler):
         if u.path.startswith('/api/stud') and (n <= 0 or n > (28*1024*1024 if u.path.endswith('/import') else 65536)):
             self._json({"ok": False, "msg": "실험 요청 크기를 확인해 주세요"}, 413)
             return
-        if u.path.startswith('/api/warehouse/') and (n <= 0 or n > 65536):
+        if (u.path.startswith('/api/warehouse/') or u.path.startswith('/api/executions')) and (n <= 0 or n > 65536):
             self._json({"ok": False, "msg": "설정 요청 크기를 확인해 주세요"}, 413)
             return
         if u.path == "/api/screenshot" and (n <= 0 or n > 32 * 1024 * 1024):
@@ -3808,6 +3813,8 @@ class H(BaseHTTPRequestHandler):
             return
         try: body = json.loads(self.rfile.read(n) or b"{}")
         except Exception: body = {}
+        if u.path.startswith("/api/executions") and execution_post(self, EXECUTION_WORKSPACE, body):
+            return
         if u.path.startswith('/api/stud') and study_http.post(self, study_http.service(HERE, SCFG, PROJECT_DIR), body):
             return
         if warehouse_post(self, u.path, body, WAREHOUSE_WORKSPACE):
@@ -5299,42 +5306,17 @@ INDEX_HTML = r'''<!DOCTYPE html>
    </div>
   </div>
   <div class="ibx" id="ifB1" style="display:none">
-   <h4 style="margin-top:0">결과 조회</h4>
-   <ol>
-    <li><a href="/warehouse/results"><b>저장고 수송 결과</b></a> 선택</li>
-    <li><b>완료된 결과</b>: <code>warehouse_transport_porous_r4_20260928_01</code> 선택</li>
-    <li><b>저장 프레임</b>: 시간 선택 · <b>표시할 물리량</b>: 농도·온도·유속 선택</li>
-    <li><b>위치·시간 조회</b>: 좌표·시간 입력 후 <b>조회</b> 선택</li>
-   </ol>
+   <h4 style="margin-top:0">CFD 실행</h4>
+   <ul>
+    <li>왼쪽 <b>식량창고</b> 프로젝트 선택</li>
+    <li><b>새 CFD 실행</b> 선택 후 실행 이름·계산 시간·격자·초기 온도 입력</li>
+    <li><b>계산 시작</b> 선택 후 실행 목록에서 진행 상태·솔버 로그 확인</li>
+    <li>완료된 실행 선택 → <b>결과 보기</b> → 시간·농도·온도·유속 조회</li>
+   </ul>
+   <h4>프로젝트와 실행</h4>
+   <ul><li>프로젝트: 실행 이력을 묶는 공간</li><li>설정: 새 CFD 실행 시 입력, 실행별 원본 보관</li><li>실행 목록: 선택한 실행의 설정·로그·결과 표시</li><li>기존 기록: 식량창고 프로젝트의 실행 이력으로 보존</li><li>동시 계산: 한 번에 한 실행, 완료 후 추가 실행</li></ul>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>사용법</b></a></p>
-   <ul class="mhint"><li>계산 범위: 300초, 누출 제외, 다공성 곡물</li><li>격자·시간간격 수렴: 기준 미달</li><li>새 CFD 실행: 명령줄 사용, Study 실행 버튼 미연결</li><li>모델·단위: <b>설명서</b> 탭 참고</li></ul>
-   <details><summary>기존 액침냉각·단상 저장고 사용법</summary>
-   <h4>액침냉각·단상 저장고 계산</h4>
-   <div class="kv"><table>
-    <tr><td>1. 설정</td><td>목록에서 기존 설정을 고릅니다. 상세값을 바꾸려면 카드 오른쪽 <b>＋</b>로 새 설정을 만듭니다.</td></tr>
-    <tr><td>2. 프로젝트</td><td><b>＋ 새 프로젝트</b>를 누릅니다. 설정을 바꾸려면 실행 전에 카드 오른쪽 <b>＋</b>를 사용합니다.</td></tr>
-    <tr><td>3. 출력</td><td>해석 유형에 맞는 데이터만 선택합니다. 액침냉각은 기포·상분율·유동·온도장, 단상 저장고는 유동·압력·난류 출력 등을 확인합니다.</td></tr>
-    <tr><td>4. 계산</td><td><b>실행</b>을 누릅니다. 검은 콘솔은 계산 로그이며, CFD Studio 창은 켜 둡니다.</td></tr>
-    <tr><td>5. 결과</td><td>위쪽 <b>Viewer</b> → 프로젝트 클릭 → <b>생성</b> → 하단 재생. 새 스냅샷만 더 받을 때는 <b>업데이트</b>를 누릅니다.</td></tr>
-   </table></div>
-   <h4>버튼이 헷갈릴 때</h4>
-   <ul>
-    <li><b>실행</b> — 진행 자료가 없을 때 0초부터 새 계산</li>
-    <li><b>실행 재개</b> — 현재 WSL 케이스의 마지막 완전 저장 시점부터 계속 계산</li>
-    <li><b>리셋</b> — 설정은 남기고 진행 자료만 Trash로 이동. 자동으로 계산을 시작하지는 않음</li>
-    <li><b>중단</b> — 현재 계산 정지. 바로 아래 <b>중단 시 자동 이어서 실행</b>은 비정상 종료만 복구하며 직접 중단은 되살리지 않음</li>
-   </ul>
-   <h4>Viewer 조작과 화면 읽기</h4>
-   <ul>
-    <li><code>Space</code> 재생/정지 · <code>←→</code> 프레임 · 드래그 회전 · 휠 확대 · <code>Shift</code>+드래그 이동</li>
-    <li><b>액체 상분율</b>=실제 물/유전체 분포 · <b>기포</b>=TMC-49 증기 · <b>유속장</b>=혼합 속도장 U</li>
-    <li><b>하드웨어 사용량</b>은 3초마다 현재값을 다시 측정합니다. CPU 전체, RAM 전체, GPU 전체를 간결하게 표시합니다.</li>
-    <li><b>프로젝트 이름 더블클릭</b>=이름 변경 · 🗑=30일 보관 Trash 이동</li>
-   </ul>
-   <h4>새 컴퓨터에서 처음 한 번만</h4>
-   <p style="margin:0"><b>Setup\Python312</b>의 고정 Python 3.12.10 런타임이 자동 사용됩니다. 별도 Python 설치 없이 <b>설치.bat</b>을 실행하고, WSL이 처음 설치되면 재부팅 후 한 번 더 실행합니다.</p>
-   <p class="mhint" style="margin-top:12px">기존 프로젝트의 상세 절차는 <a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/cfd_studio/README.md" target="_blank" rel="noopener noreferrer">앱 설치·운영 안내</a>를 참고하세요.</p>
-   </details>
+   <ul class="mhint"><li>기본 계산 범위: 300초, 누출 제외, 다공성 곡물</li><li>격자·시간간격 수렴: 기준 미달</li><li>실행 완료와 물리·실험 검증 완료는 별도 판정</li><li>모델·단위: <b>설명서</b> 탭 참고</li></ul>
   </div>
   <div class="ibx" id="ifB2" style="display:none">
    <h4 style="margin-top:0">저장고 연결 계산 실행 기록</h4>
@@ -7455,6 +7437,7 @@ function playbackDuration(c,p){
 }
 function fmtPlaybackSeconds(v){return Number(v).toLocaleString(undefined,{maximumFractionDigits:2});}
 function applyAnalysisTypeUI(){
+ if(document.body.classList.contains('grouped')&&MODE==='cfd')return;
  const active=MODE==='viz'?(VIZCFG||CFG):CFG;
  if(isTracerConfig(active)){
   document.getElementById('appContext').textContent='가스 수송 CFD · 정규화 추적자';
@@ -8361,6 +8344,7 @@ async function syncCase(){
  CFGSRC=(CFGREF.startsWith('proj:')?'프로젝트 스냅샷 ':'다시 읽은 ')+configFileName();
  fillConds(r.conditions||[]);updateSlots();toast(configFileName()+' 다시 읽기 완료');}
 function setStatus(s){
+ if(document.body.classList.contains('grouped'))return;
  const d=document.getElementById('stDot'), t=document.getElementById('stTxt');
  if(!s.wsl){d.className='dot off';t.textContent='WSL 연결 안 됨';}
  else if(!s.case){d.className='dot warn';t.textContent='케이스 폴더 없음';}
@@ -8575,6 +8559,7 @@ setInterval(()=>saveUI(false),3000);
 setInterval(refreshProjectList,5000);                     // Project 폴더 추가·삭제를 재실행 없이 반영
 addEventListener('beforeunload',()=>{try{navigator.sendBeacon('/api/uistate',JSON.stringify(collectUI()));}catch(_){}});
 async function restoreUI(currentStatus){
+ if(document.body.classList.contains('grouped'))return;
  try{
   const st=await (await fetch('/api/uistate')).json();
   if(!st||!st.mode)return;
@@ -8631,7 +8616,7 @@ __TRACER_VIEWER__
   // 아니라 Project 폴더의 저장된 프레임만 읽으므로, Viewer를 열면 곧바로 재생할 수 있다.
   const restoreRid=vzrid()||PROJ, restoreProj=LASTPROJS.find(p=>p.rid===restoreRid);
   const restoreData=restoreProj&&restoreProj.data||{};
-  if(restoreProj&&(restoreProj.n>0||restoreData.concentration>0||restoreData.bubble>0||restoreData.flow>0||restoreData.therm>0||restoreData.phase>0)&&!FRAMES.length){
+  if(!document.body.classList.contains('grouped')&&restoreProj&&(restoreProj.n>0||restoreData.concentration>0||restoreData.bubble>0||restoreData.flow>0||restoreData.therm>0||restoreData.phase>0)&&!FRAMES.length){
    SRVDIRTY=true;loadFrames();
   }
   if(i.saved_configs){SAVEDCFG=i.saved_configs;SAVEDCFGTYPES=i.saved_config_types||{};renderSettings();}
@@ -8640,6 +8625,7 @@ __TRACER_VIEWER__
  }catch(_){}
 })();
 </script>
+<script src="/execution_workspace.js"></script>
 </body></html>
 '''
 INDEX_HTML = INDEX_HTML.replace("__APP_VER__", APP_VER)

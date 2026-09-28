@@ -194,4 +194,13 @@ try {
   $('case').replaceChildren(new Option('계산 결과 선택', ''));
   for (const entry of data.results) $('case').add(new Option(`${entry.id} · ${entry.model} · ${entry.cells.toLocaleString()}셀`, entry.id));
   $('status').textContent = data.results.length ? '완료된 계산을 선택하세요.' : '완료된 저장고 결과가 없습니다.';
+  const requested = new URLSearchParams(location.search).get('id');
+  if(requested && data.results.some(r => r.id === requested)) {
+    $('case').value = requested;
+    if(new URLSearchParams(location.search).get('embedded') === '1') {
+      $('case').disabled = true;
+      document.querySelector('header').style.display = 'none';
+    }
+    await loadCase();
+  }
 } catch (error) {$('status').textContent = error.message;}

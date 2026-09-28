@@ -1,0 +1,106 @@
+{
+  "date": "2026-09-28",
+  "project_count": 1,
+  "preserved_execution_count": 27,
+  "original_project_files_unchanged": 545,
+  "python_tests": {
+    "total": 114,
+    "passed": 112,
+    "skipped": 2
+  },
+  "javascript_tests": {
+    "passed": 27
+  },
+  "ui_runs": [
+    {
+      "name": "화면 검사 2",
+      "status": "complete",
+      "end_s": 3,
+      "temperature_C": 22,
+      "input_hash_match": true,
+      "audit": {
+        "case": "warehouse_transport_ui_d9a950eaf13045d3b6b9c30c269097c1",
+        "frames": 4,
+        "cells": 1860,
+        "scalar_values": 7440,
+        "concentration_unit": "kg/m3",
+        "integrated_unit": "mg*s/m3",
+        "max_raw_npz_difference": 0.0,
+        "max_coupled_raw_npz_difference": 0.0,
+        "max_integral_difference": 0.0,
+        "raw_field_sha256": {
+          "0/C": "4f6f993a0f2c36019c68da381376a748ef427f7ecd8b0d6099875b28ea34e0b8",
+          "1/C": "c9944f3342eeedc319beb5f737c50640b9b8b0ccc4ab984661bc8d1d28612d82",
+          "2/C": "538f274fb6633a93396ec8f8246235096feafd24fd72dd97755c151e1e825039",
+          "3/C": "00a6695aad951ee9d8bdb83f368cfbff9144ced689013f9173ba511b294b6b0e",
+          "0/T": "d8f6221f1d653b7840b8f3e349770cb9d6d9b3a2d3e129ea8ad2d06e0557d4f2",
+          "0/U": "68eae7292ac18ff8b42cbe44d741495e069f83433305297e92727ac47fd28c98",
+          "1/T": "9527f40abbd84bd4b0883f495f7445339427d4e8d27caa037f7a852cba51b5d9",
+          "1/U": "0bff00e6a5cce9b8090f61fb36262f2a6faa1d37519d2aad675d8f2bdf9c3942",
+          "2/T": "76c15de9f3554879b27a0b755c4da28d3fb07342633f346b4c99a80f0006d761",
+          "2/U": "5a79c21ea4403ebe14fc6e8404c035fb1b88a77e8c98879a73304afa2fbc58de",
+          "3/T": "da0b9f92a0fb8f4194382900c72e094a81335440bd861f8ef9f7c162530b3591",
+          "3/U": "ce856d79eb7e5644d1ea448f11b8504c58adcecd44239a2bb6466bff59581ef2"
+        },
+        "storage_audit_pass": true,
+        "physical_validation": false
+      }
+    },
+    {
+      "name": "화면 검사 1",
+      "status": "complete",
+      "end_s": 2,
+      "temperature_C": 23,
+      "input_hash_match": true,
+      "audit": {
+        "case": "warehouse_transport_ui_594253b5c62c4040a549c6f84ac68cf7",
+        "frames": 3,
+        "cells": 1860,
+        "scalar_values": 5580,
+        "concentration_unit": "kg/m3",
+        "integrated_unit": "mg*s/m3",
+        "max_raw_npz_difference": 0.0,
+        "max_coupled_raw_npz_difference": 0.0,
+        "max_integral_difference": 0.0,
+        "raw_field_sha256": {
+          "0/C": "4f6f993a0f2c36019c68da381376a748ef427f7ecd8b0d6099875b28ea34e0b8",
+          "1/C": "a186ad2403f3954eb7b24695de830ee51c856b1b5e5b6e4cbae624a5a6d919f1",
+          "2/C": "96100c22d79a1290f9dd38010ce277649256ae7c59f6113f7f1aaef86e3d1d99",
+          "0/T": "34b5d009c81c6a869f7b333cab93e3716f7d299d97dfceb71715ff1142758571",
+          "0/U": "68eae7292ac18ff8b42cbe44d741495e069f83433305297e92727ac47fd28c98",
+          "1/T": "476303f83932a1d78d88aed1e10b05f5e49afeb5b0ae31f31d8e182ea8bfd601",
+          "1/U": "4e4514642909dac7a90bdc553ee3d8eb3d6daf7effd3e463c6546d0a85224063",
+          "2/T": "14fcf3ecc030e6e8d705fd889844436ae6bf283fa4c6480e78c93bf0964c6019",
+          "2/U": "76525268593e42714a0c063e3fdbf67cf9cc77d10b8200ae27671b58611b83d2"
+        },
+        "storage_audit_pass": true,
+        "physical_validation": false
+      }
+    }
+  ],
+  "windows_launch": {
+    "case": "cfd_studio/_runtime/execution_windows_review/output/warehouse_transport_ui_45c2ae971632456d9ffa26d0eac84630",
+    "frames": 3,
+    "cells": 1860,
+    "scalar_values": 5580,
+    "concentration_unit": "kg/m3",
+    "integrated_unit": "mg*s/m3",
+    "max_raw_npz_difference": 0.0,
+    "max_coupled_raw_npz_difference": 0.0,
+    "max_integral_difference": 0.0,
+    "raw_field_sha256": {
+      "0/C": "4f6f993a0f2c36019c68da381376a748ef427f7ecd8b0d6099875b28ea34e0b8",
+      "1/C": "a186ad2403f3954eb7b24695de830ee51c856b1b5e5b6e4cbae624a5a6d919f1",
+      "2/C": "96100c22d79a1290f9dd38010ce277649256ae7c59f6113f7f1aaef86e3d1d99",
+      "0/T": "34b5d009c81c6a869f7b333cab93e3716f7d299d97dfceb71715ff1142758571",
+      "0/U": "68eae7292ac18ff8b42cbe44d741495e069f83433305297e92727ac47fd28c98",
+      "1/T": "476303f83932a1d78d88aed1e10b05f5e49afeb5b0ae31f31d8e182ea8bfd601",
+      "1/U": "4e4514642909dac7a90bdc553ee3d8eb3d6daf7effd3e463c6546d0a85224063",
+      "2/T": "14fcf3ecc030e6e8d705fd889844436ae6bf283fa4c6480e78c93bf0964c6019",
+      "2/U": "76525268593e42714a0c063e3fdbf67cf9cc77d10b8200ae27671b58611b83d2"
+    },
+    "storage_audit_pass": true,
+    "physical_validation": false
+  },
+  "physical_validation": false
+}
