@@ -51,3 +51,13 @@ test('playback keys do not hijack CFD, buttons or settings',()=>{
  handler(event('DIV'));ctx.MODE='viz';for(const tag of ['BUTTON','SUMMARY','INPUT','TEXTAREA','SELECT','A'])handler(event(tag));
  assert.equal(plays,0);handler(event('DIV'));assert.equal(plays,1);handler(event('DIV','ArrowRight'));assert.equal(seeks,1);
 });
+
+test('settings comparison distinguishes missing baseline from equality and identifies the saved basis',()=>{
+ const source=workspace.slice(workspace.indexOf('  function differenceView(value){'),workspace.indexOf('  function resultText(r)'));
+ const ctx={};vm.createContext(ctx);vm.runInContext(source,ctx);
+ assert.equal(ctx.differenceView({}).label,'기준 없음');
+ assert.equal(ctx.differenceView({differences:[]}).label,'변경 없음');
+ assert.match(ctx.differenceView({differences:[]}).text,/최초 저장 설정/);
+ const changed=ctx.differenceView({preset_id:'preset1',differences:[{path:'heater.total_W',before:265,after:270}]});
+ assert.equal(changed.label,'1개 변경');assert.match(changed.text,/생성 당시 프리셋/);assert.match(changed.text,/265 → 270/);
+});
