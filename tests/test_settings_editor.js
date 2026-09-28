@@ -7,3 +7,11 @@ test('invalid nested numeric input is rejected before saving or launching',()=>{
 test('inconsistent output timing and empty output selection are rejected',()=>{const c=warehouse();c.numerics.write_interval_s=c.numerics.end_s+1;assert.throws(()=>editor.validate(c));const i=immersion();i.run.output_fields=[];assert.throws(()=>editor.validate(i),/출력/);});
 test('unsupported archive settings remain readable without becoming runnable',()=>{const c=editor.parse('{"_해석유형":"gas_transport","extra":{"source":"archived"}}');assert.equal(editor.kind(c),'unsupported');assert.equal(c.extra.source,'archived');assert.throws(()=>editor.validate(c),/조회/);});
 test('import rejects arrays and prototype keys',()=>{for(const text of ['[]','null','{"__proto__":{}}','{"x":{"constructor":{}}}'])assert.throws(()=>editor.parse(text));});
+
+test('case frame target uses each model output interval without changing the source preset',()=>{
+ const {applyTermination}=require('../cfd_studio/config_editor.js');
+ const original={tank:{},dielectric_fluid:{},run:{end_time_s:60,write_interval_s:.5,viz_interval_s:.01},_studio:{termination:{mode:'frames',frames:101,include_initial:true}}};
+ const actual=applyTermination(original);
+ assert.equal(actual.run.end_time_s,1);assert.equal(original.run.end_time_s,60);assert.equal(actual.run.write_interval_s,.5);
+ assert.throws(()=>applyTermination({...original,_studio:{termination:{mode:'convergence'}}}),/수렴/);
+});

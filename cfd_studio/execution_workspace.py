@@ -80,7 +80,10 @@ def validate_settings(config):
     return kind
 
 
-class ExecutionWorkspace:
+from cfd_studio.run_management import RunManagement
+
+
+class ExecutionWorkspace(RunManagement):
     def __init__(self, root, project_roots, folder=None, output=None, settings=None, busy=None, live=None):
         self.root = Path(root).resolve()
         self.project_roots = project_roots
@@ -148,7 +151,10 @@ class ExecutionWorkspace:
                 'path': str(p), 'model': analysis,
                 'status': 'complete' if meta.get('completed') else 'saved',
                 'created': meta.get('created') or p.stat().st_mtime, 'end_s': meta.get('tmax') or meta.get('end'),
-                'has_results': any(p.glob('*.bin')), 'study_attempt_id': meta.get('study_attempt_id')}
+                'has_results': any(p.glob('*.bin')), 'study_attempt_id': meta.get('study_attempt_id'),
+                'last_saved': meta.get('tmax'), 'completion_reason': meta.get('completion_reason'),
+                'time_unit': '회' if cfg.get('openfoam_mapping', {}).get('solver') == 'simpleFoam' else 's', 'result_status': 'ready' if any(p.glob('*.bin')) else 'none',
+                'numerical_status': 'unchecked'}
             if project_id:
                 records[key]['project_id'] = project_id
         for p in sorted(self.output.glob('warehouse_transport_*')):
@@ -163,9 +169,14 @@ class ExecutionWorkspace:
                 'path': str(p), 'model': model.get('kind'), 'status': state.get('status', 'saved'),
                 'created': (p/'model_contract.json').stat().st_mtime,
                 'end_s': checks.get('simulated_seconds'), 'has_results': valid and (p/'concentration.npz').is_file(),
-                'numerical_pass': checks.get('numerical_pass', False), 'experimental_validation': False}
+                'numerical_pass': checks.get('numerical_pass', False), 'experimental_validation': False,
+                'last_saved': checks.get('simulated_seconds'), 'frames': checks.get('frames'),
+                'result_status': 'ready' if valid and (p/'concentration.npz').is_file() else 'none',
+                'numerical_status': 'passed' if checks.get('numerical_pass') else 'incomplete' if checks else 'unchecked'}
         for p in (self.folder/'runs').glob('*/job.json'):
             job = read_json(p, {})
+            if job.get('case_id'):
+                continue
             key = job['run_key']
             current = records.get(key, {})
             records[key] = {**current, 'id': key, 'kind': 'warehouse', 'rid': Path(job['output']).name,
@@ -178,6 +189,12 @@ class ExecutionWorkspace:
         active = records.get('legacy:'+str(live.get('rid', '')))
         if active and live.get('running'):
             active['status'] = 'running'
+        q = self.queue_data()
+        attached = {c.get('result_key') for c in q['cases'].values()}
+        for c in q['cases'].values():
+            records[c['id']] = self.case_record(c, records)
+        for key in attached:
+            records.pop(key, None)
         return records
 
     def _catalog(self, records):
@@ -205,13 +222,17 @@ class ExecutionWorkspace:
             projects = []
             for p in data['projects']:
                 runs = sorted((records[k] for k in p['runs'] if k in records), key=lambda r: r['created'], reverse=True)
-                projects.append({'id': p['id'], 'name': p['name'], 'created': p['created'], 'runs': runs})
-            return {'projects': projects, 'busy': bool(self.busy()) or any(r['status'] in ('queued', 'running') for r in records.values())}
+                projects.append({'id': p['id'], 'name': p['name'], 'description': p.get('description', ''), 'default_preset': p.get('default_preset'), 'created': p['created'], 'runs': runs})
+            return {'projects': projects, 'queue': self.queue_summary(), 'busy': bool(self.busy()) or any(r['status'] in ('queued', 'running') and not r['id'].startswith('case:') or r['status'] == 'running' for r in records.values())}
 
-    def create_project(self, name):
+    def create_project(self, name, description='', default_preset=None):
         with self.lock:
             data = self._catalog(self.discover())
-            project = {'id': uuid.uuid4().hex, 'name': label(name), 'created': time.time(), 'runs': []}
+            if not isinstance(description, str) or len(description) > 4000:
+                raise ValueError('프로젝트 설명은 4,000자 이내로 입력하세요')
+            if default_preset:
+                self.template(default_preset)
+            project = {'id': uuid.uuid4().hex, 'name': label(name), 'description': description, 'default_preset': default_preset, 'created': time.time(), 'runs': []}
             data['projects'].append(project)
             atomic_json(self.folder/'projects.json', data)
             return project
@@ -230,6 +251,13 @@ class ExecutionWorkspace:
         if key not in records:
             raise ValueError('실행을 찾을 수 없습니다')
         record = records[key]
+        if record.get('path') and getattr(self, 'result_info', None):
+            record = {**record, **self.result_info(record)}
+        case = self.queue_data()['cases'].get(key)
+        if case and not case.get('result_key'):
+            attempt = case.get('attempts', [])
+            log_path = Path(attempt[-1]['job_path']).with_name('execution.log') if attempt else None
+            return {**record, 'config': copy.deepcopy(case['config']), 'log': log_path.read_text(encoding='utf-8', errors='replace')[-50000:] if log_path and log_path.exists() else '', 'checks': {}, 'grid': None}
         p = Path(record['path'])
         if record['kind'] == 'warehouse':
             config = read_json(p/'transport_input.json', {})
@@ -253,6 +281,11 @@ class ExecutionWorkspace:
             with path.open('rb') as stream:
                 stream.seek(max(0, path.stat().st_size-50000))
                 log = stream.read().decode('utf-8', errors='replace')
+        if case:
+            config = copy.deepcopy(case['config'])
+            if not log and case.get('attempts'):
+                lp = Path(case['attempts'][-1]['job_path']).with_name('execution.log')
+                log = lp.read_text(encoding='utf-8', errors='replace')[-50000:] if lp.exists() else ''
         live = self.live()
         if key == 'legacy:'+str(live.get('rid', '')) and live.get('running'):
             log = live.get('log') or log
@@ -403,10 +436,24 @@ def post_route(handler, workspace, body):
         if path == '/api/executions/preset':
             result = workspace.save_preset(body.get('name'), body.get('config'))
         elif path == '/api/executions/project':
-            result = workspace.create_project(body.get('name'))
+            result = workspace.create_project(body.get('name'), body.get('description', ''), body.get('default_preset'))
         elif path == '/api/executions/rename':
             workspace.rename_project(body.get('id'), body.get('name'))
             result = {}
+        elif path == '/api/executions/project-edit':
+            result = workspace.edit_project(body.get('id'), body.get('name'), body.get('description', ''), body.get('default_preset'))
+        elif path == '/api/executions/preset-rename':
+            result = workspace.rename_preset(body.get('id'), body.get('name'))
+        elif path == '/api/executions/case':
+            result = workspace.save_case(body.get('project_id'), body.get('name'), body.get('config'), body.get('id'), body.get('revision'), body.get('preset_id'), body.get('preset_name'))
+        elif path == '/api/executions/queue':
+            result = workspace.queue_action(body.get('action'), body.get('ids'), body.get('id'))
+        elif path == '/api/executions/result':
+            if not getattr(workspace, 'result_prepare', None):
+                raise ValueError('결과 변환 실행기 연결이 없습니다')
+            result = workspace.result_prepare(workspace.detail(body.get('id')))
+        elif path == '/api/executions/folder':
+            result = workspace.open_result_folder(body.get('id'))
         elif path == '/api/executions/start':
             result = workspace.start(body.get('project_id'), body.get('name'), body.get('config'))
         else:

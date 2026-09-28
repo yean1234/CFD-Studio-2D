@@ -1,0 +1,93 @@
+{
+  "date": "2026-09-28",
+  "scope": "Studio workflow and persistence; existing solver unchanged",
+  "runs": [
+    {
+      "name": "시간 2초",
+      "attempt_id": "ada55e8fad1648bda4527d7ed9f9145d",
+      "status": "complete",
+      "termination": {
+        "mode": "time",
+        "time_s": 2
+      },
+      "input_sha256": "39af78c4d7bc112a26dc66d25186094d92590f8e8dbb61d7864bf3329cc5563f",
+      "input_hash_matches": true,
+      "checks": {
+        "cells": 1860,
+        "frames": 3,
+        "simulated_seconds": 2.0,
+        "wall_seconds": 1.5033824580023065,
+        "execution_checks_pass": true,
+        "numerical_pass": false,
+        "experimental_validation": false,
+        "raw_npz_max_difference": 0.0
+      }
+    },
+    {
+      "name": "프레임 3개 초기 제외",
+      "attempt_id": "340f61b6dba143118fd96a9cc16a24fd",
+      "status": "complete",
+      "termination": {
+        "mode": "frames",
+        "frames": 3,
+        "include_initial": false
+      },
+      "input_sha256": "28b996d4e4ed5147ce585336d8929235e75b998696b0480b148ca42c7d460744",
+      "input_hash_matches": true,
+      "checks": {
+        "cells": 1860,
+        "frames": 4,
+        "simulated_seconds": 3.0,
+        "wall_seconds": 1.810272499016719,
+        "execution_checks_pass": true,
+        "numerical_pass": false,
+        "experimental_validation": false,
+        "raw_npz_max_difference": 0.0
+      }
+    },
+    {
+      "name": "프레임 4개 초기 포함",
+      "attempt_id": "63bd192049954b3a8932b5e80b410493",
+      "status": "complete",
+      "termination": {
+        "mode": "frames",
+        "frames": 4,
+        "include_initial": true
+      },
+      "input_sha256": "c05cc8aa6ea6866a4875ce40a6270d1cc8480efe22afd2a1b1fe36e69e1929a6",
+      "input_hash_matches": true,
+      "checks": {
+        "cells": 1860,
+        "frames": 4,
+        "simulated_seconds": 3.0,
+        "wall_seconds": 1.3788799660105724,
+        "execution_checks_pass": true,
+        "numerical_pass": false,
+        "experimental_validation": false,
+        "raw_npz_max_difference": 0.0
+      }
+    }
+  ],
+  "original_result_hashes": {
+    "checked": 545,
+    "changed": 0
+  },
+  "immersion_original_samples": {
+    "checked": 5,
+    "changed": 0
+  },
+  "builtin_warehouse_preset_unchanged": true,
+  "queue_after_restart_and_skip": {
+    "paused": true,
+    "active": null,
+    "waiting": 1,
+    "completed_attempt_counts": [
+      1,
+      1,
+      1
+    ]
+  },
+  "convergence_termination": "disabled: sustained-window evaluator not connected",
+  "native_immersion_queue_cfd_run": false,
+  "native_grain_queue_cfd_run": false
+}

@@ -15,9 +15,11 @@ from cfd_studio.warehouse_results import WarehouseResults
 
 def serve(folder,output,port,allow_run):
     workspace=ExecutionWorkspace(ROOT,[ROOT/'cfd_studio/Project'],folder=folder,output=output)
+    if allow_run:
+        workspace.start_queue_service()
     tree=ast.parse((ROOT/'cfd_studio/app.py').read_text())
     html=next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='INDEX_HTML' for t in n.targets))
-    html=html.replace('__APP_VER__','실행 묶음 검토').replace('__TRACER_VIEWER__',(ROOT/'cfd_studio/tracer_viewer.js').read_text())
+    html=html.replace('__APP_VER__','대기열 검토').replace('__TRACER_VIEWER__',(ROOT/'cfd_studio/tracer_viewer.js').read_text())
     config=json.loads((ROOT/'cfd_studio/configs/immersion.json').read_text())
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*a):pass

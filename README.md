@@ -13,8 +13,8 @@
 ## 개발 상태
 
 - 현재 모델: 누출 없는 밀폐 저장고, 균질 다공성 곡물
-- 핵심 기능: 프로젝트별 여러 실행 관리, 실행별 설정·로그·결과 조회
-- 저장고 계산: 메인 화면 **새 CFD 실행** 버튼 연결
+- 핵심 기능: 독립 설정 프리셋, 프로젝트별 실행 초안·대기열·설정 스냅샷·결과 조회
+- 저장고 계산: 프로젝트에서 **CFD 실행 추가 → 실행 저장 → 대기열 시작**
 - 적용 수준: 가정 조건 기반 연구용 모델
 
 | 구분 | 상태 |
@@ -29,7 +29,7 @@
 - 정상상태: 시간변화 외기온 사용, 도달 여부 미확인
 - [격자 검사](docs/warehouse-porous-grid-review-20260928.md)
 - [연결 계산](docs/warehouse-coupled-cfd-20260928.md)
-- [실행 관리](docs/project-execution-review-20260928.md)
+- [실행 관리](docs/execution-queue-review-20260928.md)
 - Git 관리: 코드·설정·문서·요약 검사·그림·프로브 CSV
 - 로컬 보존: 기존 설정·Raw·대용량 계산 결과
 
@@ -41,7 +41,7 @@
 2. WSL이 없다면 관리자 PowerShell에서 `wsl --install -d Ubuntu`를 실행하고 재부팅 및 Ubuntu 사용자 설정을 마칩니다.
 3. `cfd_studio/설치.bat`을 실행합니다. OpenCFD OpenFOAM v2312, Linux NumPy 및 케이스를 준비합니다. Ubuntu sudo 비밀번호를 요청할 수 있습니다.
 4. `cfd_studio/실행.bat`을 실행합니다. 기본 주소는 `http://127.0.0.1:8712`입니다.
-5. **식량창고 → 새 CFD 실행**에서 이번 실행의 조건을 입력하고 **계산 시작**을 선택합니다.
+5. **프로젝트 → CFD 실행 추가**에서 설정·종료 조건을 저장하고 **대기열에 추가 → 대기열 시작**을 선택합니다.
 
 - Windows 실행용 Python **3.12.10 x64 embedded runtime**이 포함되어 있습니다. 시스템 Python이나 Conda 설치가 필요하지 않습니다. Linux 계산·변환용 Python과 NumPy는 설치 스크립트가 준비합니다. WSL 배포판 선택이 필요하면 `cfd_studio/studio_config.example.json`을 `studio_config.json`으로 복사해 수정합니다.
 

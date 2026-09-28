@@ -13,7 +13,7 @@ sys.dont_write_bytecode = True                             # __pycache__ 생성 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v179"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v180"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 
@@ -2389,7 +2389,8 @@ def resume_loop():
     time.sleep(90)
     while True:
         try:
-            if SCFG.get("auto_resume", True) and not STATE.get("user_stopped"):
+            managed = any(c.get("result_key") == "legacy:"+_active_rid() for c in EXECUTION_WORKSPACE.queue_data()["cases"].values())
+            if SCFG.get("auto_resume", True) and not STATE.get("user_stopped") and not managed:
                 # GPU 라이브러리 실패를 단순한 비정상 종료로 보고 같은 PCGAMG 경로를
                 # 반복 실행하지 않는다. 원본 결과는 보존하고 다음 수동 실행을 CPU로 전환한다.
                 only_gpu = _solver_mode() == "gpu_only"
@@ -3826,7 +3827,7 @@ class H(BaseHTTPRequestHandler):
                 snapshot = EXECUTION_WORKSPACE.snapshot()
                 if not any(p["id"] == group_id for p in snapshot["projects"]):
                     raise ValueError("프로젝트를 찾을 수 없습니다")
-                if snapshot["busy"] or get_status().get("running") or _extract_state(_active_rid()).get("busy") or time.time()-STATE.get("group_launch_t", 0) < 60:
+                if (snapshot["busy"] and body.get("_queue_authorized") is not EXECUTION_WORKSPACE) or get_status().get("running") or _extract_state(_active_rid()).get("busy") or time.time()-STATE.get("group_launch_t", 0) < 60:
                     self._json({"ok": False, "msg": "계산 또는 결과 보존 작업이 진행 중입니다. 완료 후 시작해 주세요"}, 409)
                     return
             except (ValueError, TypeError) as e:
@@ -4232,6 +4233,9 @@ class H(BaseHTTPRequestHandler):
             self._json({"ok": True, "msg": msg, "settings": _settings_public()})
         elif u.path == "/api/run":
             with EXECUTION_WORKSPACE.lock:
+                if EXECUTION_WORKSPACE.queue_summary().get("active"):
+                    self._json({"ok": False, "msg": "대기열의 실행이 진행 중입니다"}, 409)
+                    return
                 self._run_legacy(body)
         elif u.path == "/api/stop":
             # 솔버 + (격자 생성 단계였다면) Allrun 체인까지 정지 — 안 죽이면 뒤늦게 솔버가 켜짐
@@ -5346,20 +5350,20 @@ INDEX_HTML = r'''<!DOCTYPE html>
   </div>
   <div class="ibx" id="ifB1" style="display:none">
    <h4 style="margin-top:0">CFD 실행</h4>
-   <ul>
-    <li>왼쪽 <b>식량창고</b> 프로젝트 선택</li>
-    <li><b>새 CFD 실행</b> → 기본값·저장된 설정 선택 → <b>불러오기</b></li>
-    <li>항목별 설정·검색·전체 JSON으로 입력 확인, <b>설정 저장</b> 또는 <b>JSON 내보내기</b>로 보관</li>
-    <li><b>계산 시작</b> 선택 후 실행 목록에서 진행 상태·솔버 로그 확인</li>
-    <li>완료된 실행 선택 → <b>결과 보기</b> → 시간·농도·온도·유속 조회</li>
-   </ul>
+   <ul><li><b>새 프로젝트</b>: 이름·설명·기본 프리셋 선택</li><li><b>CFD 실행 추가</b>: 개별 설정·종료 조건·목표 입력 → <b>실행 저장</b></li><li>실행 선택 → <b>대기열에 추가</b> → <b>대기열 시작</b></li><li>실행 목록: 설정 차이·종료 조건·실행 상태·마지막 저장·수치 검사·시각화 확인</li><li>결과 버튼: <b>생성 / 업데이트 / 열기</b></li></ul>
+   <h4>설정 프리셋</h4>
+   <ul><li>왼쪽에서 생성·선택·복제·이름 변경</li><li><b>프리셋에 저장</b>: 기본 해제, 체크하면 새 이름으로 별도 저장</li><li>프로젝트 기본 프리셋 변경: 이후 추가하는 실행에만 적용</li></ul>
+   <h4>대기열</h4>
+   <ul><li>시작 전 실행: 편집·순서 변경·제외 가능</li><li><b>다음 실행부터 일시정지</b>: 현재 실행 유지</li><li>실패: 대기열 정지 → <b>재시도 / 건너뛰기</b> → <b>대기열 시작</b></li><li>앱 재시작: 기록·결과·대기열 복원, 다음 실행은 일시정지 상태</li></ul>
+   <h4>종료 조건</h4>
+   <ul><li>물리시간 또는 저장 프레임 수 중 하나 선택</li><li>프레임 수: 0초 초기 프레임 포함 여부 기록</li><li>수렴 기준: 연속 유지 구간을 확인하는 실행기 연결이 없어 현재 비활성</li><li>솔버 시간간격·결과 저장 간격·재생 배속: 각각 별도 설정</li></ul>
    <h4>설정 보기</h4>
    <ul><li>실행 목록 또는 Viewer의 <b>설정 보기</b>: 실행에 사용한 원본 입력 조회</li><li><b>이 설정으로 새 실행</b>: 기존 입력을 가져와 수정, 앞선 실행 보존</li><li>설정 창을 닫으면 보고 있던 결과 유지</li></ul>
    <h4>결과 보기</h4>
    <ul><li>왼쪽 실행 선택: 같은 Viewer에서 결과 전환</li><li>아래 시간 막대·재생·배속: 모든 결과에서 같은 방식으로 탐색</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>위치·시간 조회, 원본 파일, 모델·검증 상태 확인</li><li>왼쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
    <p class="mhint">저장고 애니메이션: 저장 프레임 사이 선형 보간. 흐름 마커: 유속 방향 표시. 1×는 물리시간 1초를 화면 1초로 재생합니다.</p>
    <h4>프로젝트와 실행</h4>
-   <ul><li>프로젝트: 실행 이력을 묶는 공간</li><li>설정: 새 CFD 실행 시 입력, 실행별 원본 보관</li><li>실행 목록: 선택한 실행의 설정·로그·결과 표시</li><li>저장고 기록: 식량창고 프로젝트의 실행 이력으로 보존</li><li>이중액침: 별도 프로젝트에서 3mm_Test 결과 조회</li><li>동시 계산: 한 번에 한 실행, 완료 후 추가 실행</li></ul>
+   <ul><li>프로젝트: 실행 이력을 묶는 공간</li><li>설정: 새 CFD 실행 시 입력, 실행별 원본 보관</li><li>실행 목록: 선택한 실행의 설정·로그·결과 표시</li><li>저장고 기록: 식량창고 프로젝트의 실행 이력으로 보존</li><li>이중액침: 별도 프로젝트에서 3mm_Test 결과 조회</li><li>실행 설정: 시작 시 스냅샷 고정, 다른 실행·프리셋에 소급 적용하지 않음</li></ul>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>사용법</b></a></p>
    <ul class="mhint"><li>기본 계산 범위: 300초, 누출 제외, 다공성 곡물</li><li>격자·시간간격 수렴: 기준 미달</li><li>실행 완료와 물리·실험 검증 완료는 별도 판정</li><li>모델·단위: <b>설명서</b> 탭 참고</li></ul>
   </div>
@@ -9610,6 +9614,9 @@ def main():
             except Exception: pass
             return
     _claim_studio_pid()
+    from execution_adapters import install as install_execution_adapters
+    install_execution_adapters(EXECUTION_WORKSPACE, globals())
+    EXECUTION_WORKSPACE.start_queue_service()
     _cleanup_orphan_extractors()
     threading.Thread(target=autosync_loop, daemon=True).start()
     threading.Thread(target=sys_loop, name="cfd-sys", daemon=True).start()

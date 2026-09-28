@@ -1,6 +1,8 @@
 """공통 수치 입력 검사와 새 프리셋 보관. 솔버 실행이나 물성 추천은 하지 않는다."""
 import json
 import math
+import os
+import uuid
 from pathlib import Path
 import re
 import threading
@@ -69,12 +71,14 @@ def save_new_preset(folder, name, config):
         # Linux에서 저장해도 Windows로 옮겼을 때 파일명이 충돌하지 않게 한다.
         if any(p.name.casefold() == target.name.casefold() for p in folder.iterdir()):
             raise FileExistsError('같은 이름의 설정이 있습니다. 새 이름을 입력해 주세요')
-        with target.open('x', encoding='utf-8') as output:
-            try:
+        temporary = folder/('.preset-'+uuid.uuid4().hex+'.tmp')
+        try:
+            with temporary.open('x', encoding='utf-8') as output:
                 output.write(data)
                 output.flush()
-            except BaseException:
-                output.close()
-                target.unlink(missing_ok=True)
-                raise
+                os.fsync(output.fileno())
+            # Publish the complete file without overwriting a concurrent creator.
+            os.link(temporary, target)
+        finally:
+            temporary.unlink(missing_ok=True)
     return target
