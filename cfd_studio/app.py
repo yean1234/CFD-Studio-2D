@@ -14,9 +14,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v183"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v184"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
+# The bundled isolated Python also needs the application and repository modules.
+for module_root in (HERE, os.path.dirname(HERE)):
+    if module_root not in sys.path:
+        sys.path.insert(0, module_root)
 
 # ── 환경 설정 (studio_config.json) — 어떤 PC에서도 값만 바꾸면 동작 ──
 _SDEF = {"wsl_case": "~/cfd_studio_case",     # WSL 안 케이스 폴더
@@ -43,10 +47,11 @@ except Exception:
 _CFG_PORT = int(SCFG["port"])
 PORT      = int(os.environ.get("CFD_STUDIO_PORT", _CFG_PORT) or _CFG_PORT)
 WSL_CASE  = SCFG["wsl_case"]
-FRAME_DIR  = os.path.join(HERE, "frames")
+from cfd_studio.storage_layout import compatibility_folder
+FRAME_DIR  = compatibility_folder(HERE, "frames", "frames")
 LEGACY_PROJECT_DIR = os.path.join(FRAME_DIR, "Project")
-PROJECT_DIR = os.path.join(HERE, "Project")
-TRASH_DIR = os.path.join(HERE, "Trash")
+PROJECT_DIR = compatibility_folder(HERE, "Project", "legacy_results")
+TRASH_DIR = compatibility_folder(HERE, "Trash", "Trash")
 LEGACY_TRASH_DIR = os.path.join(HERE, "휴지통")
 os.makedirs(FRAME_DIR, exist_ok=True)
 os.makedirs(PROJECT_DIR, exist_ok=True)
