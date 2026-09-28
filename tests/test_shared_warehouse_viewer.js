@@ -11,7 +11,7 @@ const transition=workspace.slice(workspace.indexOf('  async function viewResult(
 function transitionContext(detail){
  const calls=[];
  const ctx={detail,generation:1,viewMode:'cfd',VIZCFG:{_해석유형:'warehouse'},VPROJ:null,
-  document:{body:{classList:{add(){},toggle(){}}}},setPlay(){},cancelViewerLoad(){},renderSidebarAction(){},
+  DataSheetViewer:{begin(){},resume(){},loaded(){}},document:{body:{classList:{add(){},toggle(){}}}},setPlay(){},cancelViewerLoad(){},renderSidebarAction(){},
   restoreWarehouseUI(){calls.push('restore');},message(t){calls.push(t);},showList(){ctx.viewMode='cfd';},
   setMode(m){assert.equal(ctx.VIZCFG,ctx.detail.config,'selected config must be available before geometry is rendered');calls.push(m);},
   async selVz(rid){calls.push(rid);}};
@@ -28,12 +28,16 @@ test('Viewer requested while run detail is loading stays pending for automatic e
 });
 
 
-test('project visualization percentage counts ready Cases and handles empty projects',()=>{
- const helper=workspace.slice(workspace.indexOf('  function visualizationProgress('),workspace.indexOf('  function renderSidebarAction('));
- const ctx={};vm.createContext(ctx);vm.runInContext(helper,ctx);
- assert.equal(ctx.visualizationProgress([]).percent,0);
- const runs=[{has_results:true,result_status:'ready'},{has_results:true,result_status:'update'},{has_results:false,result_status:'ready'},{has_results:false,result_status:'none'}];
- const before=JSON.stringify(runs),p=ctx.visualizationProgress(runs);
- assert.equal(p.ready,1);assert.equal(p.total,4);assert.equal(p.percent,25);assert.equal(JSON.stringify(runs),before);
- assert.equal(ctx.visualizationProgress([{has_results:true,result_status:'ready'}]).percent,100);
+test('Viewer mode control keeps its position and labels the active mode',()=>{
+ const source=workspace.slice(workspace.indexOf('  function renderSidebarAction(){'),workspace.indexOf('  function button('));
+ const control={classList:{toggle(){}},setAttribute(){},removeAttribute(){}};const ctx={$:()=>control,document:{body:{classList:{contains:()=>true}}},DataSheetViewer:{mode:'3d',toggle(){this.mode=this.mode==='data'?'3d':'data';}}};
+ vm.createContext(ctx);vm.runInContext(source,ctx);ctx.renderSidebarAction();assert.equal(control.textContent,'3D Virtual Viewer');control.onclick();assert.equal(control.textContent,'Data Sheet Viewer');control.onclick();assert.equal(control.textContent,'3D Virtual Viewer');
+});
+
+test('legacy selection waits for frame reading before signaling ready',async()=>{
+ const app=fs.readFileSync(path.join(__dirname,'../cfd_studio/app.py'),'utf8');
+ const source=app.slice(app.indexOf('async function selVz(rid)'),app.indexOf('function openProj(rid)'));
+ let finish;const gate=new Promise(resolve=>finish=resolve);const ctx={LASTPROJS:[],CURC:'',LOADED_RID:'',renderProjects(){},loadFrames:()=>gate};
+ vm.createContext(ctx);vm.runInContext(source,ctx);let done=false;const selecting=ctx.selVz('result').then(()=>done=true);
+ await Promise.resolve();assert.equal(done,false);finish();await selecting;assert.equal(done,true);
 });

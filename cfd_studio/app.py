@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v181"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v182"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 
@@ -3698,7 +3698,7 @@ class H(BaseHTTPRequestHandler):
 
     def _do_GET(self):
         u = urlparse(self.path)
-        if (u.path.startswith("/api/executions") or u.path in ("/execution_workspace.js", "/config_editor.js", "/warehouse_viewer.js")) and execution_get(self, EXECUTION_WORKSPACE):
+        if (u.path.startswith("/api/executions") or u.path in ("/execution_workspace.js", "/config_editor.js", "/warehouse_viewer.js", "/data_sheet_viewer.js")) and execution_get(self, EXECUTION_WORKSPACE):
             return
         if u.path.startswith(('/studies', '/api/studies', '/api/attempts', '/api/study-packages', '/api/capabilities')):
             if study_http.get(self, study_http.service(HERE, SCFG, PROJECT_DIR)):
@@ -5062,7 +5062,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
   </section>
 
     <section id="secData" style="display:none">
-   <h2>3D 결과</h2>
+   <h2>결과 데이터</h2>
    <div id="exSel" hidden>
     <input type="checkbox" id="exBub" checked>
     <input type="checkbox" id="exPhase" checked>
@@ -5072,7 +5072,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <label class="ck" style="margin-bottom:9px" title="스냅샷 생성 속도를 실측해 주기 자동 조절 · 변환된 원본은 정리(전체 상태 앵커는 보존)"><input type="checkbox" id="autoSync" onchange="setAutoSync()">
     자동 동기화</label>
    <div class="fld" style="margin:13px 0 7px;display:flex;align-items:center;justify-content:space-between">
-    <span>프로젝트 데이터</span><span class="sst" id="projDataName"></span></div>
+    <span>선택 Case</span><span class="sst" id="projDataName"></span></div>
    <div id="slots">
     <div class="dstat"><div><b>TMC-49 증기</b></div><span class="sst" id="slBub">확인 중</span></div>
     <div class="dstat"><div><b>액체 상분율</b></div><span class="sst" id="slPhase">확인 중</span></div>
@@ -5138,7 +5138,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
     <label title="계산 시작 시 400 mm 기준선 · 실제 계면은 액체 상분율 레이어에서 확인"><input type="checkbox" id="lyBound" checked><span class="sw" style="background:#e07b3a"></span>초기 계면 기준선</label>
     <label><input type="checkbox" id="lyProbe" checked><span class="sw" style="background:#d55181"></span>열전대</label>
     <label><input type="checkbox" id="lyInfo" checked><span class="sw" style="background:#c3c2b7"></span>실시간 정보 텍스트</label>
-    <div class="ltit" style="margin-top:8px">그래프</div>
+    <div class="ltit" id="graphControlsTitle" style="margin-top:8px">그래프</div>
     <label title="프로브 4점 온도 추이 · 재생 시점 표시"><input type="checkbox" id="gcT" checked onchange="renderGCol()"><span class="sw" style="background:#3987e5"></span>열전대 온도</label>
     <label title="재생 프레임의 기포(증기) 부피 추이"><input type="checkbox" id="gcV" checked onchange="renderGCol()"><span class="sw" style="background:#31c46a"></span>기포 부피</label>
     <label title="증기율 임계 이상 셀 수 — 비등 활성도"><input type="checkbox" id="gcB" onchange="renderGCol()"><span class="sw" style="background:#c76bd6"></span>기포 셀 수</label>
@@ -5340,7 +5340,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <h4>설정 보기</h4>
    <ul><li>CFD 실행 카드의 <b>설정 보기</b>: 실행에 사용한 원본 입력 조회</li><li><b>이 설정으로 새 실행</b>: 기존 입력을 가져와 수정, 앞선 실행 보존</li><li>설정 창을 닫으면 보고 있던 결과 유지</li></ul>
    <h4>결과 보기</h4>
-   <ul><li>실행 전환: 상단 CFD → 실행 선택 → 열기</li><li>아래 시간 막대·재생·배속: 모든 결과에서 같은 방식으로 탐색</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>위치·시간 조회, 원본 파일, 모델·검증 상태 확인</li><li>왼쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
+   <ul><li>실행 전환: 상단 CFD → 실행 선택 → 열기</li><li>아래 시간 막대·재생·배속: 모든 결과에서 같은 방식으로 탐색</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>왼쪽 <b>3D Virtual Viewer</b> 버튼: <b>Data Sheet Viewer</b>로 전환, 다시 누르면 3D 복귀</li><li>Data Sheet: 물리량별 그래프·표·CSV, 위치·시간 조회, 모델·검증 확인</li><li>저장고 <b>전체 구간 읽기</b>: 누락된 저장 프레임부터 읽기, 200개 이하 자동 읽기</li><li>왼쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
    <p class="mhint">저장고 애니메이션: 저장 프레임 사이 선형 보간. 흐름 마커: 유속 방향 표시. 1×는 물리시간 1초를 화면 1초로 재생합니다.</p>
    <h4>프로젝트 저장</h4>
    <ul><li>새 프로젝트·프로젝트 설정에서 저장 폴더 지정. C·D 등 드라이브 선택 가능</li><li>설정·Case별 실행 기록·원본·시각화·캐시를 프로젝트 폴더에 저장</li><li>왼쪽 프로젝트 <b>열기</b>: 기존 프로젝트 폴더 연결</li><li>기존 결과는 원래 경로를 유지. 프로젝트 위치 변경 시 복사·검증 후 연결 전환, 원본 보존</li><li>실행 중에는 위치 변경 불가. 독립 프리셋은 Studio에 보관</li></ul>
@@ -5770,7 +5770,7 @@ async function selVz(rid){                                // 뷰어 전용 선�
  SRVDIRTY=true;
  renderProjects({cur:CURC,projects:LASTPROJS});
  // 이력은 loadFrames에서 프레임과 병렬로 읽는다. 마지막 화면 복원·직접 열기도 동일 경로를 탄다.
- loadFrames();}
+ await loadFrames();}
 function openProj(rid){
  PROJ=rid;SRVDIRTY=true;
  if(LOADED_RID!==rid){FRAMES=[];BUBLOADED=0;Cxyz=null;FLOWMAP={};THERMMAP={};PHASEMAP={};PRESSUREMAP={};TURBMAP={};}
@@ -7568,13 +7568,9 @@ async function showCfg(){
   STUDIOSET=j.settings||{};
   const s=STUDIOSET,a=s.raw_archive||{},mode=s.compute_mode_label||(s.pressure_solver_mode==='gpu_only'?'GPU Only (OpenCFD 개발)':(s.pressure_solver_mode==='gpu'?'CPU + GPU 병행':'CPU Only'));
   const detail=s.pressure_solver_mode==='gpu_only'?'OpenCFD std::execution GPU 오프로딩 · 단일 GPU · MPI 1개':(s.pressure_solver_mode==='gpu'?'OpenFOAM CPU 계산 · p_rgh 선형해석 GPU':'OpenFOAM 계산 · 압력 선형해석 CPU');
-  const rawRoot=a.enabled?(a.path||'경로 확인 필요'):'외부 Raw_Data 저장 사용 안 함';
-  const rawPath=a.project_path||rawRoot;
   runtime.innerHTML='<div class="cr"><span>계산 모드</span><em>'+esc(mode)+'</em><small></small></div>'+
    '<div class="cr"><span>실행 방식</span><em>'+esc(detail)+'</em><small></small></div>'+
-   '<div class="cr"><span>CPU / MPI</span><em>CPU 상한 '+esc(s.cpu_pct)+'% · MPI '+esc(s.mpi_effective)+'개</em><small></small></div>'+
-   '<div class="cr"><span>새 프로젝트 Raw 기준</span><em class="rawPath">'+esc(rawRoot)+'</em><small></small></div>'+
-   '<div class="cr"><span>현재 프로젝트 Raw</span><em class="rawPath">'+esc(rawPath)+'</em><small></small></div>';
+   '<div class="cr"><span>CPU / MPI</span><em>CPU 상한 '+esc(s.cpu_pct)+'% · MPI '+esc(s.mpi_effective)+'개</em><small></small></div>';
  }catch(e){runtime.innerHTML='<div class="cr"><span>실행 환경</span><em>'+esc(e.message||'확인 실패')+'</em><small></small></div>';}
  if(!CFG){body.textContent='설정이 아직 로딩되지 않았습니다 — WSL 연결 또는 config.json 드롭 필요';return;}
  if(isTracerConfig(CFG)){showTracerSettings(body,CFG);return;}
@@ -8648,7 +8644,7 @@ __TRACER_VIEWER__
    setConfig(i.config);fillRunInputs(i.config);
   }
   fillConds(i.conditions||[]);
-  if(i.env){document.getElementById('envPath').textContent=i.env.case+' · OpenFOAM/코어 자동 감지';ENVINFO=i.env;}
+  if(i.env){document.getElementById('envPath').textContent='OpenFOAM · 코어 자동 감지';ENVINFO=i.env;}
   const st0=await (await fetch('/api/status')).json();
   const resum0=!!st0.running||(st0.snap_times||[]).some(x=>+x>0);
   if(resum0){                                            // 진행 상태가 있을 때만 이전 이력 표시 (없으면 깨끗한 대기 화면)
@@ -8678,6 +8674,7 @@ __TRACER_VIEWER__
 </script>
 <script src="/warehouse_viewer.js"></script>
 <script src="/config_editor.js"></script>
+<script src="/data_sheet_viewer.js"></script>
 <script src="/execution_workspace.js"></script>
 </body></html>
 '''

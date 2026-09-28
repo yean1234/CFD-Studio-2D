@@ -15,27 +15,18 @@
     return value;
   }
   function currentProject(){return data.projects.find(p=>p.id===projectId);}
-  function visualizationProgress(runs=[]){
-    const ready=runs.filter(r=>r.has_results&&r.result_status==='ready').length,total=runs.length;
-    return {ready,total,percent:total?Math.round(100*ready/total):0};
-  }
   function renderSidebarAction(){
     const control=$('ewCreateProject');if(!control)return;
-    const viewer=document.body.classList.contains('execution-viewer');
-    control.classList.toggle('ew-visualization-progress',viewer);
+    const viewer=document.body.classList.contains('execution-viewer');control.classList.toggle('ew-view-switch',viewer);
     if(!viewer){control.textContent='새 프로젝트';control.title='새 프로젝트';control.removeAttribute('aria-label');control.onclick=createProject;return;}
-    const {ready,total,percent}=visualizationProgress(currentProject()?.runs);
-    const summary=`시각화 준비 ${percent}% · ${ready}/${total} Case`;
-    control.replaceChildren();control.title=summary+' · 클릭하여 실행 목록 보기';control.setAttribute('aria-label',summary+' · 실행 목록 보기');
-    const fill=node('span',null,'ew-visualization-fill');fill.style.width=percent+'%';
-    const label=node('span','시각화 준비','ew-visualization-label');
-    const count=node('span',`${percent}%`, 'ew-visualization-percent');
-    const gauge=node('span',null,'ew-visualization-gauge');gauge.setAttribute('role','progressbar');gauge.setAttribute('aria-label','프로젝트 시각화 준비율');gauge.setAttribute('aria-valuemin','0');gauge.setAttribute('aria-valuemax','100');gauge.setAttribute('aria-valuenow',String(percent));gauge.setAttribute('aria-valuetext',`${ready}/${total} Case 준비됨`);gauge.append(fill);
-    control.append(gauge,label,count);control.onclick=()=>{showList();$('ewSearch').focus();};
+    const isData=DataSheetViewer.mode==='data';
+    control.textContent=isData?'Data Sheet Viewer':'3D Virtual Viewer';
+    control.title=(isData?'3D Virtual Viewer':'Data Sheet Viewer')+'로 전환';
+    control.setAttribute('aria-label',control.textContent);control.onclick=()=>{DataSheetViewer.toggle();renderSidebarAction();};
   }
   function button(text, action, cls='btn') {const b=node('button',text,cls); b.type='button'; b.onclick=action; return b;}
   function message(text){$('ewMessage').textContent=text;}
-  function showList(){viewMode='cfd';suspendWarehouseViewer();setPlay(false,true);setMode('cfd');document.body.classList.remove('execution-viewer','warehouse-viewer');renderSidebarAction();$('appContext').textContent='CFD Studio · '+(currentProject()?.name||'프로젝트');}
+  function showList(){DataSheetViewer.suspend();viewMode='cfd';suspendWarehouseViewer();setPlay(false,true);setMode('cfd');document.body.classList.remove('execution-viewer','warehouse-viewer');renderSidebarAction();$('appContext').textContent='CFD Studio · '+(currentProject()?.name||'프로젝트');}
   function renderProjects() {
     const list=$('ewProjects');
     const signature=JSON.stringify([projectId,data.projects.map(p=>[p.id,p.name,p.runs.length])]);
@@ -48,7 +39,7 @@
     $('ewTitle').textContent=currentProject()?.name||'프로젝트';
     $('ewDescription').textContent=currentProject()?.description||'';
     $('ewDefault').textContent='기본 프리셋: '+(presets.find(p=>p.id===currentProject()?.default_preset)?.name||'미지정');
-    $('ewNewRun').disabled=pending||currentProject()?.storage_available===false;const path=$('ewStorage');if(path){path.textContent=currentProject()?.storage_path||'';path.title=path.textContent;path.classList.toggle('offline',currentProject()?.storage_available===false);}renderSidebarAction();
+    $('ewNewRun').disabled=pending||currentProject()?.storage_available===false;const path=$('ewStorage');if(path){path.textContent=currentProject()?.storage_available===false?'프로젝트 폴더 연결 필요':'';path.title='';path.classList.toggle('offline',currentProject()?.storage_available===false);}renderSidebarAction();
     $('appContext').textContent='CFD Studio · '+(currentProject()?.name||'프로젝트');
     $('stTxt').textContent=data.busy?'계산 중':'실행 대기';$('stDot').className=data.busy?'dot run':'dot ok';
   }
@@ -103,7 +94,7 @@
     $('ewGoals').textContent=value.goals||'';$('ewDifferenceCount').textContent=value.differences?.length?value.differences.length+'개 변경':'변경 없음';
   }
   async function selectRun(id){
-    const token=++generation;runId=id;selectedRuns.set(projectId,id);detail=null;renderRuns();suspendWarehouseViewer();setPlay(false,true);
+    const token=++generation;runId=id;selectedRuns.set(projectId,id);detail=null;DataSheetViewer.begin(null);renderRuns();suspendWarehouseViewer();setPlay(false,true);
     clearDetail();$('ewRunTitle').textContent='불러오는 중';
     try{const value=await api('/detail?id='+encodeURIComponent(id));if(token!==generation)return;showDetail(value);message('');if(viewMode==='viewer')await viewResult();}
     catch(e){if(token===generation){clearDetail();message(e.message);}}
@@ -113,7 +104,7 @@
     if(detail.can_generate&&(!detail.has_results||detail.result_status==='update')){await prepareResult();return;}
     if(!detail.has_results){showList();message('선택한 실행의 결과가 아직 없습니다. 설정과 로그를 확인하세요.');return;}
     const selected=detail,token=generation;viewMode='viewer';setPlay(false,true);
-    document.body.classList.add('execution-viewer');renderSidebarAction();
+    DataSheetViewer.begin(selected);DataSheetViewer.resume();document.body.classList.add('execution-viewer');renderSidebarAction();
     document.body.classList.toggle('warehouse-viewer',selected.kind==='warehouse');
     cancelViewerLoad();
     if(selected.kind!=='warehouse'){restoreWarehouseUI();VIZCFG=selected.config||null;VPROJ=selected.rid;}
@@ -122,6 +113,7 @@
       if(token!==generation||viewMode!=='viewer')return;
       await loadWarehouseResult(selected.rid,selected.name);
     }else{await selVz(selected.rid);}
+    if(token===generation&&viewMode==='viewer')DataSheetViewer.loaded();
   }
   function inspectSettings(){
     if(!detail)return;if(detail.editable){openRun(detail.config,detail);return;}const snapshot=structuredClone(detail);
@@ -249,7 +241,7 @@ body.grouped #warehouseDetails details{margin-top:8px}body.grouped #warehouseDet
 }
 
 
-#ewCreateProject{position:relative;isolation:isolate;overflow:hidden;width:100%;height:38px;min-height:38px;box-sizing:border-box}#ewCreateProject.ew-visualization-progress{justify-content:space-between;padding:0 12px;gap:8px}#ewCreateProject .ew-visualization-gauge{position:absolute;inset:0;z-index:-1;pointer-events:none}#ewCreateProject .ew-visualization-fill{display:block;height:100%;background:rgba(57,135,229,.23);border-right:1px solid rgba(57,135,229,.5);transition:width .25s}#ewCreateProject .ew-visualization-label{font-size:12px}#ewCreateProject .ew-visualization-percent{font-size:13px;font-weight:600;color:#8fc3ff;font-variant-numeric:tabular-nums}
+#ewCreateProject{position:relative;isolation:isolate;overflow:hidden;width:100%;height:38px;min-height:38px;box-sizing:border-box}#ewCreateProject.ew-view-switch{position:relative;padding-right:30px}#ewCreateProject.ew-view-switch::after{content:'⇄';position:absolute;right:12px;color:var(--muted)}
 `;document.head.append(style);
     const sidebar=node('section',null);sidebar.id='ewSidebar';const create=button('새 프로젝트',createProject);create.id='ewCreateProject';const projectHeading=node('div',null,'ew-project-heading');projectHeading.append(node('h2','프로젝트'),button('열기',openProject,'btn'));sidebar.append(projectHeading,create);
     const projects=node('div');projects.id='ewProjects';projects.setAttribute('aria-label','프로젝트 목록');projects.tabIndex=0;sidebar.append(projects);const presetBox=node('section');presetBox.id='ewPresets';presetBox.append(node('h2','설정 프리셋'));const presetSelect=node('select');presetSelect.id='ewPresetPicker';presetSelect.setAttribute('aria-label','프리셋 리스트');presetBox.append(presetSelect);const actions=node('div',null,'ew-bar');actions.append(button('새로 만들기',()=>presetEditor('new')),button('열기',()=>presetEditor('view')),button('복제',()=>presetEditor('copy')),button('이름 변경',()=>presetEditor('rename')));presetBox.append(actions);sidebar.append(presetBox);$('side').prepend(sidebar);

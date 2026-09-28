@@ -430,7 +430,7 @@ class ExecutionWorkspace(ProjectStorage, RunManagement):
 
 def get_route(handler, workspace):
     url = urlparse(handler.path)
-    if url.path in ('/execution_workspace.js', '/config_editor.js', '/warehouse_viewer.js'):
+    if url.path in ('/execution_workspace.js', '/config_editor.js', '/warehouse_viewer.js', '/data_sheet_viewer.js'):
         handler._send(200, Path(__file__).with_name(url.path[1:]).read_bytes(), 'text/javascript; charset=utf-8')
         return True
     if not url.path.startswith('/api/executions'):
