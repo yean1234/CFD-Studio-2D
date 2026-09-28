@@ -52,26 +52,65 @@ class ExecutionWorkspace:
         self.lock = threading.RLock()
         self.processes = {}
 
+    def external_entries(self):
+        """Explicitly linked result folders; never scan or relocate their siblings."""
+        return read_json(self.folder/'external_results.json', [])
+
+    def external_paths(self):
+        return [Path(item['path']) for item in self.external_entries()]
+
+    def restore_external(self, project_name, path):
+        """Restore an existing result by reference, preserving all source bytes."""
+        project_name = label(project_name)
+        path = Path(path).resolve()
+        meta = read_json(path/'meta.json', {})
+        rid = meta.get('run_id') or meta.get('project_id')
+        if not path.is_dir() or not rid or not (path/'case_config.json').is_file():
+            raise ValueError('원본 메타데이터와 실행 설정을 확인해 주세요')
+        key = 'legacy:' + str(rid)
+        with self.lock:
+            existing = self.discover().get(key)
+            if existing and Path(existing['path']).resolve() != path:
+                raise ValueError('같은 실행 ID가 다른 경로에 있습니다')
+            data = self._catalog(self.discover())
+            project = next((p for p in data['projects'] if p['name'] == project_name), None)
+            if project is None:
+                project = {'id': uuid.uuid4().hex, 'name': project_name, 'created': time.time(), 'runs': []}
+                data['projects'].append(project)
+            for p in data['projects']:
+                p['runs'] = [r for r in p['runs'] if r != key]
+            project['runs'].append(key)
+            entries = [e for e in self.external_entries() if Path(e['path']).resolve() != path]
+            entries.append({'path': str(path), 'project_id': project['id']})
+            atomic_json(self.folder/'projects.json', data)
+            atomic_json(self.folder/'external_results.json', entries)
+            return {'project_id': project['id'], 'run_key': key}
+
     def discover(self):
         """Read original artifacts without healing, renaming, or rewriting them."""
         records = {}
         roots = self.project_roots() if callable(self.project_roots) else self.project_roots
+        candidates = [(p, None) for base in roots for p in sorted(Path(base).glob('*'))]
+        candidates += [(Path(e['path']), e['project_id']) for e in self.external_entries()]
         seen = set()
-        for base in roots:
-            base = Path(base)
-            for p in sorted(base.glob('*')):
-                if not p.is_dir() or p.name.startswith('_') or p.name.casefold() in seen:
-                    continue
-                seen.add(p.name.casefold())
-                meta = read_json(p/'meta.json', {})
-                rid = str(meta.get('run_id') or meta.get('project_id') or p.name)
-                key = 'legacy:' + rid
-                cfg = read_json(p/'case_config.json', None) or read_json(p/'config.json', {})
-                records[key] = {'id': key, 'kind': 'legacy', 'rid': rid, 'name': meta.get('name') or p.name,
-                    'path': str(p), 'model': cfg.get('_해석유형', 'unknown'),
-                    'status': 'complete' if meta.get('completed') else 'saved',
-                    'created': meta.get('created') or p.stat().st_mtime, 'end_s': meta.get('tmax') or meta.get('end'),
-                    'has_results': any(p.glob('*.bin')), 'study_attempt_id': meta.get('study_attempt_id')}
+        for p, project_id in candidates:
+            if not p.is_dir() or p.name.startswith('_') or str(p.resolve()).casefold() in seen:
+                continue
+            seen.add(str(p.resolve()).casefold())
+            meta = read_json(p/'meta.json', {})
+            rid = str(meta.get('run_id') or meta.get('project_id') or p.name)
+            key = 'legacy:' + rid
+            if key in records:
+                continue
+            cfg = read_json(p/'case_config.json', None) or read_json(p/'config.json', {})
+            analysis = cfg.get('_해석유형') or ('immersion' if 'tank' in cfg and 'dielectric_fluid' in cfg else 'unknown')
+            records[key] = {'id': key, 'kind': 'legacy', 'rid': rid, 'name': meta.get('name') or p.name,
+                'path': str(p), 'model': analysis,
+                'status': 'complete' if meta.get('completed') else 'saved',
+                'created': meta.get('created') or p.stat().st_mtime, 'end_s': meta.get('tmax') or meta.get('end'),
+                'has_results': any(p.glob('*.bin')), 'study_attempt_id': meta.get('study_attempt_id')}
+            if project_id:
+                records[key]['project_id'] = project_id
         for p in sorted(self.output.glob('warehouse_transport_*')):
             if not p.is_dir() or p.is_symlink() or not (p/'model_contract.json').is_file():
                 continue

@@ -271,6 +271,10 @@ def _project_entries():
                 continue
             seen.add(marker)
             found.append((name, path))
+    for pd in EXECUTION_WORKSPACE.external_paths():
+        name, path = pd.name, str(pd)
+        if os.path.isdir(path) and os.path.normcase(os.path.abspath(path)) not in {os.path.normcase(os.path.abspath(p)) for _, p in found}:
+            found.append((name, path))
     return found
 
 def proj_dir(rid):
@@ -1267,8 +1271,11 @@ def list_projects():
     try: _migrate_project_dirs()
     except Exception: pass
     out = []
+    external = {os.path.normcase(os.path.abspath(p)) for p in EXECUTION_WORKSPACE.external_paths()}
     for d, p in _project_entries():
-        _normalize_project_dir(p, d)
+        linked = os.path.normcase(os.path.abspath(p)) in external
+        if not linked:
+            _normalize_project_dir(p, d)
         ts = []
         n = 0
         for f in os.listdir(p):
@@ -1287,7 +1294,7 @@ def list_projects():
         playback_duration = float(project_run.get("playback_duration_s") or 60)
         inv = project_inventory(p)
         project_id = str(meta.get("run_id") or meta.get("project_id") or d)
-        if not meta.get("heal2"):                           # 1회 치유: end는 프로젝트 자신의 값이어야 함
+        if not linked and not meta.get("heal2"):            # 1회 치유: end는 프로젝트 자신의 값이어야 함
             try:
                 own = (meta.get("settings") or {}).get("end_time_s")
                 if not own:
@@ -2896,6 +2903,9 @@ def _upgrade_phase_project(pdir):
     PHS1은 빈 10 mm bin이 water=0, vapour=0이어서 화면이 이를
     liquid=1로 오해했다. alpha 배열은 변경하지 않고 점유 마스크만 추가한다.
     """
+    if any(os.path.normcase(os.path.abspath(pdir)) == os.path.normcase(os.path.abspath(p))
+           for p in EXECUTION_WORKSPACE.external_paths()):
+        return 0
     try:
         files = [os.path.join(pdir, n) for n in os.listdir(pdir)
                  if n.startswith("phase_") and n.endswith(".bin")]
@@ -5314,7 +5324,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
     <li>완료된 실행 선택 → <b>결과 보기</b> → 시간·농도·온도·유속 조회</li>
    </ul>
    <h4>프로젝트와 실행</h4>
-   <ul><li>프로젝트: 실행 이력을 묶는 공간</li><li>설정: 새 CFD 실행 시 입력, 실행별 원본 보관</li><li>실행 목록: 선택한 실행의 설정·로그·결과 표시</li><li>기존 기록: 식량창고 프로젝트의 실행 이력으로 보존</li><li>동시 계산: 한 번에 한 실행, 완료 후 추가 실행</li></ul>
+   <ul><li>프로젝트: 실행 이력을 묶는 공간</li><li>설정: 새 CFD 실행 시 입력, 실행별 원본 보관</li><li>실행 목록: 선택한 실행의 설정·로그·결과 표시</li><li>저장고 기록: 식량창고 프로젝트의 실행 이력으로 보존</li><li>이중액침: 별도 프로젝트에서 3mm_Test 결과 조회</li><li>동시 계산: 한 번에 한 실행, 완료 후 추가 실행</li></ul>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>사용법</b></a></p>
    <ul class="mhint"><li>기본 계산 범위: 300초, 누출 제외, 다공성 곡물</li><li>격자·시간간격 수렴: 기준 미달</li><li>실행 완료와 물리·실험 검증 완료는 별도 판정</li><li>모델·단위: <b>설명서</b> 탭 참고</li></ul>
   </div>

@@ -1,4 +1,6 @@
 import copy
+import ast
+import os
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
@@ -83,6 +85,42 @@ class ExecutionWorkspaceTests(unittest.TestCase):
         failed=next(r for r in runs if r['name']=='failed')
         self.assertEqual(failed['status'],'failed')
         self.assertEqual(before,self.hashes())
+
+    def test_restore_external_is_idempotent_and_does_not_import_siblings(self):
+        external=self.base/'archive'/'3mm_Test';external.mkdir(parents=True)
+        atomic_json(external/'meta.json',{'run_id':'1787048959','name':'3mm_Test','tmax':52.49})
+        atomic_json(external/'case_config.json',{'tank':{},'dielectric_fluid':{}})
+        (external/'flow_0.bin').write_bytes(b'original')
+        sibling=external.parent/'unrelated';sibling.mkdir()
+        atomic_json(sibling/'meta.json',{'run_id':'unrelated'})
+        before={p.name:p.read_bytes() for p in external.iterdir()}
+        result=self.workspace.restore_external('이중액침',external)
+        self.assertEqual(result,self.workspace.restore_external('이중액침',external))
+        snap=self.workspace.snapshot()
+        self.assertEqual(len(snap['projects']),2)
+        self.assertEqual(len(snap['projects'][0]['runs']),3)
+        restored=snap['projects'][1]
+        self.assertEqual(len(restored['runs']),1)
+        self.assertEqual(restored['runs'][0]['model'],'immersion')
+        self.assertEqual(self.workspace.external_paths(),[external])
+        self.assertEqual(before,{p.name:p.read_bytes() for p in external.iterdir()})
+        self.assertTrue(self.workspace.detail(result['run_key'])['has_results'])
+        restarted=ExecutionWorkspace(ROOT,[self.projects],folder=self.workspace.folder,output=self.workspace.output)
+        self.assertEqual(restarted.snapshot(),snap)
+
+    def test_linked_result_viewing_never_upgrades_original_phase_files(self):
+        tree=ast.parse((ROOT/'cfd_studio/app.py').read_text())
+        function=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_upgrade_phase_project')
+        context={'os':os,'EXECUTION_WORKSPACE':Mock(external_paths=lambda:[self.base])}
+        exec(compile(ast.Module(body=[function],type_ignores=[]),'<phase upgrade>','exec'),context)
+        with patch.object(os,'listdir') as listing:
+            self.assertEqual(context['_upgrade_phase_project'](self.base),0)
+            listing.assert_not_called()
+
+    def test_restore_rejects_missing_metadata_without_changing_catalog(self):
+        before=self.workspace.snapshot()
+        with self.assertRaises(ValueError):self.workspace.restore_external('이중액침',self.base/'absent')
+        self.assertEqual(self.workspace.snapshot(),before)
 
     def test_windows_launcher_uses_exec_and_utf8_for_korean_paths(self):
         job_path=self.base/'한글 경로'/'job.json'

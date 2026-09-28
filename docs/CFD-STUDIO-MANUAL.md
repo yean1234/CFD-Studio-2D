@@ -12,7 +12,9 @@
 - 재실행: 새 실행과 새 결과 폴더 생성, 앞선 결과 보존
 - 실행 완료: 지정 시간까지 계산·출력 검사 통과
 - 수치 수렴·실험 검증: 실행 완료와 별도 표시
-- 기존 기록: 식량창고 프로젝트의 실행 목록으로 통합
+- 저장고 기록: 식량창고 프로젝트의 실행 목록으로 통합
+- 이중액침 기록: 별도 프로젝트 유지, 외부 원본 폴더 참조
+- 외부 연결 목록: `cfd_studio/_runtime/executions/external_results.json`
 - 저장 위치: 프로젝트 목록·입력은 `cfd_studio/_runtime/executions`, 새 결과는 `output/warehouse_transport_ui_*`
 - 백업: 두 위치와 기존 `cfd_studio/Project`, `cfd_studio/Studies`, `output` 함께 보존
 - 계산 환경: WSL OpenFOAM·Linux NumPy 필요
