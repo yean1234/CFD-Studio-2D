@@ -19,7 +19,7 @@
     const check=v=>{if(v&&typeof v==='object')for(const [k,x] of Object.entries(v)){if(['__proto__','prototype','constructor'].includes(k))throw Error('허용되지 않는 설정 키');check(x);}};check(c);return c;}
   function validate(c){
     if(kind(c)==='unsupported')throw Error('이 설정은 조회만 지원합니다. 실행 가능한 기본 설정을 선택하세요.');
-    const check=(v,path='')=>{if(v===null)throw Error(path+' 값을 입력하세요');if(typeof v==='number'&&!Number.isFinite(v))throw Error(path+' 숫자를 확인하세요');if(v&&typeof v==='object')for(const [k,x] of Object.entries(v))check(x,path?path+'.'+k:k);};check(c);
+    const check=(v,path='')=>{if(v===null)throw Error(path+' 값을 입력하세요');if(typeof v==='number'&&!Number.isFinite(v))throw Error(path+' 숫자를 확인하세요');if(v&&typeof v==='object')for(const [k,x] of Object.entries(v)){if(isReferenceKey(k)||['unresolved','assumptions','study','solver_options','published_numerics'].includes(k))continue;check(x,path?path+'.'+k:k);}};check(c);
     const n=kind(c)==='warehouse'?c.numerics:c.run;
     const positive=(v,label)=>{if(typeof v!=='number'||!Number.isFinite(v)||v<=0)throw Error(label+'을 양수로 입력하세요');};
     if(!n)throw Error('계산 설정이 없습니다');
@@ -60,7 +60,7 @@
   }
   const normalizeSearch = value => String(value).normalize('NFKC').toLowerCase().replace(/\s+/g,'');
   function matchesSearch(query,...terms){const text=normalizeSearch(terms.join(' '));return text.includes(normalizeSearch(query))||String(query).trim().split(/\s+/).every(word=>text.includes(normalizeSearch(word)));}
-  function searchFields(config,query,{managed=false,readonly=false}={}){
+  function searchFields(config,query,{managed=false,readonly=false,sections={}}={}){
     const found=[];
     const visit=(value,path)=>{
       if(path.some(k=>isReferenceKey(k)||String(k).startsWith('_'))||path[0]==='schema')return;
@@ -71,7 +71,7 @@
       if(managed&&!readonly&&['end_s','end_time_s','max_iterations','stop_mode'].includes(key))return;
       const info=fieldInfo(path,config),parents=path.map((_,i)=>fieldInfo(path.slice(0,i+1),config).title);
       const labels=(enums[key]||[]).map(v=>choices[v]||v);
-      if(matchesSearch(query,path.join('.'),...parents,info.unit,...labels,choices[value]||'',JSON.stringify(value)))found.push({path,value});
+      if(matchesSearch(query,sections[path[0]]||'',path.join('.'),...parents,info.unit,...labels,choices[value]||'',JSON.stringify(value)))found.push({path,value});
     };
     visit(config,[]);return found;
   }
@@ -81,39 +81,57 @@
     return matchesSearch(query,'종료 조건 목표 종료 방식 수렴 기준 특정 물리시간 저장 프레임 수 목표값 비교 목적',config._studio?.goals||'',
       mode==='frames'?'목표 저장 프레임 수 0초 초기 프레임 포함 frames include_initial':'목표 물리시간 종료시간 time_s end_s end_time_s');
   }
-  function summary(c){if(!c)return '';const k=kind(c);return k==='warehouse'?`저장고 연결 · ${c.numerics.end_s} s · 초기 ${c.coupled.initial_temperature_C} °C`:k==='immersion'?`이중액침 · ${c.run?.end_time_s??'—'} s · 발열 ${c.heater?.total_W??'—'} W`:k==='grain_silo'?'단상 저장고 설정':'보관된 실행 설정';}
-  function download(config,name){const url=URL.createObjectURL(new Blob([JSON.stringify(config,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=(name||'실행 설정')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+  function summary(c){if(!c)return '';const k=kind(c);return k==='warehouse'?`저장고 연결 · ${c.numerics.end_s} s · 초기 ${c.coupled.initial_temperature_C} °C`:k==='immersion'?`이중액침 · ${c.run?.end_time_s??'—'} s · 발열 ${c.heater?.total_W??'—'} W`:k==='grain_silo'?'단상 저장고 설정':'보관된 Case Config';}
+  function configParts(config){
+    const groups=[
+      {title:'형상·격자',keys:['tank','layers','board','coil','geometry_spec','geometry','loading','silo','mesh','porous_mesh']},
+      {title:'물성·경계조건',keys:['dielectric_fluid','water','vapour','phase_change','heater','published','coupled','initial','temperature','boundary_policy']},
+      {title:'솔버·계산',keys:['openfoam_mapping','solver_controls','numerics','run']},
+      {title:'관측·비교',keys:['probes_mm','conditions','assumptions']}
+    ];
+    const keys=Object.keys(config).filter(k=>!k.startsWith('_')&&!['schema','schema_version'].includes(k)&&!isReferenceKey(k));
+    const used=new Set(groups.flatMap(g=>g.keys));groups.push({title:'고급',keys:keys.filter(k=>!used.has(k))});
+    return groups.map(g=>({...g,keys:g.keys.filter(k=>keys.includes(k))})).filter(g=>g.keys.length);
+  }
+  function download(config,name){const url=URL.createObjectURL(new Blob([JSON.stringify(config,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=(name||'Case Config')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   let dialog;
   function open(options){
     if(dialog?.open)throw Error('열려 있는 설정 창을 먼저 닫아 주세요');
     if(!dialog){dialog=document.createElement('dialog');dialog.id='settingsDialog';document.body.append(dialog);const style=document.createElement('style');style.textContent=`
-#settingsDialog{width:min(1100px,96vw);height:min(850px,92vh);padding:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink)}#settingsDialog::backdrop{background:#000a}#settingsDialog[open]{display:flex;flex-direction:column}#settingsDialog header,#settingsDialog footer{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center;flex-wrap:wrap}#settingsDialog h2{font-size:18px;margin:0;flex:1}#settingsDialog p{margin:4px 0;font-size:12px;color:var(--ink2)}#settingsDialog input,#settingsDialog select,#settingsDialog textarea{background:var(--page);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:8px;font:inherit;box-sizing:border-box;min-width:0}#settingsDialog button{cursor:pointer}#settingsDialog input:disabled,#settingsDialog textarea:disabled,#settingsDialog select:disabled{opacity:.85}#settingsDialog .settings-body{flex:1;min-height:0;display:grid;grid-template-columns:205px minmax(0,1fr)}#settingsDialog nav{overflow:auto;padding:12px;border-right:1px solid var(--line)}#settingsDialog nav button{display:block;width:100%;padding:10px;text-align:left;margin-bottom:4px;border:0;border-radius:5px;background:transparent;color:var(--ink)}#settingsDialog nav button[aria-current=true]{background:#3987e530;color:#80baff}#settingsDialog main{overflow:auto;padding:18px;min-width:0}#settingsDialog .settings-row{display:grid;grid-template-columns:minmax(130px,1fr) minmax(100px,1fr) 80px;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}#settingsDialog .settings-row input,#settingsDialog .settings-row textarea,#settingsDialog .settings-row select{width:100%}#settingsDialog .settings-row output{white-space:pre-wrap;overflow-wrap:anywhere}#settingsDialog fieldset{border:1px solid var(--line);border-radius:6px;margin:12px 0;padding:12px;min-width:0}#settingsDialog legend{padding:0 6px;font-size:13px}#settingsDialog .settings-note{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:var(--ink2);margin:8px 0}#settingsDialog footer{border-top:1px solid var(--line);border-bottom:0;flex-shrink:0}#settingsError{color:#ff9c8a!important;flex-basis:100%;white-space:pre-wrap}#settingsSearch{width:100%;margin-bottom:10px}#settingsJson{width:100%;height:100%;min-height:320px;font:12px monospace!important}#settingsDialog .settings-top{padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}#settingsDialog .settings-top>select{width:auto;max-width:55%;flex:1}#settingsDialog .settings-top>p{flex-basis:100%}#settingsDialog .settings-top label{display:flex;align-items:center;gap:8px;font-size:13px}#settingsDialog .settings-fluid{display:flex;gap:8px;margin:10px 0}#settingsDialog .settings-output{display:flex;gap:12px;flex-wrap:wrap}#settingsDialog .settings-output label{display:flex;align-items:center;gap:4px}#settingsDialog .settings-output input{width:auto}@media(max-width:700px){#settingsDialog .settings-body{grid-template-columns:130px minmax(0,1fr)}#settingsDialog .settings-row{grid-template-columns:1fr;gap:4px}#settingsDialog header,#settingsDialog main{padding:12px}}
+#settingsDialog{width:min(1100px,96vw);height:min(850px,92vh);padding:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink)}#settingsDialog::backdrop{background:#000a}#settingsDialog[open]{display:flex;flex-direction:column}#settingsDialog header,#settingsDialog footer{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center;flex-wrap:wrap}#settingsDialog h2{font-size:18px;margin:0;flex:1}#settingsDialog p{margin:4px 0;font-size:12px;color:var(--ink2)}#settingsDialog input,#settingsDialog select,#settingsDialog textarea{background:var(--page);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:8px;font:inherit;box-sizing:border-box;min-width:0}#settingsDialog button{cursor:pointer}#settingsDialog input:disabled,#settingsDialog textarea:disabled,#settingsDialog select:disabled{opacity:.85}#settingsDialog .settings-body{flex:1;min-height:0;display:grid;grid-template-columns:205px minmax(0,1fr)}#settingsDialog nav{overflow:auto;padding:12px;border-right:1px solid var(--line)}#settingsDialog nav button{display:block;width:100%;padding:10px;text-align:left;margin-bottom:4px;border:0;border-radius:5px;background:transparent;color:var(--ink)}#settingsDialog nav details{margin:8px 0;border-color:var(--line)}#settingsDialog nav details>div{margin:4px!important;padding:2px}#settingsDialog nav details>summary{font-size:12px}#settingsDialog .settings-part-title{font-size:10px;letter-spacing:.4px;color:var(--muted);padding:16px 10px 6px;margin:0;border-top:1px solid var(--line)}#settingsDialog .settings-part-title:first-of-type{border-top:0}#settingsDialog nav button[aria-current=true]{background:#3987e530;color:#80baff}#settingsDialog main{overflow:auto;padding:18px;min-width:0}#settingsDialog .settings-row{display:grid;grid-template-columns:minmax(130px,1fr) minmax(100px,1fr) 80px;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}#settingsDialog .settings-row input,#settingsDialog .settings-row textarea,#settingsDialog .settings-row select{width:100%}#settingsDialog .settings-row output{white-space:pre-wrap;overflow-wrap:anywhere}#settingsDialog fieldset{border:1px solid var(--line);border-radius:6px;margin:12px 0;padding:12px;min-width:0}#settingsDialog legend{padding:0 6px;font-size:13px}#settingsDialog .settings-note{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:var(--ink2);margin:8px 0}#settingsDialog footer{border-top:1px solid var(--line);border-bottom:0;flex-shrink:0}#settingsError{color:#ff9c8a!important;flex-basis:100%;white-space:pre-wrap}#settingsSearch{width:100%;margin-bottom:10px}#settingsJson{width:100%;height:100%;min-height:320px;font:12px monospace!important}#settingsDialog .settings-top{padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}#settingsDialog .settings-top>select{width:auto;max-width:55%;flex:1}#settingsDialog .settings-top>p{flex-basis:100%}#settingsDialog .settings-top label{display:flex;align-items:center;gap:8px;font-size:13px}#settingsDialog .settings-fluid{display:flex;gap:8px;margin:10px 0}#settingsDialog .settings-output{display:flex;gap:12px;flex-wrap:wrap}#settingsDialog .settings-output label{display:flex;align-items:center;gap:4px}#settingsDialog .settings-output input{width:auto}@media(max-width:700px){#settingsDialog .settings-body{grid-template-columns:130px minmax(0,1fr)}#settingsDialog .settings-row{grid-template-columns:1fr;gap:4px}#settingsDialog header,#settingsDialog main{padding:12px}}
 `;document.head.append(style);}
     let config=clone(options.config),readonly=!!options.readonly,section=options.managed?'termination':config.numerics?'numerics':config.run?'run':Object.keys(config)[0],locked=false,version=0,jsonText=null;
     const el=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};
     const button=(text,fn)=>{const b=el('button',text);b.type='button';b.className='btn';b.onclick=()=>act(fn);return b;};
     const error=message=>{document.getElementById('settingsError').textContent=message;};
     const act=async fn=>{try{error('');await fn();}catch(e){error(e.message);}};
-    const current=()=>{const c=jsonText!==null?parse(jsonText):clone(config);return !readonly&&options.managed?applyTermination(c):c;};
+    const current=()=>{const c=jsonText!==null?parse(jsonText):clone(config);if(!readonly&&options.form){if(kind(c)!==kind(options.config))throw Error('CFD FORM의 해석 대상을 변경할 수 없습니다');if(kind(c)==='grain_silo'&&c.openfoam_mapping?.solver!==options.form.solver)throw Error('솔버는 CFD FORM에서 지정합니다');}return !readonly&&options.managed?applyTermination(c):c;};
     const close=()=>{if(!locked){version++;dialog.close();}};
     const busy=value=>{locked=value;for(const n of dialog.querySelectorAll('button,input,textarea,select'))n.disabled=value;};
-    dialog.replaceChildren();const header=el('header');header.append(el('h2',options.title||(readonly?'실행 설정':'새 실행 설정')),button('닫기',close));dialog.append(header);
+    dialog.replaceChildren();const header=el('header');header.append(el('h2',options.title||(readonly?'Case Config':'새 Case Config')),button('닫기',close));dialog.append(header);
     const top=el('div');top.className='settings-top';const name=el('input');name.id='settingsName';name.value=options.name||'실행 '+new Date().toLocaleString('ko-KR');name.style.width='min(400px,55vw)';name.maxLength=80;name.setAttribute('aria-label',options.purpose==='preset'?'프리셋 이름':'실행 이름');
-    if(!readonly){const l=el('label',options.purpose==='preset'?'프리셋 이름':'실행 이름');l.append(name);top.append(l);}
+    if(!readonly&&options.purpose!=='form'){const l=el('label',options.purpose==='preset'?'프리셋 이름':'Case 이름');l.append(name);top.append(l);}
     const savePreset=el('input');savePreset.type='checkbox';savePreset.id='savePresetCheck';savePreset.checked=false;const presetName=el('input');presetName.id='newPresetName';presetName.placeholder='새 프리셋 이름';presetName.setAttribute('aria-label','새 프리셋 이름');presetName.hidden=true;
     if(!readonly&&options.managed&&options.purpose!=='preset'){const l=el('label');l.append(savePreset,el('span','프리셋에 저장'));top.append(l,presetName);savePreset.onchange=()=>{presetName.hidden=!savePreset.checked;};}
     const subtitle=el('p',readonly?'실행에 사용한 설정입니다. 조회·내보내기만 가능합니다.':'설정은 이번 실행에만 적용됩니다. 프로젝트에는 고정되지 않습니다.');top.append(subtitle);dialog.append(top);
-    if(!readonly&&options.presets){const select=el('select');select.id='settingsPreset';select.setAttribute('aria-label','저장된 설정');select.append(new Option('기본값·저장된 설정 선택',''));for(const p of options.presets)select.append(new Option(p.name+' · '+({warehouse:'저장고',immersion:'이중액침',grain_silo:'단상 저장고'}[p.model]||'설정'),p.id));top.append(select,button('불러오기',async()=>{if(!select.value)throw Error('불러올 설정을 선택하세요');const token=++version;busy(true);try{const c=await options.onLoad(select.value);if(token!==version)return;config=clone(c);section=options.managed?'termination':config.numerics?'numerics':'run';jsonText=null;renderNav();render();}finally{busy(false);}}));}
-    const body=el('div');body.className='settings-body';const nav=el('nav');nav.setAttribute('aria-label','설정 항목');const search=el('input');search.id='settingsSearch';search.placeholder='설정 검색';search.setAttribute('aria-label','설정 검색');const navList=el('div');nav.append(search,navList);const main=el('main');body.append(nav,main);dialog.append(body);
+    if(!readonly&&options.presets){const select=el('select');select.id='settingsPreset';select.setAttribute('aria-label','프리셋');select.append(new Option('프리셋 불러오기',''));for(const p of options.presets)select.append(new Option(p.name,p.id));top.append(select,button('불러오기',async()=>{if(!select.value)throw Error('불러올 설정을 선택하세요');const token=++version;busy(true);try{const c=await options.onLoad(select.value);if(token!==version)return;config=clone(c);section=options.managed?'termination':config.numerics?'numerics':'run';jsonText=null;renderNav();render();}finally{busy(false);}}));}
+    const body=el('div');body.className='settings-body';const nav=el('nav');nav.setAttribute('aria-label','Config 항목');const search=el('input');search.id='settingsSearch';search.placeholder='Config 검색';search.setAttribute('aria-label','Config 검색');const navList=el('div');nav.append(search,navList);const main=el('main');body.append(nav,main);dialog.append(body);
     const footer=el('footer');const err=el('p');err.id='settingsError';err.setAttribute('role','alert');footer.append(err,button('JSON 내보내기',()=>download(current(),readonly?options.name:name.value)));
     const importFile=el('input');importFile.type='file';importFile.accept='.json,application/json';importFile.hidden=true;importFile.id='settingsImport';importFile.onchange=()=>act(async()=>{const file=importFile.files[0];if(!file)return;if(file.size>65536)throw Error('설정 파일은 64 KiB 이하여야 합니다');const token=++version;const c=parse(await file.text());if(token!==version||!dialog.open)return;config=c;jsonText=null;section=options.managed?'termination':config.numerics?'numerics':config.run?'run':Object.keys(config)[0];renderNav();render();importFile.value='';});dialog.append(importFile);
     if(!readonly){footer.append(button('JSON 가져오기',()=>importFile.click()));
-      if(options.onSave&&!options.managed)footer.append(button('설정 저장',async()=>{const c=current();validate(c);busy(true);try{const saved=await options.onSave(name.value,c);error('설정 저장 완료: '+saved.name);}finally{busy(false);}}));
+      if(options.onSave&&!options.managed)footer.append(button('Config 저장',async()=>{const c=current();validate(c);busy(true);try{const saved=await options.onSave(name.value,c);error('Config 저장 완료: '+saved.name);}finally{busy(false);}}));
       const start=button(options.submitLabel||'계산 시작',async()=>{const c=current();validate(c);if(!name.value.trim())throw Error('실행 이름을 입력하세요');if(savePreset.checked&&!presetName.value.trim())throw Error('새 프리셋 이름을 입력하세요');busy(true);try{await options.onRun(name.value,clone(c),{preset_name:savePreset.checked?presetName.value.trim():null});dialog.close();}finally{busy(false);}});start.id='settingsStart';start.classList.add('pri');footer.append(start);
-    }else if(options.onClone){footer.append(button('이 설정으로 새 실행',()=>{const c=current();if(kind(c)==='unsupported')throw Error('이 모델은 보관 설정 조회만 지원합니다');close();options.onClone(c);}));}
+    }else if(options.onClone){footer.append(button('이 Config로 새 Case',()=>{const c=current();if(kind(c)==='unsupported')throw Error('이 모델은 보관 설정 조회만 지원합니다');close();options.onClone(c);}));}
     footer.append(button(readonly?'닫기':'취소',close));dialog.append(footer);dialog.oncancel=e=>{if(locked)e.preventDefault();else version++;};
-    function renderNav(){navList.replaceChildren();if(options.managed||config._studio?.termination){const b=button('종료 조건·목표',()=>{if(section==='json'&&!readonly){config=current();jsonText=null;}section='termination';search.value='';renderNav();render();});b.setAttribute('aria-current',String(section==='termination'));navList.append(b);}const keys=Object.keys(config).filter(k=>!k.startsWith('_')&&k!=='schema'&&!isReferenceKey(k));keys.sort((a,b)=>(['run','numerics'].includes(a)?-1:0)-(['run','numerics'].includes(b)?-1:0));for(const key of keys){const b=button(names[key]||key,()=>{if(section==='json'&&!readonly){config=current();jsonText=null;}section=key;search.value='';renderNav();render();});b.setAttribute('aria-current',String(section===key));navList.append(b);}const json=button('전체 JSON',()=>{section='json';search.value='';renderNav();render();});json.setAttribute('aria-current',String(section==='json'));navList.append(json);if(references(config).length){const ref=button('출처',()=>{if(section==='json'&&!readonly){config=current();jsonText=null;}section='references';search.value='';renderNav();render();});ref.setAttribute('aria-current',String(section==='references'));ref.style.marginTop='18px';navList.append(ref);}}
-    function set(path,value){let obj=config;for(const k of path.slice(0,-1))obj=obj[k];obj[path.at(-1)]=value;subtitle.textContent=(readonly?'보존된 원본 설정 · ':'이번 실행 설정 · ')+summary(config);}
+    function renderNav(){
+      navList.replaceChildren();
+      const add=(key,title,host=navList)=>{const b=button(title,()=>{if(section==='json'&&!readonly){config=current();jsonText=null;}section=key;search.value='';renderNav();render();});b.setAttribute('aria-current',String(section===key));host.append(b);};
+      if(options.managed||config._studio?.termination)add('termination','종료 조건·목표');
+      for(const part of configParts(config)){const group=el('details'),content=el('div');group.open=part.keys.includes(section);group.append(el('summary',part.title),content);navList.append(group);for(const key of part.keys)add(key,options.form?.sections?.[key]||names[key]||key,content);}
+      const advanced=el('h4','파일');advanced.className='settings-part-title';navList.append(advanced);add('json','전체 JSON');
+      if(references(config).length){const title=el('h4','참고 자료');title.className='settings-part-title';navList.append(title);add('references','출처');}
+    }
+    function set(path,value){let obj=config;for(const k of path.slice(0,-1))obj=obj[k];obj[path.at(-1)]=value;subtitle.textContent=[options.form?.name,options.form?.solver,readonly?'실행 시점 Config':options.purpose==='form'?'새 Case의 기본값':options.purpose==='preset'?'프리셋 Config':'이 Case에 적용'].filter(Boolean).join(' · ');}
     function draw(value,path,host){if(section!=='references'&&path.some(isReferenceKey))return;const key=path.at(-1),info=fieldInfo(path,config);
       if(key==='output_fields'&&Array.isArray(value)){const box=el('div');box.className='settings-output';for(const field of enums.output_fields){const l=el('label'),input=el('input');input.type='checkbox';input.checked=value.includes(field);input.disabled=readonly;input.onchange=()=>{const selected=enums.output_fields.filter((_,i)=>box.querySelectorAll('input')[i].checked);set(path,selected);};l.append(input,el('span',choices[field]));box.append(l);}host.append(box);return;}
       if(value!==null&&typeof value==='object'){
@@ -127,7 +145,7 @@
       }
       if(options.managed&&!readonly&&['end_s','end_time_s','max_iterations','stop_mode'].includes(key))return;
       const row=el('label');row.className='settings-row';row.title=path.join('.');row.dataset.settingPath=path.join('.');row.append(el('span',info.title));
-      if(readonly){row.append(el('output',value===null?'미지정':typeof value==='boolean'?(value?'사용':'미사용'):String(value)));}
+      if(readonly||(options.form&&path.join('.')==='openfoam_mapping.solver')){row.append(el('output',value===null?'미지정':typeof value==='boolean'?(value?'사용':'미사용'):String(value)));}
       else{
         let input;const options=enums[key];
         if(options&&!Array.isArray(value)){input=el('select');for(const v of [...new Set([...options,value])])input.append(new Option(choices[v]||String(v),String(v)));input.value=String(value);}
@@ -153,12 +171,12 @@
       const label=el('label','목표값·비교 목적'),goals=el('textarea');goals.setAttribute('aria-label','목표값·비교 목적');goals.value=config._studio?.goals||'';goals.disabled=readonly;goals.maxLength=4000;goals.style.width='100%';goals.oninput=()=>{config._studio.goals=goals.value;};label.append(goals);main.append(label);
       main.append(el('p','솔버 시간간격: 계산 단계 · 결과 저장 간격: 파일 출력 주기 · 재생 속도: Viewer 표시 배속'));
     }
-    function render(){main.replaceChildren();subtitle.textContent=(readonly?'보존된 원본 설정 · ':'이번 실행 설정 · ')+summary(config);
+    function render(){main.replaceChildren();subtitle.textContent=[options.form?.name,options.form?.solver,readonly?'실행 시점 Config':options.purpose==='form'?'새 Case의 기본값':options.purpose==='preset'?'프리셋 Config':'이 Case에 적용'].filter(Boolean).join(' · ');
       const query=search.value.trim();
       if(query){
         if((options.managed||config._studio?.termination)&&searchTermination(config,query))renderTermination();
         const groups=new Map();
-        for(const {path,value} of searchFields(config,query,{managed:options.managed,readonly})){
+        for(const {path,value} of searchFields(config,query,{managed:options.managed,readonly,sections:options.form?.sections||{}})){
           const parent=path.slice(0,-1).map((_,i)=>fieldInfo(path.slice(0,i+1),config).title).join(' · ')||'설정';
           if(!groups.has(parent)){const box=el('fieldset');box.append(el('legend',parent));main.append(box);groups.set(parent,box);}
           draw(value,path,groups.get(parent));
@@ -170,7 +188,7 @@
       if(section==='references'){main.append(el('h3','출처'));for(const ref of references(config)){const group=el('fieldset'),parent=ref.path.slice(0,-1).map(k=>names[k]||k).join(' · ');group.append(el('legend',parent||'설정'));draw(ref.value,ref.path,group);main.append(group);}return;}
 
       if(section==='json'){const area=el('textarea');area.id='settingsJson';area.setAttribute('aria-label','전체 JSON');area.readOnly=readonly;area.value=jsonText??JSON.stringify(config,null,2);area.oninput=()=>{jsonText=area.value;};main.append(area);return;}
-      main.append(el('h3',names[section]||section));
+      main.append(el('h3',options.form?.sections?.[section]||names[section]||section));
       if(!readonly&&['water','dielectric_fluid'].includes(section)&&typeof fluidRef==='function'){
         const bar=el('div');bar.className='settings-fluid';bar.append(button('대표 물성 입력',()=>{const q=fluidRef(section==='water'?'upper':'lower',config);config[section].manual_properties={model:'linear_density',T_ref_C:q.T,rho_kg_m3:q.rho,cp_J_kgK:q.cp,mu_Pa_s:q.mu,kappa_W_mK:q.k,beta_1_K:q.beta};render();}),button('원래 물성표 사용',()=>{delete config[section].manual_properties;render();}));main.append(bar);
       }
@@ -178,6 +196,6 @@
     }
     search.oninput=()=>act(()=>{if(section==='json'){config=jsonText!==null?parse(jsonText):config;jsonText=null;section=config.numerics?'numerics':config.run?'run':Object.keys(config)[0];renderNav();}render();});renderNav();render();dialog.showModal();return {close,current};
   }
-  globalThis.CFDSettings={open,kind,parse,validate,fieldInfo,summary,applyTermination,references,searchFields,searchTermination};
+  globalThis.CFDSettings={open,kind,parse,validate,fieldInfo,summary,applyTermination,references,searchFields,searchTermination,configParts};
   if(typeof module!=='undefined')module.exports=globalThis.CFDSettings;
 })();

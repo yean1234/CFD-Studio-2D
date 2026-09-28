@@ -109,7 +109,7 @@ class RunManagement:
                 'has_results': output.get('has_results', False), 'termination': policy,
                 'end_s': case.get('end_s'), 'goals': case['config'].get('_studio', {}).get('goals', ''),
                 'differences': differences(case.get('baseline', {}), case['config']),
-                'preset_id': case.get('preset_id'), 'attempts': case.get('attempts', []),
+                'form_id': case.get('form_id'), 'form_snapshot': {k:v for k,v in case['form_snapshot'].items() if k != 'config'} if case.get('form_snapshot') else None, 'preset_id': case.get('preset_id'), 'attempts': case.get('attempts', []),
                 'last_saved': output.get('last_saved'), 'result_status': output.get('result_status', 'none'),
                 'numerical_status': output.get('numerical_status', 'unchecked')}
 
@@ -130,9 +130,14 @@ class RunManagement:
                 raise ValueError('시작한 실행은 변경할 수 없습니다. 새 실행으로 복제하세요.')
             if old and revision != old['revision']:
                 raise ValueError('다른 화면에서 설정이 변경되었습니다. 다시 열어 주세요.')
+            form_id = project.get('form_id')
+            if form_id:
+                self.check_form_config(form_id, config)
+                self.check_form_preset(form_id, preset_id)
             source = old.get('baseline', {}) if old else self.template(preset_id) if preset_id else copy.deepcopy(config)
             key = case_id or 'case:'+uuid.uuid4().hex
             case = {**(old or {}), 'id': key, 'project_id': project_id, 'name': name, 'config': config,
+                    'form_id': form_id, 'form_snapshot': copy.deepcopy(old.get('form_snapshot') if old else self.form(form_id)) if form_id else None,
                     'baseline': source, 'preset_id': old.get('preset_id') if old else preset_id,
                     'kind': config_kind(config), 'created': old['created'] if old else time.time(),
                     'status': old['status'] if old else 'draft', 'end_s': end,
@@ -141,7 +146,7 @@ class RunManagement:
             try:
                 # Saving the optional preset must succeed before the draft can change.
                 if preset_name:
-                    saved = self.save_preset(preset_name, config)
+                    saved = self.save_preset(preset_name, config, form_id) if form_id else self.save_preset(preset_name, config)
                 q['cases'][key] = case
                 self.save_queue(q)
             except Exception:
@@ -315,7 +320,7 @@ class RunManagement:
                 job = read(folder/'job.json');job.update(status='failed', error=str(error));write(folder/'job.json', job)
                 self.save_queue(q)
 
-    def edit_project(self, key, name, description, default_preset, storage_path=None):
+    def edit_project(self, key, name, description, default_preset, storage_path=None, form_id=None):
         from cfd_studio.execution_workspace import label
         from cfd_studio.project_storage import project_path
         name = label(name)
@@ -328,11 +333,16 @@ class RunManagement:
             p = next((p for p in data['projects'] if p['id'] == key), None)
             if not p:
                 raise ValueError('프로젝트를 찾을 수 없습니다')
+            selected_form = form_id or p.get('form_id')
+            if selected_form:
+                if selected_form != self.project_form(p, self.discover()):
+                    raise ValueError('프로젝트의 CFD FORM은 고정됩니다. 새 프로젝트를 만드세요.')
+                self.check_form_preset(selected_form, default_preset)
             if storage_path and project_path(storage_path) != project_path(p['storage_path']):
                 self.relocate_project(key, storage_path)
                 data = self._catalog(self.discover())
                 p = next(p for p in data['projects'] if p['id'] == key)
-            p.update(name=name, description=description, default_preset=default_preset)
+            p.update(name=name, description=description, default_preset=default_preset, form_id=selected_form)
             self.persist_catalog(data)
             return p
 

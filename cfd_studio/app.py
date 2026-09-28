@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v184"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v185"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -5335,20 +5335,20 @@ INDEX_HTML = r'''<!DOCTYPE html>
   </div>
   <div class="ibx" id="ifB1" style="display:none">
    <h4 style="margin-top:0">CFD 실행</h4>
-   <ul><li><b>새 프로젝트</b>: 이름·프로젝트 폴더·설명·기본 프리셋 선택</li><li><b>+CFD Case</b>: 개별 설정·종료 조건·목표 입력 → <b>실행 저장</b></li><li>실행 선택 → <b>대기열에 추가</b> → <b>대기열 시작</b></li><li>실행 목록: 설정 차이·종료 조건·실행 상태·마지막 저장·수치 검사·시각화 확인</li><li>결과 버튼: <b>생성 / 업데이트 / 열기</b></li></ul>
-   <h4>설정 프리셋</h4>
-   <ul><li>CFD 화면 왼쪽에서 생성·선택·복제·이름 변경</li><li><b>프리셋에 저장</b>: 기본 해제, 체크하면 새 이름으로 별도 저장</li><li>프로젝트 기본 프리셋 변경: 이후 추가하는 실행에만 적용</li></ul>
+   <ul><li><b>새 프로젝트</b>: 이름·프로젝트 폴더·설명·CFD FORM·프리셋 선택</li><li><b>+CFD Case</b>: 개별 Config·종료 조건·목표 입력 → <b>실행 저장</b></li><li>실행 선택 → <b>대기열에 추가</b> → <b>대기열 시작</b></li><li>실행 목록: 설정 차이·종료 조건·실행 상태·마지막 저장·수치 검사·시각화 확인</li><li>결과 버튼: <b>생성 / 업데이트 / 열기</b></li></ul>
+   <h4>CFD FORM</h4>
+   <ul><li>왼쪽 <b>CFD FORM 리스트</b>: 이중액침냉각·옥수수 사일로·식량 저장고 훈증 시스템</li><li><b>새로 만들기</b>: 지원 해석 대상·솔버 선택, 입력 파트 이름·기본 Config 편집</li><li>FORM 오른쪽 <b>수정</b>: 이름·입력 양식 변경, <b>새 프리셋</b> 저장</li><li>프로젝트 생성 시 FORM 필수. 프리셋은 해당 FORM 안에서 별도 선택</li><li><b>프리셋에 저장</b>: 기본 해제, 체크하면 새 이름으로 별도 저장</li><li>프로젝트 기본 프리셋 변경: 이후 추가하는 실행에만 적용</li></ul>
    <h4>대기열</h4>
    <ul><li>시작 전 실행: 편집·순서 변경·제외 가능</li><li><b>다음 실행부터 일시정지</b>: 현재 실행 유지</li><li>실패: 대기열 정지 → <b>재시도 / 건너뛰기</b> → <b>대기열 시작</b></li><li>앱 재시작: 기록·결과·대기열 복원, 다음 실행은 일시정지 상태</li></ul>
    <h4>종료 조건</h4>
    <ul><li>물리시간 또는 저장 프레임 수 중 하나 선택</li><li>프레임 수: 0초 초기 프레임 포함 여부 기록</li><li>수렴 기준: 연속 유지 구간을 확인하는 실행기 연결이 없어 현재 비활성</li><li>솔버 시간간격·결과 저장 간격·재생 배속: 각각 별도 설정</li></ul>
-   <h4>설정 보기</h4>
-   <ul><li>CFD 실행 카드의 <b>설정 보기</b>: 실행에 사용한 원본 입력 조회</li><li><b>이 설정으로 새 실행</b>: 기존 입력을 가져와 수정, 앞선 실행 보존</li><li>설정 창을 닫으면 보고 있던 결과 유지</li></ul>
+   <h4>Config</h4>
+   <ul><li>CFD 실행 카드의 <b>Config 보기</b>: 실행에 사용한 원본 입력 조회</li><li><b>이 Config로 새 Case</b>: 기존 입력을 가져와 수정, 앞선 실행 보존</li><li>형상·격자 / 물성·경계조건 / 솔버·계산 / 관측·비교로 구분. 출처는 마지막 항목</li></ul>
    <h4>결과 보기</h4>
    <ul><li>실행 전환: 상단 CFD → 실행 선택 → 열기</li><li>아래 시간 막대·재생·배속: 모든 결과에서 같은 방식으로 탐색</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>왼쪽 <b>3D Virtual Viewer</b> 버튼: <b>Data Sheet Viewer</b>로 전환, 다시 누르면 3D 복귀</li><li>Data Sheet: 물리량별 그래프·표·CSV, 위치·시간 조회, 모델·검증 확인</li><li>저장고 <b>전체 구간 읽기</b>: 누락된 저장 프레임부터 읽기, 200개 이하 자동 읽기</li><li>왼쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
    <p class="mhint">저장고 애니메이션: 저장 프레임 사이 선형 보간. 흐름 마커: 유속 방향 표시. 1×는 물리시간 1초를 화면 1초로 재생합니다.</p>
    <h4>프로젝트 저장</h4>
-   <ul><li>새 프로젝트·프로젝트 설정에서 저장 폴더 지정. C·D 등 드라이브 선택 가능</li><li>설정·Case별 실행 기록·원본·시각화·캐시를 프로젝트 폴더에 저장</li><li>왼쪽 프로젝트 <b>열기</b>: 기존 프로젝트 폴더 연결</li><li>기존 결과는 원래 경로를 유지. 프로젝트 위치 변경 시 복사·검증 후 연결 전환, 원본 보존</li><li>실행 중에는 위치 변경 불가. 독립 프리셋은 Studio에 보관</li></ul>
+   <ul><li>새 프로젝트·프로젝트 관리에서 저장 폴더 지정. C·D 등 드라이브 선택 가능</li><li>설정·Case별 실행 기록·원본·시각화·캐시를 프로젝트 폴더에 저장</li><li>왼쪽 프로젝트 <b>열기</b>: 기존 프로젝트 폴더 연결</li><li>기존 결과는 원래 경로를 유지. 프로젝트 위치 변경 시 복사·검증 후 연결 전환, 원본 보존</li><li>실행 중에는 위치 변경 불가. 독립 프리셋은 Studio에 보관</li></ul>
    <h4>프로젝트와 실행</h4>
    <ul><li>프로젝트: 실행 이력을 묶는 공간</li><li>설정: 새 CFD 실행 시 입력, 실행별 원본 보관</li><li>실행 목록: 선택한 실행의 설정·로그·결과 표시</li><li>저장고 기록: 식량창고 프로젝트의 실행 이력으로 보존</li><li>이중액침: 별도 프로젝트에서 3mm_Test 결과 조회</li><li>실행 설정: 시작 시 스냅샷 고정, 다른 실행·프리셋에 소급 적용하지 않음</li></ul>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>사용법</b></a></p>
@@ -6987,7 +6987,7 @@ let dragV=null;
 cv.addEventListener('mousedown',e=>{if(e.button!==0)return;dragV={x:e.clientX,y:e.clientY};cv.style.cursor='grabbing';});
 addEventListener('mouseup',()=>{dragV=null;cv.style.cursor='grab';});
 addEventListener('mousemove',e=>{if(!dragV)return;const dx=e.clientX-dragV.x,dy=e.clientY-dragV.y;dragV.x=e.clientX;dragV.y=e.clientY;
- th-=dx*0.0055;ph=Math.min(1.5,Math.max(-0.35,ph+dy*0.0045));});
+ th+=dx*0.0055*(viewUp()[2]===1?1:-1);ph=Math.min(1.5,Math.max(-0.35,ph+dy*0.0045));});
 function cameraModelSpan(){
  const c=VIZCFG||CFG;
  if(c?._해석유형==='warehouse'&&c.warehouse){const g=c.warehouse.geometry;return Math.max(g.length_m,g.width_m,g.eaves_m+g.roof_rise_m)*1000;}

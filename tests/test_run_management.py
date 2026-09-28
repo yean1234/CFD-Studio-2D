@@ -53,8 +53,9 @@ class QueueTests(unittest.TestCase):
         with self.assertRaises(FileExistsError):self.w.save_case(self.p['id'],'changed',self.config,key,1,preset_name='taken')
         self.assertEqual((self.w.folder/'queue.json').read_bytes(),before)
         result=self.w.save_case(self.p['id'],'changed',self.config,key,1,preset_name='new')
-        self.assertEqual(result['preset']['id'],'preset:new')
-        self.assertEqual(self.w.template('preset:new'),self.w.detail(key)['config'])
+        self.assertTrue(result['preset']['id'].startswith('scoped:'))
+        self.assertEqual(self.w.preset_form(result['preset']['id']), 'warehouse')
+        self.assertEqual(self.w.template(result['preset']['id']),self.w.detail(key)['config'])
 
     def test_three_runs_order_edit_pause_and_immutable_attempt(self):
         ids=[self.case(str(i)) for i in range(3)]

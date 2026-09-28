@@ -59,7 +59,10 @@ def validate_settings(config):
         if value is None:
             raise ValueError(path+' 값을 입력해 주세요')
         if isinstance(value, dict):
-            for key, item in value.items(): check(item, path+'.'+key)
+            for key, item in value.items():
+                if re.search(r'(^|_)(provenance|source|sources|reference|references|citation|citations|evidence|basis|sha256)($|_)', key, re.I) or key in ('unresolved', 'assumptions', 'study', 'solver_options', 'published_numerics'):
+                    continue
+                check(item, path+'.'+key)
         elif isinstance(value, list):
             for i, item in enumerate(value): check(item, path+f'[{i}]')
     check(config)
@@ -84,7 +87,10 @@ from cfd_studio.run_management import RunManagement
 from cfd_studio.project_storage import ProjectStorage, project_path
 
 
-class ExecutionWorkspace(ProjectStorage, RunManagement):
+from cfd_studio.cfd_forms import CFDForms
+
+
+class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
     def __init__(self, root, project_roots, folder=None, output=None, settings=None, busy=None, live=None):
         self.root = Path(root).resolve()
         self.project_roots = project_roots
@@ -247,17 +253,19 @@ class ExecutionWorkspace(ProjectStorage, RunManagement):
             projects = []
             for p in data['projects']:
                 runs = sorted(({**records[k], 'project_id': p['id']} for k in p['runs'] if k in records), key=lambda r: r['created'], reverse=True)
-                projects.append({'id': p['id'], 'name': p['name'], 'description': p.get('description', ''), 'default_preset': p.get('default_preset'), 'created': p['created'], 'storage_path': p.get('storage_path', ''), 'storage_available': bool(p.get('storage_path') and project_path(p['storage_path']).is_dir()), 'runs': runs})
+                projects.append({'id': p['id'], 'name': p['name'], 'description': p.get('description', ''), 'default_preset': p.get('default_preset'), 'form_id': self.project_form(p, records), 'created': p['created'], 'storage_path': p.get('storage_path', ''), 'storage_available': bool(p.get('storage_path') and project_path(p['storage_path']).is_dir()), 'runs': runs})
             return {'projects': projects, 'queue': self.queue_summary(), 'busy': bool(self.busy()) or any(r['status'] in ('queued', 'running') and not r['id'].startswith('case:') or r['status'] == 'running' for r in records.values())}
 
-    def create_project(self, name, description='', default_preset=None, storage_path=None):
+    def create_project(self, name, description='', default_preset=None, storage_path=None, form_id=None):
         with self.lock:
             data = self._catalog(self.discover())
             if not isinstance(description, str) or len(description) > 4000:
                 raise ValueError('프로젝트 설명은 4,000자 이내로 입력하세요')
             if default_preset:
                 self.template(default_preset)
-            project = {'id': uuid.uuid4().hex, 'name': label(name), 'description': description, 'default_preset': default_preset, 'created': time.time(), 'runs': []}
+            if form_id:
+                self.check_form_preset(form_id, default_preset)
+            project = {'form_id': form_id, 'id': uuid.uuid4().hex, 'name': label(name), 'description': description, 'default_preset': default_preset, 'created': time.time(), 'runs': []}
             self.prepare_project_folder(project, storage_path)
             data['projects'].append(project)
             self.persist_catalog(data)
@@ -322,19 +330,30 @@ class ExecutionWorkspace(ProjectStorage, RunManagement):
         paths = {'warehouse': self.root/'tracer_transport/warehouse_porous_convergence.json'}
         for folder, prefix in ((self.root/'cfd_studio/configs', 'config:'), (self.folder/'presets', 'preset:')):
             paths.update({prefix+p.stem: p for p in sorted(folder.glob('*.json'))})
+        paths.update({'scoped:'+p.stem: p for p in (self.folder/'form_presets').glob('*.json')})
         return paths
 
     def template(self, key='warehouse'):
+        if key.startswith('form:'):
+            return copy.deepcopy(self.form(key[5:])['config'])
         paths = self.preset_paths()
         if key not in paths:
             raise ValueError('설정을 찾을 수 없습니다')
-        return read_json(paths[key])
+        value = read_json(paths[key])
+        return value['config'] if key.startswith('scoped:') else value
 
     def presets(self):
-        return [{'id': key, 'name': '저장고 연결 기본값' if key == 'warehouse' else path.stem,
-                 'model': config_kind(read_json(path))} for key, path in self.preset_paths().items()]
+        items = []
+        for key, path in self.preset_paths().items():
+            value = read_json(path)
+            items.append({'id': key, 'name': value['name'] if key.startswith('scoped:') else '저장고 연결 기본값' if key == 'warehouse' else path.stem,
+                'model': config_kind(self.template(key)), 'form_id': self.preset_form(key)})
+        items.extend({'id': 'form:'+f['id'], 'name': 'FORM 기본값', 'model': f['model'], 'form_id': f['id']} for f in self.forms())
+        return items
 
-    def save_preset(self, name, config):
+    def save_preset(self, name, config, form_id=None):
+        if form_id:
+            return self.save_scoped_preset(name, config, form_id)
         from cfd_studio.config_presets import save_new_preset
         validate_settings(config)
         target = save_new_preset(self.folder/'presets', label(name), config)
@@ -442,6 +461,8 @@ def get_route(handler, workspace):
             result = {'config': workspace.template(parse_qs(url.query).get('id', ['warehouse'])[0])}
         elif url.path == '/api/executions/storage-defaults':
             result = workspace.project_defaults()
+        elif url.path == '/api/executions/forms':
+            result = {'forms': workspace.forms()}
         elif url.path == '/api/executions/presets':
             result = {'presets': workspace.presets()}
         elif url.path == '/api/executions/detail':
@@ -462,9 +483,12 @@ def post_route(handler, workspace, body):
         if not isinstance(body, dict):
             raise ValueError('요청 형식을 확인해 주세요')
         if path == '/api/executions/preset':
-            result = workspace.save_preset(body.get('name'), body.get('config'))
+            result = workspace.save_preset(body.get('name'), body.get('config'), body.get('form_id'))
+        elif path == '/api/executions/form':
+            result = workspace.save_form(body.get('name'), body.get('model'), body.get('solver'), body.get('config'), body.get('id'), body.get('revision'), body.get('description', ''), body.get('sections'))
         elif path == '/api/executions/project':
-            result = workspace.create_project(body.get('name'), body.get('description', ''), body.get('default_preset'), body.get('storage_path'))
+            workspace.form(body.get('form_id'))
+            result = workspace.create_project(body.get('name'), body.get('description', ''), body.get('default_preset'), body.get('storage_path'), body.get('form_id'))
         elif path == '/api/executions/project-open':
             result = workspace.open_project(body.get('storage_path'))
         elif path == '/api/executions/project-pick':
@@ -473,7 +497,7 @@ def post_route(handler, workspace, body):
             workspace.rename_project(body.get('id'), body.get('name'))
             result = {}
         elif path == '/api/executions/project-edit':
-            result = workspace.edit_project(body.get('id'), body.get('name'), body.get('description', ''), body.get('default_preset'), body.get('storage_path'))
+            result = workspace.edit_project(body.get('id'), body.get('name'), body.get('description', ''), body.get('default_preset'), body.get('storage_path'), body.get('form_id'))
         elif path == '/api/executions/preset-rename':
             result = workspace.rename_preset(body.get('id'), body.get('name'))
         elif path == '/api/executions/case':

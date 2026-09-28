@@ -57,3 +57,11 @@ test('search matches labels supplied by the existing UI definitions',()=>{
  global.CBDEF=[['heater','','',[['total_W','히터 전력','W']]]];
  try{assert.ok(editor.searchFields(immersion(),'히터 전력').some(x=>x.path.join('.')==='heater.total_W'));}finally{delete global.CBDEF;}
 });
+
+test('Config parts cover each input exactly once and retain the original values',()=>{
+ const fs=require('node:fs'),path=require('node:path');const editor=require('../cfd_studio/config_editor.js');
+ for(const name of ['immersion','grain_silo']){
+  const c=JSON.parse(fs.readFileSync(path.join(__dirname,'../cfd_studio/configs/'+name+'.json'),'utf8')),before=JSON.stringify(c),parts=editor.configParts(c),keys=parts.flatMap(p=>p.keys);
+  assert.equal(new Set(keys).size,keys.length);assert.ok(parts.some(p=>p.title==='형상·격자'));assert.ok(parts.some(p=>p.title==='솔버·계산'));assert.ok(keys.includes('run'));assert.equal(JSON.stringify(c),before);
+ }
+});

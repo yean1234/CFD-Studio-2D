@@ -61,3 +61,18 @@ test('settings comparison distinguishes missing baseline from equality and ident
  const changed=ctx.differenceView({preset_id:'preset1',differences:[{path:'heater.total_W',before:265,after:270}]});
  assert.equal(changed.label,'1개 변경');assert.match(changed.text,/생성 당시 프리셋/);assert.match(changed.text,/265 → 270/);
 });
+
+test('horizontal and vertical drags have the same projected direction for Y-up and Z-up models',()=>{
+ const app=fs.readFileSync(path.join(__dirname,'../cfd_studio/app.py'),'utf8');
+ const eyeSource=app.slice(app.indexOf('function eye(){'),app.indexOf('let VW,VH;'));
+ const drag=app.match(/th\+=dx\*0\.0055[^;]+;ph=[^;]+;/)[0];
+ const projected=(zUp,dx,dy)=>{
+  const ctx={tgt:[0,0,0],rad:10,th:0,ph:0,dx,dy,VIZCFG:{},CFG:{},warehouseActive:()=>zUp,isSiloConfig:()=>false,isTracerConfig:()=>false,Math};
+  vm.createContext(ctx);vm.runInContext(eyeSource,ctx);vm.runInContext(drag,ctx);
+  const e=ctx.eye(),up=ctx.viewUp(),dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0),norm=v=>v.map(x=>x/Math.hypot(...v)),cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+  const z=norm(e),x=norm(cross(up,z)),y=cross(z,x),point=zUp?[0,1,0]:[0,0,1];return [dot(x,point),dot(y,point)];
+ };
+ for(const [dx,dy] of [[20,0],[-20,0],[0,20],[0,-20]]){
+  const a=projected(false,dx,dy),b=projected(true,dx,dy);assert.ok(Math.abs(a[0]-b[0])<1e-10);assert.ok(Math.abs(a[1]-b[1])<1e-10);
+ }
+});
