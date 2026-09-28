@@ -8,6 +8,12 @@
   const enums = {time_mode:['fixed','adaptive'],time_step_mode:['fixed','adaptive'],advection_scheme:['upwind','bounded_high_order'],refinement:[1,2,4],turbulence:['kEpsilon'],output_fields:['bubble','phase','flow','therm','pressure','turbulence'],stop_mode:['fixed','converged']};
   const choices = {fixed:'고정',adaptive:'자동 안정',upwind:'1차 상류',bounded_high_order:'유계 고차',bubble:'기포',phase:'상분율',flow:'유속',therm:'온도',pressure:'압력',turbulence:'난류',converged:'수렴 도달'};
   const clone = value => structuredClone(value);
+  const isReferenceKey = key => /(^|_)(provenance|source|sources|reference|references|citation|citations|evidence|basis|sha256)($|_)/i.test(String(key));
+  function references(value,path=[]){
+    if(!value||typeof value!=='object')return [];
+    return Object.entries(value).flatMap(([key,item])=>{const p=[...path,Array.isArray(value)?Number(key):key];return isReferenceKey(key)?[{path:p,value:item}]:references(item,p);});
+  }
+
   function kind(c){return c?.coupled&&c?.numerics?'warehouse':c?._해석유형==='grain_silo'?'grain_silo':c?.tank&&c?.dielectric_fluid?'immersion':'unsupported';}
   function parse(text){const c=JSON.parse(text);if(!c||Array.isArray(c)||typeof c!=='object')throw Error('설정 JSON 객체가 필요합니다');
     const check=v=>{if(v&&typeof v==='object')for(const [k,x] of Object.entries(v)){if(['__proto__','prototype','constructor'].includes(k))throw Error('허용되지 않는 설정 키');check(x);}};check(c);return c;}
@@ -81,14 +87,14 @@
       const start=button(options.submitLabel||'계산 시작',async()=>{const c=current();validate(c);if(!name.value.trim())throw Error('실행 이름을 입력하세요');if(savePreset.checked&&!presetName.value.trim())throw Error('새 프리셋 이름을 입력하세요');busy(true);try{await options.onRun(name.value,clone(c),{preset_name:savePreset.checked?presetName.value.trim():null});dialog.close();}finally{busy(false);}});start.id='settingsStart';start.classList.add('pri');footer.append(start);
     }else if(options.onClone){footer.append(button('이 설정으로 새 실행',()=>{const c=current();if(kind(c)==='unsupported')throw Error('이 모델은 보관 설정 조회만 지원합니다');close();options.onClone(c);}));}
     footer.append(button(readonly?'닫기':'취소',close));dialog.append(footer);dialog.oncancel=e=>{if(locked)e.preventDefault();else version++;};
-    function renderNav(){navList.replaceChildren();if(options.managed||config._studio?.termination){const b=button('종료 조건·목표',()=>{if(section==='json'&&!readonly){config=current();jsonText=null;}section='termination';search.value='';renderNav();render();});b.setAttribute('aria-current',String(section==='termination'));navList.append(b);}const keys=Object.keys(config).filter(k=>!k.startsWith('_')&&k!=='schema');keys.sort((a,b)=>(['run','numerics'].includes(a)?-1:0)-(['run','numerics'].includes(b)?-1:0));for(const key of keys){const b=button(names[key]||key,()=>{if(section==='json'&&!readonly){config=current();jsonText=null;}section=key;search.value='';renderNav();render();});b.setAttribute('aria-current',String(section===key));navList.append(b);}const json=button('전체 JSON',()=>{section='json';renderNav();render();});json.setAttribute('aria-current',String(section==='json'));navList.append(json);}
+    function renderNav(){navList.replaceChildren();if(options.managed||config._studio?.termination){const b=button('종료 조건·목표',()=>{if(section==='json'&&!readonly){config=current();jsonText=null;}section='termination';search.value='';renderNav();render();});b.setAttribute('aria-current',String(section==='termination'));navList.append(b);}const keys=Object.keys(config).filter(k=>!k.startsWith('_')&&k!=='schema'&&!isReferenceKey(k));keys.sort((a,b)=>(['run','numerics'].includes(a)?-1:0)-(['run','numerics'].includes(b)?-1:0));for(const key of keys){const b=button(names[key]||key,()=>{if(section==='json'&&!readonly){config=current();jsonText=null;}section=key;search.value='';renderNav();render();});b.setAttribute('aria-current',String(section===key));navList.append(b);}const json=button('전체 JSON',()=>{section='json';renderNav();render();});json.setAttribute('aria-current',String(section==='json'));navList.append(json);if(references(config).length){const ref=button('출처',()=>{if(section==='json'&&!readonly){config=current();jsonText=null;}section='references';search.value='';renderNav();render();});ref.setAttribute('aria-current',String(section==='references'));ref.style.marginTop='18px';navList.append(ref);}}
     function set(path,value){let obj=config;for(const k of path.slice(0,-1))obj=obj[k];obj[path.at(-1)]=value;subtitle.textContent=(readonly?'보존된 원본 설정 · ':'이번 실행 설정 · ')+summary(config);}
-    function draw(value,path,host){const key=path.at(-1),info=fieldInfo(path);if(kind(config)==='immersion'&&key==='write_interval_s')info.title='복구 데이터 저장 간격';if(key==='viz_interval_s')info.title='결과 프레임 저장 간격';
+    function draw(value,path,host){if(section!=='references'&&path.some(isReferenceKey))return;const key=path.at(-1),info=fieldInfo(path);if(kind(config)==='immersion'&&key==='write_interval_s')info.title='복구 데이터 저장 간격';if(key==='viz_interval_s')info.title='결과 프레임 저장 간격';
       if(key==='output_fields'&&Array.isArray(value)){const box=el('div');box.className='settings-output';for(const field of enums.output_fields){const l=el('label'),input=el('input');input.type='checkbox';input.checked=value.includes(field);input.disabled=readonly;input.onchange=()=>{const selected=enums.output_fields.filter((_,i)=>box.querySelectorAll('input')[i].checked);set(path,selected);};l.append(input,el('span',choices[field]));box.append(l);}host.append(box);return;}
       if(value!==null&&typeof value==='object'){
         const box=el('fieldset');box.append(el('legend',info.title));host.append(box);
         for(const [k,v] of Object.entries(value)){
-          if(k.startsWith('_')){const note=el('div',typeof v==='string'?v:JSON.stringify(v));note.className='settings-note';box.append(note);continue;}
+          if(k.startsWith('_')){if(isReferenceKey(k))continue;const note=el('div',typeof v==='string'?v:JSON.stringify(v));note.className='settings-note';box.append(note);continue;}
           const entry=Array.isArray(value)?el('fieldset'):box;if(entry!==box){entry.append(el('legend',String(Number(k)+1)));box.append(entry);if(!readonly)entry.append(button('행 삭제',()=>{value.splice(Number(k),1);render();}));}
           draw(v,[...path,Array.isArray(value)?Number(k):k],entry);
         }
@@ -124,6 +130,8 @@
     }
     function render(){main.replaceChildren();subtitle.textContent=(readonly?'보존된 원본 설정 · ':'이번 실행 설정 · ')+summary(config);
       if(section==='termination'){renderTermination();return;}
+      if(section==='references'){main.append(el('h3','출처'));for(const ref of references(config)){const group=el('fieldset'),parent=ref.path.slice(0,-1).map(k=>names[k]||k).join(' · ');group.append(el('legend',parent||'설정'));draw(ref.value,ref.path,group);main.append(group);}return;}
+
       if(section==='json'){const area=el('textarea');area.id='settingsJson';area.setAttribute('aria-label','전체 JSON');area.readOnly=readonly;area.value=jsonText??JSON.stringify(config,null,2);area.oninput=()=>{jsonText=area.value;};main.append(area);return;}
       const query=search.value.trim().toLowerCase();
       if(query){const visit=(v,path)=>{if(v!==null&&typeof v==='object'){for(const [k,x] of Object.entries(v))visit(x,[...path,Array.isArray(v)?Number(k):k]);}else if((path.join('.')+' '+fieldInfo(path).title+' '+String(v)).toLowerCase().includes(query))draw(v,path,main);};visit(config,[]);return;}
@@ -131,10 +139,10 @@
       if(!readonly&&['water','dielectric_fluid'].includes(section)&&typeof fluidRef==='function'){
         const bar=el('div');bar.className='settings-fluid';bar.append(button('대표 물성 입력',()=>{const q=fluidRef(section==='water'?'upper':'lower',config);config[section].manual_properties={model:'linear_density',T_ref_C:q.T,rho_kg_m3:q.rho,cp_J_kgK:q.cp,mu_Pa_s:q.mu,kappa_W_mK:q.k,beta_1_K:q.beta};render();}),button('원래 물성표 사용',()=>{delete config[section].manual_properties;render();}));main.append(bar);
       }
-      const v=config[section];if(v&&typeof v==='object'&&!Array.isArray(v))for(const [k,x] of Object.entries(v)){if(k.startsWith('_')){const note=el('div',String(x));note.className='settings-note';main.append(note);}else draw(x,[section,k],main);}else draw(v,[section],main);
+      const v=config[section];if(v&&typeof v==='object'&&!Array.isArray(v))for(const [k,x] of Object.entries(v)){if(k.startsWith('_')){if(isReferenceKey(k))continue;const note=el('div',String(x));note.className='settings-note';main.append(note);}else draw(x,[section,k],main);}else draw(v,[section],main);
     }
     search.oninput=()=>{if(section==='json'){config=current();jsonText=null;section=Object.keys(config)[0];renderNav();}render();};renderNav();render();dialog.showModal();return {close,current};
   }
-  globalThis.CFDSettings={open,kind,parse,validate,fieldInfo,summary,applyTermination};
+  globalThis.CFDSettings={open,kind,parse,validate,fieldInfo,summary,applyTermination,references};
   if(typeof module!=='undefined')module.exports=globalThis.CFDSettings;
 })();

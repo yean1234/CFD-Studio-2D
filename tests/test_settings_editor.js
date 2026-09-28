@@ -15,3 +15,12 @@ test('case frame target uses each model output interval without changing the sou
  assert.equal(actual.run.end_time_s,1);assert.equal(original.run.end_time_s,60);assert.equal(actual.run.write_interval_s,.5);
  assert.throws(()=>applyTermination({...original,_studio:{termination:{mode:'convergence'}}}),/수렴/);
 });
+
+test('reference metadata is collected separately without changing solver inputs',()=>{
+ const {references}=require('../cfd_studio/config_editor.js');
+ const config={numerics:{dt_s:.1},provenance:{paper:'record'},coupled:{basis:'assumption',rho_kg_m3:1.2},loading:{blocks:[{source:'drawing',porosity:.4}]}};
+ const before=JSON.stringify(config),refs=references(config);
+ assert.deepEqual(refs.map(x=>x.path.join('.')),['provenance','coupled.basis','loading.blocks.0.source']);
+ assert.equal(JSON.stringify(config),before);
+ assert.equal(config.coupled.rho_kg_m3,1.2);
+});
