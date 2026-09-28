@@ -153,7 +153,7 @@ class ExecutionWorkspaceTests(unittest.TestCase):
             popen.return_value=Mock()
             job=self.workspace.start(project,'first',self.config)
             self.config['numerics']['end_s']=600
-            saved=read_json(self.workspace.folder/'runs'/job['id']/'input.json')
+            saved=read_json(self.workspace.attempt_folder(project,job['id'],job['id'])/'input.json')
             self.assertEqual(saved['numerics']['end_s'],300)
             with self.assertRaisesRegex(ValueError,'진행 중'):self.workspace.start(project,'second',self.config)
             self.assertEqual(popen.call_count,1)

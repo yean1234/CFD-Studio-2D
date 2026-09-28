@@ -19,6 +19,7 @@ def install(workspace, g):
         g['H']._run_legacy(reply, {'mode': 'fresh', 'config_ref': 'inline',
             'config': copy.deepcopy(case['config']), 'output_fields': case['config']['run'].get('output_fields'),
             'execution_project_id': case['project_id'], 'execution_name': case['name'],
+            'execution_attempt_path': str(Path(case['attempts'][-1]['job_path']).parent),
             '_queue_authorized': workspace})
         if not reply.value.get('ok'):
             raise ValueError(reply.value.get('msg', '실행 시작 실패'))
@@ -123,6 +124,29 @@ def install(workspace, g):
             count = len(set.intersection(*sets)) if sets else 0
             if count != policy['frames']:
                 return {'status': 'failed', 'error': f'완전 저장 프레임 수 불일치: {count}/{policy["frames"]}'}
+        from cfd_studio.execution_workspace import atomic_json
+        marker = Path(case['attempts'][-1]['job_path']).with_name('storage_complete.json')
+        if not marker.is_file():
+            destination = g['win2wsl'](str(Path(record['path'])/'Raw_Data'/'Case_State'))
+            token = g['_wsl_case_token']()
+            target = g['_shq'](destination)
+            script = f'''set -eu
+cd {token}
+mkdir -p {target}
+for item in system constant 0 0.orig config.json run_overrides.json postProcessing processor[0-9]* log.* [0-9]*; do
+    [ -e "$item" ] || continue
+    rsync -rLt -- "$item" {target}/
+done
+# A second checksum pass verifies the destination without deleting original data.
+for item in system constant 0 0.orig config.json run_overrides.json postProcessing processor[0-9]* log.* [0-9]*; do
+    [ -e "$item" ] || continue
+    test -z "$(rsync -rLtcni -- "$item" {target}/)"
+done
+echo PROJECT_SAVED'''
+            ok, out = g['wsl'](script, timeout=86400)
+            if not ok or 'PROJECT_SAVED' not in out:
+                return {'status': 'failed', 'error': '프로젝트 원본 저장 실패: '+str(out)[-240:]}
+            atomic_json(marker, {'path': str(Path(record['path'])/'Raw_Data'/'Case_State'), 'verified': True})
         return {'status': 'complete', 'completion_reason': policy['mode']}
 
     def stop(case):

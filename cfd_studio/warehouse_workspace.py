@@ -133,7 +133,7 @@ def get_route(handler, path, workspace):
     elif path.startswith('/api/warehouse/results'):
         from urllib.parse import parse_qs, urlparse
         query = parse_qs(urlparse(handler.path).query)
-        results = WarehouseResults(ROOT/'output')
+        results = WarehouseResults(ROOT/'output', getattr(workspace, 'resolve_result', None), getattr(workspace, 'result_paths', None))
         try:
             if path == '/api/warehouse/results':
                 payload = {'results': results.list()}

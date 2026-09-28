@@ -76,13 +76,15 @@ def raw_field(path, cells, dimensions, components=1):
 
 
 class WarehouseResults:
-    def __init__(self, output_root):
+    def __init__(self, output_root, resolve_case=None, case_paths=None):
         self.output_root = Path(output_root)
+        self.resolve_case = resolve_case
+        self.case_paths = case_paths
 
     def _case(self, name):
         if not isinstance(name, str) or not CASE_NAME.fullmatch(name):
             raise ValueError('올바른 저장고 결과 이름이 아닙니다')
-        case = self.output_root/name
+        case = (self.resolve_case(name) if self.resolve_case else None) or self.output_root/name
         if not case.is_dir() or case.is_symlink():
             raise ValueError('저장고 결과를 찾을 수 없습니다')
         return case
@@ -133,10 +135,16 @@ class WarehouseResults:
         return case, model, checks, config, times, fields, centres, unit
 
     def list(self):
-        if not self.output_root.is_dir():
-            return []
         results = []
-        for path in sorted(self.output_root.iterdir()):
+        paths = list(self.case_paths()) if self.case_paths else []
+        if self.output_root.is_dir():
+            paths += sorted(self.output_root.iterdir())
+        seen = set()
+        for path in paths:
+            path = Path(path)
+            if path.name in seen:
+                continue
+            seen.add(path.name)
             if not CASE_NAME.fullmatch(path.name) or not path.is_dir() or path.is_symlink():
                 continue
             try:

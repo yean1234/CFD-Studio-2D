@@ -45,7 +45,7 @@ class QueueTests(unittest.TestCase):
         self.assertEqual(self.w.template(saved['id']),original)
         self.w.edit_project(self.p['id'],'comparison','new purpose','config:immersion')
         self.assertEqual(self.w.detail(key)['config']['numerics']['end_s'],3)
-        self.assertEqual(self.w.snapshot()['projects'][1]['default_preset'],'config:immersion')
+        self.assertEqual(next(p for p in self.w.snapshot()['projects'] if p['id']==self.p['id'])['default_preset'],'config:immersion')
 
     def test_duplicate_optional_preset_failure_does_not_change_draft(self):
         key=self.case();self.w.save_preset('taken',self.config)
@@ -120,7 +120,7 @@ class QueueTests(unittest.TestCase):
     def test_preset_rename_updates_project_reference_without_touching_runs(self):
         p=self.w.save_preset('old',self.config);self.w.edit_project(self.p['id'],'comparison','',p['id']);key=self.case()
         before=self.w.detail(key)['config'];new=self.w.rename_preset(p['id'],'new')
-        self.assertEqual(self.w.snapshot()['projects'][1]['default_preset'],new['id'])
+        self.assertEqual(next(p for p in self.w.snapshot()['projects'] if p['id']==self.p['id'])['default_preset'],new['id'])
         self.assertEqual(self.w.detail(key)['config'],before)
 
 if __name__=='__main__':unittest.main()

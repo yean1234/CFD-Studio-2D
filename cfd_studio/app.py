@@ -11,9 +11,10 @@
 import base64, json, math, os, re, shutil, socket, subprocess, sys, threading, time, uuid, webbrowser
 sys.dont_write_bytecode = True                             # __pycache__ 생성 방지 (폴더 청결)
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v180"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v181"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 
@@ -67,6 +68,9 @@ from execution_workspace import ExecutionWorkspace, get_route as execution_get, 
 EXECUTION_WORKSPACE = ExecutionWorkspace(os.path.dirname(HERE), lambda: _project_search_roots(), settings=SCFG,
     busy=lambda: bool(get_status().get("running")) or time.time()-STATE.get("group_launch_t", 0)<60 or any(j.get("status") in ("queued", "running") for j in WAREHOUSE_WORKSPACE.jobs.values()),
     live=lambda: {**(_STATUS_CACHE.get("data") or {}), "rid": _active_rid()})
+EXECUTION_WORKSPACE.storage_busy = lambda: _extract_any_busy() or bool(RAW_ARCHIVE_STATE.get('busy')) or bool(PROJECT_ARCHIVE_STATE.get('busy'))
+WAREHOUSE_WORKSPACE.resolve_result = lambda rid: EXECUTION_WORKSPACE.result_path(rid, 'warehouse')
+WAREHOUSE_WORKSPACE.result_paths = lambda: [Path(e['path']) for e in EXECUTION_WORKSPACE.managed_result_entries() if e['kind'] == 'warehouse']
 UISTF = os.path.join(RUNTIME_DIR, "uistate.json")          # 마지막 화면 상태 (재실행 시 복원)
 STUDIO_PIDF = os.path.join(RUNTIME_DIR, "studio.pid")      # 포트 없는 잔존 인스턴스까지 식별
 
@@ -272,13 +276,16 @@ def _project_entries():
                 continue
             seen.add(marker)
             found.append((name, path))
-    for pd in EXECUTION_WORKSPACE.external_paths():
+    for pd in [*EXECUTION_WORKSPACE.external_paths(), *[Path(e['path']) for e in EXECUTION_WORKSPACE.managed_result_entries() if e['kind'] == 'legacy']]:
         name, path = pd.name, str(pd)
         if os.path.isdir(path) and os.path.normcase(os.path.abspath(path)) not in {os.path.normcase(os.path.abspath(p)) for _, p in found}:
             found.append((name, path))
     return found
 
 def proj_dir(rid):
+    managed = EXECUTION_WORKSPACE.result_path(str(rid), "legacy")
+    if managed:
+        return str(managed)
     key = _project_key(rid)
     if not key:
         return FRAME_DIR
@@ -333,11 +340,17 @@ def _create_run_project(rid, name, meta):
     old = proj_dir(rid)
     if os.path.isdir(old):
         return old
-    pd = _unique_project_path(name)
-    os.makedirs(pd, exist_ok=True)
     meta = dict(meta or {})
+    attempt_path = meta.pop("execution_attempt_path", None)
+    if attempt_path:
+        pd = os.path.join(attempt_path, "Results", str(rid))
+    elif meta.get("execution_project_id"):
+        pd = str(EXECUTION_WORKSPACE.project_folder(meta["execution_project_id"])/"Results"/str(rid))
+    else:
+        pd = _unique_project_path(name)
+    os.makedirs(pd, exist_ok=False)
     meta.update({"name": name, "run_id": str(rid), "external": False})
-    raw_root = _raw_archive_dir()
+    raw_root = pd if meta.get("execution_project_id") else _raw_archive_dir()
     ok_raw, raw_root, _ = _validate_raw_archive_dir(raw_root, require_writable=False)
     if ok_raw and raw_root:
         # 프로젝트 생성 순간 보관 루트를 고정해 설정 변경 시 실행 데이터가 섞이지 않게 한다.
@@ -894,6 +907,8 @@ def _resolved_project_raw_root(rid, preferred=""):
     if not key:
         return ""
     meta = _read_json_file(os.path.join(proj_dir(key), "meta.json")) or {}
+    if meta.get("execution_project_id"):
+        return proj_dir(key)
     saved = str(meta.get("raw_archive_run") or "").strip()
     stored = str(meta.get("raw_archive_root") or "").strip()
     configured = _raw_archive_dir()
@@ -919,6 +934,8 @@ def _project_raw_run_path(rid, root=""):
         return ""
     pdir = proj_dir(key)
     meta = _read_json_file(os.path.join(pdir, "meta.json")) or {}
+    if meta.get("execution_project_id"):
+        return os.path.join(pdir, "Raw_Data")
     saved = str(meta.get("raw_archive_run") or "").strip()
     # 저장된 경로가 다른 PC의 드라이브이거나 과거 진단에서 깨졌다면 현재 PC의
     # 유효한 Studio 루트를 사용한다. 존재하는 saved 데이터는 아래에서 계속 우선한다.
@@ -962,6 +979,8 @@ def _migrate_project_raw_layout(rid):
         pdir = proj_dir(key)
         meta_path = os.path.join(pdir, "meta.json")
         meta = _read_json_file(meta_path) or {}
+        if meta.get("execution_project_id"):
+            return False
         old = str(meta.get("raw_archive_run") or "").strip()
         old_root = str(meta.get("raw_archive_root") or "").strip()
         # 새 규칙의 현재 Studio 루트를 우선한다. 기존 Raw가 있으면 아래에서 같은
@@ -1216,21 +1235,8 @@ def _apply_studio_settings(payload):
         gpu_only = _gpu_only_status(refresh=True)
         if not gpu_only.get("ready"):
             return False, "GPU Only 준비 안 됨: " + str(gpu_only.get("message") or "전용 실행 환경을 확인해 주세요")
-    raw = str(payload.get("raw_archive_dir", _raw_archive_dir()) or "").strip().strip('"')
-    if raw:
-        ok, selected, msg = _validate_raw_archive_dir(raw)
-        if not ok:
-            return False, msg
-        raw = _canonical_raw_studio_dir(selected)
-        try:
-            os.makedirs(raw, exist_ok=True)
-        except OSError as e:
-            return False, "CFD Studio 폴더를 만들 수 없습니다: " + str(e)[:80]
-        ok, raw, msg = _validate_raw_archive_dir(raw)
-        if not ok:
-            return False, msg
     _save_studio_config(cpu_pct=cpu, mpi_np=mpi, gpu_index=gpu,
-                        pressure_solver_mode=solver_mode, raw_archive_dir=raw)
+                        pressure_solver_mode=solver_mode)
     # 실행 중 솔버는 건드리지 않는다. 다음 시작/재개가 새 하드웨어 설정을 사용한다.
     _ENV.update(np=None, cset=None, gpu=None, gpu_info=None)
     RAW_ARCHIVE_WAKE.set()
@@ -2034,6 +2040,8 @@ def archive_project(rid, force=False):
             return False, "시각화·Raw 작업이 끝난 뒤 이관합니다"
         source = proj_dir(key)
         meta = _read_json_file(os.path.join(source, "meta.json")) or {}
+        if meta.get("execution_project_id"):
+            return False, "프로젝트 지정 폴더에 저장됨"
         if not force and not meta.get("completed"):
             return False, "완료 전 프로젝트"
         root = _archive_project_root()
@@ -3230,7 +3238,7 @@ def _extract_worker_inner(requested_rid, S):
     etmp = os.path.join(PDIR, "_E_tmp")
     atmp = os.path.join(PDIR, "_A_tmp"); wtmp = os.path.join(PDIR, "_W_tmp")
     fast_helper = win2wsl(os.path.join(HERE, "wsl_frame_compress.py"))
-    fast_cache = f"/tmp/cfd_studio_viz_{rid}"
+    fast_cache = win2wsl(os.path.join(PDIR, "Cache", "Visualization"))
     def bpath(t): return os.path.join(PDIR, f"bub_{t}.bin")
     done = processed = 0
     failed_times = []
@@ -4039,7 +4047,9 @@ class H(BaseHTTPRequestHandler):
                                          **({"config_ref": config_ref} if config_ref else {})},
                             "compute_mode": run_mode,
                             "end": float(ovr.get("end_time_s") or (get_config() or {}).get("run", {}).get("end_time_s") or 30),
-                            "end_locked": True, "heal2": True}
+                            "end_locked": True, "heal2": True,
+                            "execution_project_id": group_id,
+                            "execution_attempt_path": body.get("execution_attempt_path") if body.get("_queue_authorized") is EXECUTION_WORKSPACE else None}
                     pd_new = _create_run_project(rid_new, meta["name"], meta)
                     if group_id:
                         EXECUTION_WORKSPACE.attach_legacy(group_id, rid_new)
@@ -4192,38 +4202,8 @@ class H(BaseHTTPRequestHandler):
                     if os.path.exists(tmp): os.remove(tmp)
                 except OSError: pass
             self._json({"ok": True, "name": name, "folder": "Screenshots"})
-        elif u.path == "/api/raw-storage-pick":
-            ok, path, msg = _pick_raw_archive_dir()
-            if not ok:
-                self._json({"ok": False, "msg": msg}, 400); return
-            if not path:                         # 선택 취소는 기존 설정을 바꾸지 않는다.
-                self._json({"ok": True, "cancelled": True,
-                            "raw_archive": _raw_archive_public()}); return
-            if body.get("save", True):
-                _save_studio_config(raw_archive_dir=path)
-                RAW_ARCHIVE_WAKE.set()
-                threading.Thread(target=_repair_active_raw_links, name="cfd-raw-link-repair", daemon=True).start()
-                threading.Thread(target=_storage_refresh, name="cfd-storage-pick", daemon=True).start()
-            self._json({"ok": True, "selected_path": path, "raw_archive": _raw_archive_public()})
-        elif u.path == "/api/raw-storage-set":
-            path = str(body.get("path") or "").strip()
-            if path:
-                ok, selected, msg = _validate_raw_archive_dir(path)
-                if not ok:
-                    self._json({"ok": False, "msg": msg}, 400); return
-                path = _canonical_raw_studio_dir(selected)
-                try:
-                    os.makedirs(path, exist_ok=True)
-                except OSError as e:
-                    self._json({"ok": False, "msg": "CFD Studio 폴더를 만들 수 없습니다: " + str(e)[:80]}, 400); return
-                ok, path, msg = _validate_raw_archive_dir(path)
-                if not ok:
-                    self._json({"ok": False, "msg": msg}, 400); return
-            _save_studio_config(raw_archive_dir=path)
-            RAW_ARCHIVE_WAKE.set()
-            threading.Thread(target=_repair_active_raw_links, name="cfd-raw-link-repair", daemon=True).start()
-            threading.Thread(target=_storage_refresh, name="cfd-storage-set", daemon=True).start()
-            self._json({"ok": True, "raw_archive": _raw_archive_public()})
+        elif u.path in ("/api/raw-storage-pick", "/api/raw-storage-set"):
+            self._json({"ok": False, "msg": "프로젝트 설정에서 저장 폴더를 지정하세요"}, 410)
         elif u.path == "/api/settings":
             if get_status().get("running"):
                 self._json({"ok": False, "msg": "실행 중에는 설정을 할 수 없습니다"}, 409); return
@@ -5350,7 +5330,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
   </div>
   <div class="ibx" id="ifB1" style="display:none">
    <h4 style="margin-top:0">CFD 실행</h4>
-   <ul><li><b>새 프로젝트</b>: 이름·설명·기본 프리셋 선택</li><li><b>+CFD Case</b>: 개별 설정·종료 조건·목표 입력 → <b>실행 저장</b></li><li>실행 선택 → <b>대기열에 추가</b> → <b>대기열 시작</b></li><li>실행 목록: 설정 차이·종료 조건·실행 상태·마지막 저장·수치 검사·시각화 확인</li><li>결과 버튼: <b>생성 / 업데이트 / 열기</b></li></ul>
+   <ul><li><b>새 프로젝트</b>: 이름·프로젝트 폴더·설명·기본 프리셋 선택</li><li><b>+CFD Case</b>: 개별 설정·종료 조건·목표 입력 → <b>실행 저장</b></li><li>실행 선택 → <b>대기열에 추가</b> → <b>대기열 시작</b></li><li>실행 목록: 설정 차이·종료 조건·실행 상태·마지막 저장·수치 검사·시각화 확인</li><li>결과 버튼: <b>생성 / 업데이트 / 열기</b></li></ul>
    <h4>설정 프리셋</h4>
    <ul><li>CFD 화면 왼쪽에서 생성·선택·복제·이름 변경</li><li><b>프리셋에 저장</b>: 기본 해제, 체크하면 새 이름으로 별도 저장</li><li>프로젝트 기본 프리셋 변경: 이후 추가하는 실행에만 적용</li></ul>
    <h4>대기열</h4>
@@ -5362,6 +5342,8 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <h4>결과 보기</h4>
    <ul><li>실행 전환: 상단 CFD → 실행 선택 → 열기</li><li>아래 시간 막대·재생·배속: 모든 결과에서 같은 방식으로 탐색</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>위치·시간 조회, 원본 파일, 모델·검증 상태 확인</li><li>왼쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
    <p class="mhint">저장고 애니메이션: 저장 프레임 사이 선형 보간. 흐름 마커: 유속 방향 표시. 1×는 물리시간 1초를 화면 1초로 재생합니다.</p>
+   <h4>프로젝트 저장</h4>
+   <ul><li>새 프로젝트·프로젝트 설정에서 저장 폴더 지정. C·D 등 드라이브 선택 가능</li><li>설정·Case별 실행 기록·원본·시각화·캐시를 프로젝트 폴더에 저장</li><li>왼쪽 프로젝트 <b>열기</b>: 기존 프로젝트 폴더 연결</li><li>기존 결과는 원래 경로를 유지. 프로젝트 위치 변경 시 복사·검증 후 연결 전환, 원본 보존</li><li>실행 중에는 위치 변경 불가. 독립 프리셋은 Studio에 보관</li></ul>
    <h4>프로젝트와 실행</h4>
    <ul><li>프로젝트: 실행 이력을 묶는 공간</li><li>설정: 새 CFD 실행 시 입력, 실행별 원본 보관</li><li>실행 목록: 선택한 실행의 설정·로그·결과 표시</li><li>저장고 기록: 식량창고 프로젝트의 실행 이력으로 보존</li><li>이중액침: 별도 프로젝트에서 3mm_Test 결과 조회</li><li>실행 설정: 시작 시 스냅샷 고정, 다른 실행·프리셋에 소급 적용하지 않음</li></ul>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>사용법</b></a></p>
@@ -5410,7 +5392,6 @@ INDEX_HTML = r'''<!DOCTYPE html>
  <div class="setrow"><label>MPI 작업자<span id="setMpiHint">CPU 상한 안에서 자동 배정</span></label><div><select id="setMpi"></select></div></div>
  <div class="setrow"><label>계산 GPU<span>인식된 NVIDIA GPU 중 선택 · 자동은 성능 점수 우선</span></label><div><select id="setGpu"></select></div></div>
  <div class="setrow"><label>계산 모드<span>CPU 전용 / 압력만 GPU / OpenCFD 전체 GPU 오프로딩</span></label><div><select id="setPressureMode"><option value="cpu">CPU Only (권장)</option><option value="gpu">CPU + GPU 병행 (p_rgh)</option><option value="gpu_only">GPU Only (OpenCFD 개발)</option></select><div id="setGpuOnlyHint" class="mhint" style="margin-top:6px"></div></div></div>
- <div class="setrow"><label>Raw 데이터 위치<span>선택 드라이브/CFD Studio/Project/프로젝트명/Raw_Data</span></label><div class="setpath"><input id="setRaw" type="text" placeholder="사용 안 함"><button class="btn" onclick="pickSettingsRaw(this)">찾기</button></div></div>
  <div id="setSummary" class="mhint" style="margin:12px 0 0"></div>
  <div class="row" style="margin-top:16px"><button class="btn" onclick="closeSettings()">취소</button><button class="btn pri" id="setSave" onclick="saveSettings()">저장</button></div>
 </div></div>
@@ -7971,23 +7952,14 @@ function renderSettingsModal(s){
  if(gpuOpt)gpuOpt.disabled=!gpuOnly.ready&&s.pressure_solver_mode!=='gpu_only';
  modeSel.value=['cpu','gpu','gpu_only'].includes(s.pressure_solver_mode)?s.pressure_solver_mode:'cpu';
  document.getElementById('setGpuOnlyHint').textContent=gpuOnly.ready?'GPU Only 준비 완료 · 선택 GPU 1개와 MPI 1개 사용':'GPU Only 사용 불가 · '+(gpuOnly.message||'전용 실행 환경 확인 필요');
- const a=s.raw_archive||{};document.getElementById('setRaw').value=a.path||'';
- const ar=a.enabled?(a.available?'사용 가능':'연결 안 됨'):'사용 안 함';
  const sm=s.compute_mode_label||(s.pressure_solver_mode==='gpu_only'?'GPU Only':(s.pressure_solver_mode==='gpu'?'CPU + GPU 병행':'CPU Only'));
- document.getElementById('setSummary').textContent='현재 적용: '+sm+' · MPI '+(s.mpi_effective||'?')+'개 · GPU '+(s.gpu_effective??'없음')+' · Raw '+ar;
-}
-async function pickSettingsRaw(b){
- if(b)b.disabled=true;
- try{const r=await fetch('/api/raw-storage-pick',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({save:false})}),j=await r.json();
-  if(!r.ok||!j.ok){toast(j.msg||'폴더를 선택하지 못했습니다',true);return;}if(!j.cancelled&&j.selected_path)document.getElementById('setRaw').value=j.selected_path;
- }catch(_){toast('폴더 선택 중 서버 응답이 끊겼습니다',true);}finally{if(b)b.disabled=false;}
+ document.getElementById('setSummary').textContent='현재 적용: '+sm+' · MPI '+(s.mpi_effective||'?')+'개 · GPU '+(s.gpu_effective??'없음');
 }
 async function saveSettings(){
  if(runBusyNow()){toast('실행 중에는 설정을 할 수 없습니다',true);return;}
  const btn=document.getElementById('setSave');btn.disabled=true;
  const body={cpu_pct:+document.getElementById('setCpu').value,mpi_np:document.getElementById('setMpi').value,
-  gpu_index:document.getElementById('setGpu').value,pressure_solver_mode:document.getElementById('setPressureMode').value,
-  raw_archive_dir:document.getElementById('setRaw').value.trim()};
+  gpu_index:document.getElementById('setGpu').value,pressure_solver_mode:document.getElementById('setPressureMode').value};
  try{const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),j=await r.json();
   if(!r.ok||!j.ok){toast(j.msg||'환경 설정을 저장하지 못했습니다',true);return;}renderSettingsModal(j.settings);closeSettings();toast('환경 설정을 저장했습니다 · 계산 자원은 다음 시작부터 적용됩니다');
  }catch(_){toast('환경 설정 저장 중 서버 응답이 끊겼습니다',true);}finally{btn.disabled=false;}
@@ -9119,7 +9091,8 @@ def raw_archive_loop():
     time.sleep(12)                              # 앱·WSL 기동 점검과 디스크 접근을 겹치지 않음
     loaded_root = None
     while True:
-        root = _raw_archive_dir()
+        active = _active_rid()
+        root = _resolved_project_raw_root(active) if active else _raw_archive_dir()
         if root and root != loaded_root:
             ok, norm, msg = _validate_raw_archive_dir(root, require_writable=False)
             if ok:
@@ -9130,7 +9103,8 @@ def raw_archive_loop():
             else:
                 RAW_ARCHIVE_STATE.update(msg=msg)
         active = _active_rid()
-        if root and not _extract_state(active).get("busy"):
+        active_meta = _read_json_file(os.path.join(proj_dir(active), "meta.json")) or {} if active else {}
+        if root and active_meta.get("execution_project_id") and get_status().get("running") and not _extract_state(active).get("busy"):
             try: result, _ = _raw_archive_once()
             except Exception as e:
                 RAW_ARCHIVE_STATE.update(busy=False, msg="보관 점검 실패: " + str(e)[:100])
@@ -9341,7 +9315,7 @@ def autosync_loop():
 def _kill_previous():
     """포트를 잡고 있는 이전 CFD Studio 프로세스 종료 (업데이트 후 옛 화면이 계속 뜨는 문제 방지)"""
     try:
-        out = subprocess.run(["netstat", "-ano"], capture_output=True, text=True, timeout=10, creationflags=0x08000000 if os.name == "nt" else 0).stdout
+        out = subprocess.run(["netstat", "-ano"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10, creationflags=0x08000000 if os.name == "nt" else 0).stdout
     except Exception:
         return
     me = str(os.getpid())
@@ -9375,10 +9349,10 @@ def _claim_studio_pid():
             ps = (f"$p=Get-Process -Id {old} -ErrorAction SilentlyContinue; if($p){{"
                   "[Console]::Write(($p.StartTime.ToUniversalTime()-[datetime]'1970-01-01').TotalSeconds)}}")
             r = subprocess.run([POWERSHELL_EXE, "-NoProfile", "-Command", ps],
-                               capture_output=True, text=True, timeout=8)
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=8, creationflags=0x08000000 if os.name == "nt" else 0)
             actual = float((r.stdout or "0").strip() or 0)
             if abs(actual - old_started) < 30:
-                subprocess.run(["taskkill", "/PID", str(old), "/F"], capture_output=True)
+                subprocess.run(["taskkill", "/PID", str(old), "/F"], capture_output=True, creationflags=0x08000000 if os.name == "nt" else 0)
         except Exception:
             pass
     tmp = STUDIO_PIDF + ".tmp"
@@ -9621,9 +9595,7 @@ def main():
     threading.Thread(target=autosync_loop, daemon=True).start()
     threading.Thread(target=sys_loop, name="cfd-sys", daemon=True).start()
     threading.Thread(target=storage_loop, name="cfd-storage", daemon=True).start()
-    threading.Thread(target=_migrate_all_project_raw_layouts, name="cfd-raw-layout", daemon=True).start()
     threading.Thread(target=raw_archive_loop, name="cfd-raw-archive", daemon=True).start()
-    threading.Thread(target=completed_project_archive_loop, name="cfd-project-archive", daemon=True).start()
     threading.Thread(target=resume_loop, daemon=True).start()
     threading.Thread(target=trash_loop, daemon=True).start()
     threading.Thread(target=_startup_check, daemon=True).start()

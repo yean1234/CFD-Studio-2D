@@ -92,3 +92,5 @@ output/warehouse_transport_*/
 
 tracer_transport/coupled_solver/Make/linux*/
 output/warehouse_transport_coupled_sensitivity_*.json
+
+output/storage-ui-review/

@@ -81,14 +81,15 @@ def validate_settings(config):
 
 
 from cfd_studio.run_management import RunManagement
+from cfd_studio.project_storage import ProjectStorage, project_path
 
 
-class ExecutionWorkspace(RunManagement):
+class ExecutionWorkspace(ProjectStorage, RunManagement):
     def __init__(self, root, project_roots, folder=None, output=None, settings=None, busy=None, live=None):
         self.root = Path(root).resolve()
         self.project_roots = project_roots
-        self.folder = Path(folder or self.root/'cfd_studio/_runtime/executions')
-        self.output = Path(output or self.root/'output')
+        self.folder = Path(folder or self.root/'cfd_studio/_runtime/executions').resolve()
+        self.output = Path(output or self.root/'output').resolve()
         self.settings = settings or {}
         self.busy = busy or (lambda: False)
         self.live = live or (lambda: {})
@@ -100,7 +101,7 @@ class ExecutionWorkspace(RunManagement):
         return read_json(self.folder/'external_results.json', [])
 
     def external_paths(self):
-        return [Path(item['path']) for item in self.external_entries()]
+        return [project_path(item['path']) for item in self.external_entries()]
 
     def restore_external(self, project_name, path):
         """Restore an existing result by reference, preserving all source bytes."""
@@ -125,7 +126,7 @@ class ExecutionWorkspace(RunManagement):
             project['runs'].append(key)
             entries = [e for e in self.external_entries() if Path(e['path']).resolve() != path]
             entries.append({'path': str(path), 'project_id': project['id']})
-            atomic_json(self.folder/'projects.json', data)
+            self.persist_catalog(data)
             atomic_json(self.folder/'external_results.json', entries)
             return {'project_id': project['id'], 'run_key': key}
 
@@ -134,7 +135,8 @@ class ExecutionWorkspace(RunManagement):
         records = {}
         roots = self.project_roots() if callable(self.project_roots) else self.project_roots
         candidates = [(p, None) for base in roots for p in sorted(Path(base).glob('*'))]
-        candidates += [(Path(e['path']), e['project_id']) for e in self.external_entries()]
+        candidates = [(Path(e['path']), e['project_id']) for e in self.managed_result_entries() if e['kind'] == 'legacy'] + candidates
+        candidates += [(project_path(e['path']), e['project_id']) for e in self.external_entries()]
         seen = set()
         for p, project_id in candidates:
             if not p.is_dir() or p.name.startswith('_') or str(p.resolve()).casefold() in seen:
@@ -157,13 +159,16 @@ class ExecutionWorkspace(RunManagement):
                 'numerical_status': 'unchecked'}
             if project_id:
                 records[key]['project_id'] = project_id
-        for p in sorted(self.output.glob('warehouse_transport_*')):
+        warehouse_paths = [Path(e['path']) for e in self.managed_result_entries() if e['kind'] == 'warehouse'] + sorted(self.output.glob('warehouse_transport_*'))
+        for p in warehouse_paths:
             if not p.is_dir() or p.is_symlink() or not (p/'model_contract.json').is_file():
                 continue
             model = read_json(p/'model_contract.json', {})
             state = read_json(p/'state.json', {})
             checks = read_json(p/'checks.json', {})
             key = 'warehouse:' + p.name
+            if key in records:
+                continue
             valid = state.get('status') == 'complete' and bool(checks.get('execution_checks_pass') or checks.get('numerical_pass'))
             records[key] = {'id': key, 'kind': 'warehouse', 'rid': p.name, 'name': p.name,
                 'path': str(p), 'model': model.get('kind'), 'status': state.get('status', 'saved'),
@@ -173,15 +178,19 @@ class ExecutionWorkspace(RunManagement):
                 'last_saved': checks.get('simulated_seconds'), 'frames': checks.get('frames'),
                 'result_status': 'ready' if valid and (p/'concentration.npz').is_file() else 'none',
                 'numerical_status': 'passed' if checks.get('numerical_pass') else 'incomplete' if checks else 'unchecked'}
-        for p in (self.folder/'runs').glob('*/job.json'):
+        job_paths = list((self.folder/'runs').glob('*/job.json'))
+        for project in self.stored_projects():
+            if project.get('storage_path'):
+                job_paths += list(project_path(project['storage_path']).glob('Cases/*/Attempts/*/job.json'))
+        for p in job_paths:
             job = read_json(p, {})
             if job.get('case_id'):
                 continue
             key = job['run_key']
             current = records.get(key, {})
             records[key] = {**current, 'id': key, 'kind': 'warehouse', 'rid': Path(job['output']).name,
-                'name': job['name'], 'path': job['output'], 'created': job['created'], 'status': job['status'],
-                'end_s': job['end_s'], 'project_id': job['project_id'], 'job_id': job['id'],
+                'name': job['name'], 'path': current.get('path', job['output']), 'created': job['created'], 'status': job['status'],
+                'end_s': job['end_s'], 'project_id': job['project_id'], 'job_id': job['id'], 'job_path': str(p),
                 'model': 'clo2_coupled_scenario', 'has_results': current.get('has_results', False),
                 'error': job.get('error', ''), 'numerical_pass': current.get('numerical_pass', False),
                 'experimental_validation': False}
@@ -201,18 +210,34 @@ class ExecutionWorkspace(RunManagement):
         path = self.folder/'projects.json'
         data = read_json(path, None)
         if data is None:
-            data = {'schema': 1, 'projects': [{'id': uuid.uuid4().hex, 'name': '식량창고', 'created': time.time(), 'runs': []}]}
-        if data.get('schema') != 1 or not isinstance(data.get('projects'), list) or not data['projects']:
+            data = {'schema': 1, 'projects': []}
+        if data.get('schema') != 1 or not isinstance(data.get('projects'), list):
             raise ValueError('프로젝트 목록 형식을 확인해 주세요')
         before = json.dumps(data, sort_keys=True)
+        if records and not data['projects']:
+            data['projects'].append({'id': uuid.uuid4().hex, 'name': '식량창고', 'created': time.time(), 'runs': []})
         projects = {p['id']: p for p in data['projects']}
         assigned = {rid for p in projects.values() for rid in p['runs']}
         for key, record in records.items():
             if key not in assigned:
                 target = projects.get(record.get('project_id'), data['projects'][0])
                 target['runs'].append(key)
-        if not path.exists() or json.dumps(data, sort_keys=True) != before:
-            atomic_json(path, data)
+        for project in data['projects']:
+            links = project.setdefault('linked_results', [])
+            known = {str(project_path(i['path'])) for i in links if i.get('external')}
+            storage = project_path(project['storage_path']) if project.get('storage_path') else None
+            for key in project['runs']:
+                record = records.get(key, {})
+                if not record.get('path') or key.startswith('case:'):
+                    continue
+                result_path = project_path(record['path'])
+                if storage and result_path.is_relative_to(storage):
+                    continue
+                if str(result_path) not in known:
+                    links.append({'kind': record['kind'], 'path': str(result_path), 'external': True})
+                    known.add(str(result_path))
+        if not path.exists() or json.dumps(data, sort_keys=True) != before or any(not p.get('storage_path') for p in data['projects']):
+            self.persist_catalog(data)
         return data
 
     def snapshot(self):
@@ -221,11 +246,11 @@ class ExecutionWorkspace(RunManagement):
             data = self._catalog(records)
             projects = []
             for p in data['projects']:
-                runs = sorted((records[k] for k in p['runs'] if k in records), key=lambda r: r['created'], reverse=True)
-                projects.append({'id': p['id'], 'name': p['name'], 'description': p.get('description', ''), 'default_preset': p.get('default_preset'), 'created': p['created'], 'runs': runs})
+                runs = sorted(({**records[k], 'project_id': p['id']} for k in p['runs'] if k in records), key=lambda r: r['created'], reverse=True)
+                projects.append({'id': p['id'], 'name': p['name'], 'description': p.get('description', ''), 'default_preset': p.get('default_preset'), 'created': p['created'], 'storage_path': p.get('storage_path', ''), 'storage_available': bool(p.get('storage_path') and project_path(p['storage_path']).is_dir()), 'runs': runs})
             return {'projects': projects, 'queue': self.queue_summary(), 'busy': bool(self.busy()) or any(r['status'] in ('queued', 'running') and not r['id'].startswith('case:') or r['status'] == 'running' for r in records.values())}
 
-    def create_project(self, name, description='', default_preset=None):
+    def create_project(self, name, description='', default_preset=None, storage_path=None):
         with self.lock:
             data = self._catalog(self.discover())
             if not isinstance(description, str) or len(description) > 4000:
@@ -233,8 +258,9 @@ class ExecutionWorkspace(RunManagement):
             if default_preset:
                 self.template(default_preset)
             project = {'id': uuid.uuid4().hex, 'name': label(name), 'description': description, 'default_preset': default_preset, 'created': time.time(), 'runs': []}
+            self.prepare_project_folder(project, storage_path)
             data['projects'].append(project)
-            atomic_json(self.folder/'projects.json', data)
+            self.persist_catalog(data)
             return project
 
     def rename_project(self, key, name):
@@ -244,7 +270,7 @@ class ExecutionWorkspace(RunManagement):
             if project is None:
                 raise ValueError('프로젝트를 찾을 수 없습니다')
             project['name'] = label(name)
-            atomic_json(self.folder/'projects.json', data)
+            self.persist_catalog(data)
 
     def detail(self, key):
         records = self.discover()
@@ -270,7 +296,7 @@ class ExecutionWorkspace(RunManagement):
                 source = self.root/'cfd_studio/Studies/attempts'/attempt
                 candidates = [source/'raw/log.porousTracerFoam', source/'execution.log'] + candidates
         if record.get('job_id'):
-            folder = self.folder/'runs'/record['job_id']
+            folder = Path(record['job_path']).parent if record.get('job_path') else self.folder/'runs'/record['job_id']
             config = read_json(folder/'input.json')
             candidates.append(folder/'execution.log')
         available = [q for q in candidates if q.is_file()]
@@ -324,7 +350,7 @@ class ExecutionWorkspace(RunManagement):
             for p in data['projects']:
                 p['runs'] = [r for r in p['runs'] if r != key]
             project['runs'].append(key)
-            atomic_json(self.folder/'projects.json', data)
+            self.persist_catalog(data)
             return key
 
     def _command(self, job_path):
@@ -366,9 +392,9 @@ class ExecutionWorkspace(RunManagement):
             if snap['busy'] or self.busy():
                 raise ValueError('진행 중인 계산이 있습니다. 완료 후 새 실행을 시작해 주세요')
             key = uuid.uuid4().hex
-            folder = self.folder/'runs'/key
+            folder = self.attempt_folder(project_id, key, key)
             folder.mkdir(parents=True, exist_ok=False)
-            output = self.output/('warehouse_transport_ui_'+key)
+            output = folder/'Raw'/('warehouse_transport_ui_'+key)
             job = {'id': key, 'project_id': project_id, 'name': name, 'created': time.time(),
                    'status': 'queued', 'output': str(output.resolve()), 'end_s': n['end_s'],
                    'run_key': 'warehouse:'+output.name}
@@ -414,6 +440,8 @@ def get_route(handler, workspace):
             result = workspace.snapshot()
         elif url.path == '/api/executions/template':
             result = {'config': workspace.template(parse_qs(url.query).get('id', ['warehouse'])[0])}
+        elif url.path == '/api/executions/storage-defaults':
+            result = workspace.project_defaults()
         elif url.path == '/api/executions/presets':
             result = {'presets': workspace.presets()}
         elif url.path == '/api/executions/detail':
@@ -436,12 +464,16 @@ def post_route(handler, workspace, body):
         if path == '/api/executions/preset':
             result = workspace.save_preset(body.get('name'), body.get('config'))
         elif path == '/api/executions/project':
-            result = workspace.create_project(body.get('name'), body.get('description', ''), body.get('default_preset'))
+            result = workspace.create_project(body.get('name'), body.get('description', ''), body.get('default_preset'), body.get('storage_path'))
+        elif path == '/api/executions/project-open':
+            result = workspace.open_project(body.get('storage_path'))
+        elif path == '/api/executions/project-pick':
+            result = workspace.pick_project_folder(body.get('path', ''))
         elif path == '/api/executions/rename':
             workspace.rename_project(body.get('id'), body.get('name'))
             result = {}
         elif path == '/api/executions/project-edit':
-            result = workspace.edit_project(body.get('id'), body.get('name'), body.get('description', ''), body.get('default_preset'))
+            result = workspace.edit_project(body.get('id'), body.get('name'), body.get('description', ''), body.get('default_preset'), body.get('storage_path'))
         elif path == '/api/executions/preset-rename':
             result = workspace.rename_preset(body.get('id'), body.get('name'))
         elif path == '/api/executions/case':

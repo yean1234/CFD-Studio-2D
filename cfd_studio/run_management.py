@@ -94,10 +94,10 @@ def differences(a, b, path=''):
 
 class RunManagement:
     def queue_data(self):
-        return read(self.folder/'queue.json', {'schema': 1, 'paused': True, 'active': None, 'order': [], 'cases': {}, 'failure': None})
+        return self.read_project_queue()
 
     def save_queue(self, q):
-        write(self.folder/'queue.json', q)
+        self.write_project_queue(q)
 
     def case_record(self, case, discovered):
         output = discovered.get(case.get('result_key'), {})
@@ -121,6 +121,7 @@ class RunManagement:
             project = next((p for p in self.snapshot()['projects'] if p['id'] == project_id), None)
             if not project:
                 raise ValueError('프로젝트를 찾을 수 없습니다')
+            self.project_folder(project_id)
             q = self.queue_data()
             old = q['cases'].get(case_id) if case_id else None
             if case_id and not old:
@@ -174,6 +175,8 @@ class RunManagement:
             elif action == 'pause':
                 q['paused'] = True
             elif action == 'resume':
+                if any(key not in q['cases'] for key in q['order']):
+                    raise ValueError('대기열 프로젝트 드라이브 연결을 확인하세요')
                 if q.get('failure'):
                     raise ValueError('실패한 실행을 재시도하거나 건너뛰세요')
                 q['paused'] = False
@@ -213,6 +216,7 @@ class RunManagement:
         self._queue_shutdown = threading.Event()
         self._async_launch = True
         with self.lock:
+            self._catalog(self.discover())
             q = self.queue_data()
             # Restore the order, but never silently launch new work after a restart.
             q['paused'] = True
@@ -262,11 +266,11 @@ class RunManagement:
             if c['status'] != 'queued':
                 raise ValueError('대기열 상태 불일치')
             attempt = uuid.uuid4().hex
-            folder = self.folder/'runs'/attempt
+            folder = self.attempt_folder(c['project_id'], key, attempt)
             folder.mkdir(parents=True, exist_ok=False)
             write(folder/'input.json', c['config'])
             digest = hashlib.sha256((folder/'input.json').read_bytes()).hexdigest()
-            output = self.output/('warehouse_transport_ui_'+attempt)
+            output = folder/'Raw'/('warehouse_transport_ui_'+attempt)
             job = {'id': attempt, 'case_id': key, 'project_id': c['project_id'], 'name': c['name'],
                    'status': 'queued', 'created': time.time(), 'output': str(output.resolve()),
                    'end_s': c['end_s'], 'run_key': 'warehouse:'+output.name, 'input_sha256': digest,
@@ -311,8 +315,9 @@ class RunManagement:
                 job = read(folder/'job.json');job.update(status='failed', error=str(error));write(folder/'job.json', job)
                 self.save_queue(q)
 
-    def edit_project(self, key, name, description, default_preset):
+    def edit_project(self, key, name, description, default_preset, storage_path=None):
         from cfd_studio.execution_workspace import label
+        from cfd_studio.project_storage import project_path
         name = label(name)
         if not isinstance(description, str) or len(description) > 4000:
             raise ValueError('프로젝트 설명은 4,000자 이내로 입력하세요')
@@ -323,8 +328,12 @@ class RunManagement:
             p = next((p for p in data['projects'] if p['id'] == key), None)
             if not p:
                 raise ValueError('프로젝트를 찾을 수 없습니다')
+            if storage_path and project_path(storage_path) != project_path(p['storage_path']):
+                self.relocate_project(key, storage_path)
+                data = self._catalog(self.discover())
+                p = next(p for p in data['projects'] if p['id'] == key)
             p.update(name=name, description=description, default_preset=default_preset)
-            write(self.folder/'projects.json', data)
+            self.persist_catalog(data)
             return p
 
     def rename_preset(self, key, name):
@@ -342,7 +351,7 @@ class RunManagement:
                 for p in data['projects']:
                     if p.get('default_preset') == key:
                         p['default_preset'] = saved['id']
-                write(self.folder/'projects.json', data)
+                self.persist_catalog(data)
             except Exception:
                 self.preset_paths()[saved['id']].unlink(missing_ok=True)
                 raise

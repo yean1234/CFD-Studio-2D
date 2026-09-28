@@ -13,7 +13,7 @@ from cfd_studio.execution_workspace import ExecutionWorkspace,get_route,post_rou
 from cfd_studio.warehouse_results import WarehouseResults
 
 
-def serve(folder,output,port,allow_run):
+def serve(folder,output,port,allow_run,allow_write=False):
     workspace=ExecutionWorkspace(ROOT,[ROOT/'cfd_studio/Project'],folder=folder,output=output)
     if allow_run:
         workspace.start_queue_service()
@@ -33,7 +33,7 @@ def serve(folder,output,port,allow_run):
             if u.path=='/':self._send(200,html.encode(),'text/html; charset=utf-8')
             elif u.path in files:self._send(200,(ROOT/files[u.path]).read_bytes(),'text/javascript' if u.path.endswith('.js') else 'text/html; charset=utf-8')
             elif u.path.startswith('/api/warehouse/results'):
-                r=WarehouseResults(output)
+                r=WarehouseResults(output, lambda rid:workspace.result_path(rid, 'warehouse'))
                 try:
                     if u.path.endswith('/meta'):data=r.metadata(q['id'][0])
                     elif u.path.endswith('/frame'):data=r.frame(q['id'][0],int(q['index'][0]))
@@ -50,7 +50,7 @@ def serve(folder,output,port,allow_run):
                 n=int(self.headers.get('Content-Length','0'))
                 if n>65536:raise ValueError('Request too large')
                 body=json.loads(self.rfile.read(n) or b'{}')
-                if not allow_run and self.path.startswith('/api/executions'):
+                if not (allow_run or allow_write) and self.path.startswith('/api/executions'):
                     self._json({'ok':False,'msg':'읽기 전용 검토 서버'},409);return
                 if self.path == '/api/uistate':
                     self._json({'ok':True});return
@@ -62,5 +62,5 @@ def serve(folder,output,port,allow_run):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--folder',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--port',type=int,default=18747);p.add_argument('--allow-run',action='store_true');a=p.parse_args()
-    serve(a.folder,a.output,a.port,a.allow_run)
+    p=argparse.ArgumentParser();p.add_argument('--folder',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--port',type=int,default=18747);p.add_argument('--allow-run',action='store_true');p.add_argument('--allow-write',action='store_true');a=p.parse_args()
+    serve(a.folder,a.output,a.port,a.allow_run,a.allow_write)

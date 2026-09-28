@@ -58,6 +58,17 @@ class WarehouseResultTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '일치하지'):
             self.reader.frame(self.case.name, 1)
 
+    def test_registered_project_result_loads_outside_the_old_output_root(self):
+        destination = self.root/'selected drive'/'Cases'/'run'/'Raw'/self.case.name
+        destination.parent.mkdir(parents=True)
+        self.case.rename(destination)
+        reader = WarehouseResults(self.root, lambda name: destination if name == destination.name else None, lambda: [destination])
+        self.assertEqual(len(reader.list()), 1)
+        frame = reader.frame(destination.name, 0)
+        self.assertEqual(frame['concentration'], [1., 2.])
+        self.assertEqual(Path(frame['raw_file']), destination/'0/C')
+        with self.assertRaises(ValueError): reader.frame('../outside', 0)
+
     def test_corrupt_archive_is_not_offered_as_completed_result(self):
         (self.case/'concentration.npz').write_bytes(b'not-an-array')
         self.assertEqual(self.reader.list(), [])
