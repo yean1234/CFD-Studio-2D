@@ -1,0 +1,78 @@
+{
+  "tests": [
+    {
+      "kind": "artificial_analytical_energy",
+      "shape": [
+        20,
+        4,
+        2
+      ],
+      "dt_s": 0.01,
+      "end_s": 1,
+      "geometry": "1 x 2 x 1 m rectangular periodic-x box, numerical test only",
+      "expected": "T=296.15+cos(2pi*x)*exp(-0.005*(2pi)^2*t)",
+      "warehouse_validation": false,
+      "rmse": 0.0010512839639743006,
+      "relative_amplitude_rmse": 0.0010512839639743006,
+      "stationary_field_error": 0.0,
+      "uniform_tracer_error": 9.103828801926284e-15,
+      "pass": true
+    },
+    {
+      "kind": "artificial_analytical_energy",
+      "shape": [
+        40,
+        4,
+        2
+      ],
+      "dt_s": 0.005,
+      "end_s": 1,
+      "geometry": "1 x 2 x 1 m rectangular periodic-x box, numerical test only",
+      "expected": "T=296.15+cos(2pi*x)*exp(-0.005*(2pi)^2*t)",
+      "warehouse_validation": false,
+      "rmse": 0.00029173552980005365,
+      "relative_amplitude_rmse": 0.00029173552980005365,
+      "stationary_field_error": 0.0,
+      "uniform_tracer_error": 1.6431300764452317e-14,
+      "pass": true
+    },
+    {
+      "kind": "artificial_analytical_momentum",
+      "shape": [
+        4,
+        20,
+        2
+      ],
+      "dt_s": 0.01,
+      "end_s": 1,
+      "geometry": "1 x 2 x 1 m rectangular periodic-x box, numerical test only",
+      "expected": "Ux=0.01*sin(pi*y/2)*exp(-0.1*(pi/2)^2*t)",
+      "warehouse_validation": false,
+      "rmse": 4.560025750969379e-06,
+      "relative_amplitude_rmse": 0.0004560025750969379,
+      "stationary_field_error": 7.73070496506989e-12,
+      "uniform_tracer_error": 2.1871393585115584e-14,
+      "pass": true
+    },
+    {
+      "kind": "artificial_analytical_momentum",
+      "shape": [
+        4,
+        40,
+        2
+      ],
+      "dt_s": 0.005,
+      "end_s": 1,
+      "geometry": "1 x 2 x 1 m rectangular periodic-x box, numerical test only",
+      "expected": "Ux=0.01*sin(pi*y/2)*exp(-0.1*(pi/2)^2*t)",
+      "warehouse_validation": false,
+      "rmse": 1.5617600940341828e-06,
+      "relative_amplitude_rmse": 0.00015617600940341826,
+      "stationary_field_error": 8.412825991399586e-12,
+      "uniform_tracer_error": 3.7969627442180354e-14,
+      "pass": true
+    }
+  ],
+  "pass": true,
+  "warehouse_convergence": false
+}

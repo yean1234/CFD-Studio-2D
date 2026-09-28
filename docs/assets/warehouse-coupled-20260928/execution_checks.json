@@ -1,0 +1,142 @@
+{
+  "warehouse_transport_coupled_pilot_20260928_01": {
+    "represented_model": "clo2_coupled_scenario",
+    "cells": 22308,
+    "frames": 11,
+    "timeline_complete": true,
+    "geometry_basis": "nominal_drawing_envelope",
+    "relative_balance_error": 7.925839403792551e-14,
+    "relative_energy_balance_error": 1.7852060098629654e-06,
+    "energy_change_J": -11357626.560675858,
+    "numerical_pass": false,
+    "execution_checks_pass": true,
+    "experimental_validation": false,
+    "simulated_seconds": 600.0,
+    "wall_seconds": 59.45661761899828,
+    "steps": 600,
+    "maximum_speed_m_s": 0.6146365297183668,
+    "maximum_saved_speed_m_s": 0.5916857398697057,
+    "temperature_range_C": [
+      21.77842500028214,
+      23.000000060827347
+    ],
+    "final_temperature_range_C": [
+      21.77842500028214,
+      23.00000000185355
+    ],
+    "minimum_concentration_kg_m3": 9.997255888734274e-10,
+    "max_divergence_s_inv": 1.332539345454219e-07,
+    "numerical_validation_scope": "execution_mass_energy_balance_only; grid/time/turbulence validation incomplete",
+    "raw_npz_fields": [
+      "C",
+      "T",
+      "U"
+    ],
+    "raw_npz_max_difference": 0.0
+  },
+  "warehouse_transport_coupled_1h_20260928_01": {
+    "represented_model": "clo2_coupled_scenario",
+    "cells": 22308,
+    "frames": 13,
+    "timeline_complete": true,
+    "geometry_basis": "nominal_drawing_envelope",
+    "relative_balance_error": 1.2511035753094026e-13,
+    "relative_energy_balance_error": 7.22333092048251e-08,
+    "energy_change_J": -85956440.52415967,
+    "numerical_pass": false,
+    "execution_checks_pass": true,
+    "experimental_validation": false,
+    "simulated_seconds": 3600.0,
+    "wall_seconds": 327.2364158210112,
+    "steps": 3234,
+    "maximum_speed_m_s": 0.6146355619941006,
+    "maximum_saved_speed_m_s": 0.4608176458787627,
+    "temperature_range_C": [
+      21.456289261880443,
+      23.000000280572408
+    ],
+    "final_temperature_range_C": [
+      21.456289261880443,
+      23.000000280572408
+    ],
+    "minimum_concentration_kg_m3": 9.999993020772135e-10,
+    "max_divergence_s_inv": 1.733531525754104e-07,
+    "numerical_validation_scope": "execution_mass_energy_balance_only; grid/time/turbulence validation incomplete",
+    "raw_npz_fields": [
+      "C",
+      "T",
+      "U"
+    ],
+    "raw_npz_max_difference": 0.0
+  },
+  "warehouse_transport_coupled_fine_20260928_01": {
+    "represented_model": "clo2_coupled_scenario",
+    "cells": 85800,
+    "frames": 11,
+    "timeline_complete": true,
+    "geometry_basis": "nominal_drawing_envelope",
+    "relative_balance_error": 2.1796464417074038e-13,
+    "relative_energy_balance_error": 1.6872901879739456e-06,
+    "energy_change_J": -12366836.620100496,
+    "numerical_pass": false,
+    "execution_checks_pass": true,
+    "experimental_validation": false,
+    "simulated_seconds": 600.0,
+    "wall_seconds": 467.595297212014,
+    "steps": 1120,
+    "maximum_speed_m_s": 0.6178126080660271,
+    "maximum_saved_speed_m_s": 0.6150129233029219,
+    "temperature_range_C": [
+      21.642176936587532,
+      23.000000758934732
+    ],
+    "final_temperature_range_C": [
+      21.642176936587532,
+      23.00000004153594
+    ],
+    "minimum_concentration_kg_m3": 9.997838743274484e-10,
+    "max_divergence_s_inv": 5.721554084292131e-07,
+    "numerical_validation_scope": "execution_mass_energy_balance_only; grid/time/turbulence validation incomplete",
+    "raw_npz_fields": [
+      "C",
+      "T",
+      "U"
+    ],
+    "raw_npz_max_difference": 0.0
+  },
+  "warehouse_transport_coupled_time_20260928_01": {
+    "represented_model": "clo2_coupled_scenario",
+    "cells": 22308,
+    "frames": 11,
+    "timeline_complete": true,
+    "geometry_basis": "nominal_drawing_envelope",
+    "relative_balance_error": 3.036055011287477e-13,
+    "relative_energy_balance_error": 2.0777726005949645e-07,
+    "energy_change_J": -11486027.02897954,
+    "numerical_pass": false,
+    "execution_checks_pass": true,
+    "experimental_validation": false,
+    "simulated_seconds": 600.0,
+    "wall_seconds": 129.8926921900129,
+    "steps": 1190,
+    "maximum_speed_m_s": 0.6138256254902087,
+    "maximum_saved_speed_m_s": 0.5895896240359885,
+    "temperature_range_C": [
+      21.78208987232773,
+      23.000000058967714
+    ],
+    "final_temperature_range_C": [
+      21.78208987232773,
+      23.00000000196303
+    ],
+    "minimum_concentration_kg_m3": 9.997029336501994e-10,
+    "max_divergence_s_inv": 6.22651723124485e-08,
+    "numerical_validation_scope": "execution_mass_energy_balance_only; grid/time/turbulence validation incomplete",
+    "raw_npz_fields": [
+      "C",
+      "T",
+      "U"
+    ],
+    "raw_npz_max_difference": 0.0
+  }
+}

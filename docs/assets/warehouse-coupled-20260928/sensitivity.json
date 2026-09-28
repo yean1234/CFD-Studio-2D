@@ -1,0 +1,33 @@
+{
+  "grid_sensitivity": {
+    "reference": "warehouse_transport_coupled_pilot_20260928_01",
+    "candidate": "warehouse_transport_coupled_fine_20260928_01",
+    "time_s": 600.0,
+    "mapping": "nearest fine cell in same x column, unweighted L2; not conservative remapping",
+    "maximum_mapping_distance_m": 0.33197905927479937,
+    "concentration_rmse_mg_m3": 0.00023981985648503806,
+    "concentration_relative_L2_above_background": 0.3094121095168213,
+    "temperature_rmse_C": 0.0817059878900074,
+    "velocity_vector_relative_L2": 0.4655616523156785,
+    "reference_final_peak_mg_m3": 0.0051833570814501274,
+    "candidate_final_peak_mg_m3": 0.01033293990965387,
+    "grid_converged": false,
+    "experimental_validation": false
+  },
+  "time_control_sensitivity": {
+    "reference": "warehouse_transport_coupled_pilot_20260928_01",
+    "candidate": "warehouse_transport_coupled_time_20260928_01",
+    "time_s": 600.0,
+    "mapping": "nearest fine cell in same x column, unweighted L2; not conservative remapping",
+    "maximum_mapping_distance_m": 0.0,
+    "concentration_rmse_mg_m3": 1.091440724366709e-05,
+    "concentration_relative_L2_above_background": 0.014081610334044207,
+    "temperature_rmse_C": 0.005021888469940595,
+    "velocity_vector_relative_L2": 0.015681633719283987,
+    "reference_final_peak_mg_m3": 0.0051833570814501274,
+    "candidate_final_peak_mg_m3": 0.005258234661222117,
+    "grid_converged": false,
+    "experimental_validation": false
+  },
+  "caveat": "Grid comparison uses automatic Co-based time steps: dt differs as mesh changes. Loaded-cell masks and discretized initial mass also differ. Not a pure fixed-dt grid convergence or Richardson/GCI study."
+}

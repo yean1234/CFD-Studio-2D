@@ -13,11 +13,12 @@ import numpy as np
 
 def raw_field(path, cells):
     content = path.read_text(encoding='ascii')
+    uniform = re.search(r'\binternalField\s+uniform\s+([\deE.+-]+)\s*;', content)
     match = re.search(r'\binternalField\s+nonuniform\s+List<scalar>\s+(\d+)\s*\((.*?)\)\s*;',
                       content, re.DOTALL)
-    if not match or int(match.group(1)) != cells:
+    if not uniform and (not match or int(match.group(1)) != cells):
         raise ValueError(f'Unexpected OpenFOAM scalar field: {path}')
-    values = np.fromstring(match.group(2), sep=' ')
+    values = np.full(cells,float(uniform.group(1))) if uniform else np.fromstring(match.group(2), sep=' ')
     if values.shape != (cells,) or not np.isfinite(values).all():
         raise ValueError(f'Invalid scalar data: {path}')
     dimensions = re.search(r'\bdimensions\s*\[([^]]+)\]', content)
@@ -60,6 +61,35 @@ def audit(case):
             raise ValueError(f'Field dimensions differ at {time:g} s')
         max_difference = max(max_difference, float(np.max(np.abs(values-saved[index]))))
         hashes[f'{time:g}/C'] = hashlib.sha256(path.read_bytes()).hexdigest()
+    coupled_max_difference = None
+    if model['kind'] == 'clo2_coupled_scenario':
+        with np.load(case/'concentration.npz', allow_pickle=False) as archive:
+            temperatures = archive['temperature_K'].copy()
+            velocities = archive['velocity_m_s'].copy()
+        if temperatures.shape != saved.shape or velocities.shape != (*saved.shape,3):
+            raise ValueError('Invalid coupled field shape')
+        if not np.isfinite(temperatures).all() or not np.isfinite(velocities).all():
+            raise ValueError('Non-finite coupled field')
+        coupled_max_difference = 0.
+        for index, time in enumerate(times):
+            values, dimensions = raw_field(case/f'{time:g}'/'T', cells)
+            if dimensions != '0 0 0 1 0 0 0':
+                raise ValueError('Invalid temperature dimensions')
+            coupled_max_difference=max(coupled_max_difference,float(abs(values-temperatures[index]).max()))
+            source=(case/f'{time:g}'/'U').read_text()
+            dim=re.search(r'\bdimensions\s*\[([^]]+)\]',source)
+            uniform=re.search(r'\binternalField\s+uniform\s*\(([^)]+)\)\s*;',source)
+            field=re.search(r'\binternalField\s+nonuniform\s+List<vector>\s+(\d+)\s*\((.*?)\)\s*;',source,re.S)
+            if not dim or dim[1].strip()!='0 1 -1 0 0 0 0' or (not uniform and (not field or int(field[1])!=cells)):
+                raise ValueError('Invalid velocity field')
+            raw=np.tile(np.fromstring(uniform[1],sep=' '),(cells,1)) if uniform else np.fromstring(field[2].replace('(',' ').replace(')',' '),sep=' ').reshape((-1,3))
+            if raw.shape != (cells,3) or not np.isfinite(raw).all():
+                raise ValueError('Invalid velocity values')
+            coupled_max_difference=max(coupled_max_difference,float(abs(raw-velocities[index]).max()))
+            for name in ('T','U'):
+                hashes[f'{time:g}/{name}']=hashlib.sha256((case/f'{time:g}'/name).read_bytes()).hexdigest()
+        if coupled_max_difference != 0:
+            raise ValueError('Temperature or velocity differs from original fields')
     scale = 1e6 if unit == 'kg/m3' and integrated_unit == 'mg*s/m3' else 1
     calculated = np.sum((saved[:-1]+saved[1:])*0.5*np.diff(times)[:, None], axis=0)*scale
     integral_difference = float(np.max(np.abs(calculated-integrated)))
@@ -69,6 +99,7 @@ def audit(case):
     return {'case': str(case), 'frames': len(times), 'cells': cells, 'scalar_values': saved.size,
             'concentration_unit': unit, 'integrated_unit': integrated_unit,
             'max_raw_npz_difference': max_difference,
+            'max_coupled_raw_npz_difference': coupled_max_difference,
             'max_integral_difference': integral_difference, 'raw_field_sha256': hashes,
             'storage_audit_pass': True, 'physical_validation': False}
 

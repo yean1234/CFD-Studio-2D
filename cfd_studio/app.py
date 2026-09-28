@@ -5292,7 +5292,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
     <table>
      <tr><td>액침냉각</td><td>이중 액침냉각 수조 · OpenFOAM v2312의 3상 VOF·상변화 계산. T1~T6 가상 프로브와 결과 Viewer가 있습니다.</td></tr>
      <tr><td>단상 저장고</td><td>설정별 OpenFOAM 솔버·단위를 확인하세요. 저장된 원본장과 별도 실험 검증 여부는 각각 확인해야 합니다.</td></tr>
-     <tr><td>포대식 쌀 저장고</td><td>78 m 저장동과 계획서 제약에 따른 12개 적재 블록의 ClO₂ 확산 시나리오를 지원합니다. 논문 기온·초기 농도·다공성 계수를 입력한 가정 계산입니다. 기존 정규화 수치시험은 별도로 구분합니다.</td></tr>
+     <tr><td>포대식 쌀 저장고</td><td>78 m 저장동과 12개 적재 블록에서 유속·온도·ClO₂ 농도를 연결해 계산합니다. 외기온으로 인한 부력, 적재 저항과 열저장을 포함한 가정 시나리오이며 기존 확산·정규화 시험과 구분합니다. 1시간 구간을 실제 실행했으며 7일 연결 계산은 아직 실행하지 않았습니다.</td></tr>
      <tr><td>검증 경계</td><td>파일 무결성·수치시험 통과와 실제 저장고의 물리적 정확도·실험 검증은 별개입니다. 실내 치수, 적재, 개구, 유동 및 독립 실측은 아직 확정되지 않았습니다.</td></tr>
     </table>
    </div>
@@ -5310,9 +5310,9 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <ol>
     <li><a href="/warehouse">저장고 설정·격자</a>에서 공칭 형상을 확인하고 새 설정으로 저장한 뒤 격자 검사를 실행합니다.</li>
     <li><a href="/warehouse/results">저장고 수송 결과</a>에서 완료된 시험을 선택합니다. 프레임 색 점은 셀 중심 표본이며 실제 체적 렌더링이 아닙니다.</li>
-    <li>계획서 시나리오는 <code>warehouse_transport_plan_20260928_01</code>을 선택합니다. 7일간 3시간 간격의 57프레임과 12개 적재 블록을 확인할 수 있습니다.</li>
-    <li>좌표·시간 조회에서 농도 단위, 셀 중심 거리, 원본 파일을 확인합니다. 시나리오 온도는 논문 곡선을 공간 전체에 균일하게 적용한 입력값이며 열·유동 해석으로 구한 온도장이 아닙니다.</li>
-    <li>수송 계산과 격자·시간 세분화 재현 명령은 저장소의 <a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer">별도 사용·검증 문서</a>를 참고하세요. 이 계산은 현재 Studio의 Study 실행 버튼과 연결되지 않았습니다.</li>
+    <li>연결 계산은 <code>warehouse_transport_coupled_1h_20260928_01</code>을 선택합니다. 1시간·5분 간격의 13프레임입니다. <b>표시할 물리량</b>에서 농도·온도·유속을 바꾸고 중앙 통로 단면을 선택할 수 있습니다. 유속 화살표는 방향과 상대 크기를 나타냅니다.</li>
+    <li>좌표·시간 조회에서 농도(mg/m³), 온도(°C), 유속 벡터(m/s), 셀 대표점 거리와 C·T·U 원본 파일을 확인합니다. 연결 계산 온도는 열방정식 결과입니다. 이전 <code>warehouse_transport_plan_20260928_01</code>의 7일 결과는 정지 공기 확산·공간 균일 기온 입력입니다.</li>
+    <li>수송 계산과 격자·시간 세분화 재현 명령은 저장소의 <a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer">별도 사용·검증 문서</a>를 참고하세요. 이 계산은 현재 Studio의 Study 실행 버튼과 연결되지 않았습니다. 격자 비교에서 농도·유속 차이가 확인되어 수렴 완료로 판정하지 않았습니다.</li>
    </ol>
    <p class="mhint">연구 변수·3D 후보 화면의 적재 배치와 공급 위치는 설계 미리보기입니다. 실측 검증에 근거한 공급량 최적화 결과로 해석하지 마세요.</p>
    <h4>버튼이 헷갈릴 때</h4>
@@ -5334,7 +5334,9 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <p class="mhint" style="margin-top:12px">자세한 내용은 케이스 폴더의 <b>CFD_Studio_사용법 PDF</b> 와 <b>README.md</b> 에 있습니다.</p>
   </div>
   <div class="ibx" id="ifB2" style="display:none">
-   <h4 style="margin-top:0">액침냉각 사례 권장 사양</h4>
+   <h4 style="margin-top:0">저장고 연결 계산 실행 기록</h4>
+   <p>22,308셀·모의시간 1시간: 약 5분 27초. 85,800셀·모의시간 10분: 약 7분 48초. 이 PC의 CPU 실행 기록이며 7일 계산 시간이나 정확도를 보장하지 않습니다. 상세 결과는 <a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/warehouse-coupled-cfd-20260928.md" target="_blank" rel="noopener noreferrer">연결 계산 보고서</a>를 확인하세요.</p>
+   <h4>액침냉각 사례 권장 사양</h4>
    <p class="mhint">아래 3 mm·2 mm 격자와 하드웨어 수치는 액침냉각 사례 기준입니다. 저장고 수송 계산의 권장 사양으로 적용하지 마세요.</p>
    <div class="kv"><table>
     <tr><td>최소</td><td><b>4코어 / 8스레드 · RAM 16 GB · SSD 여유 40 GB</b><br>Windows 10/11 x64 + WSL2 Ubuntu · GPU 선택. 3 mm 단기 시험과 저장 결과 확인은 가능하지만 계산 시간이 매우 길 수 있습니다.</td></tr>

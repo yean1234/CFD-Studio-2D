@@ -89,3 +89,6 @@ output/study_*/
 output/normalized_tracer_verification_*/
 output/normalized_tracer_visual_audit_*/
 output/warehouse_transport_*/
+
+tracer_transport/coupled_solver/Make/linux*/
+output/warehouse_transport_coupled_sensitivity_*.json

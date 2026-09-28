@@ -49,7 +49,7 @@ def npy_member(archive, name):
     raise ValueError(f'지원하지 않는 NPY 자료형: {name}')
 
 
-def raw_field(path, cells, dimensions):
+def raw_field(path, cells, dimensions, components=1):
     source = path.read_text(encoding='ascii')
     if ('boundaryField' not in source or source.count('{') != source.count('}')
             or source.count('(') != source.count(')')):
@@ -57,15 +57,20 @@ def raw_field(path, cells, dimensions):
     found = re.search(r'\bdimensions\s*\[([^]]+)\]', source)
     if dimensions and (not found or found.group(1).strip() != dimensions):
         raise ValueError(f'원본장 단위가 모델 계약과 다릅니다: {path}')
-    uniform = re.search(r'\binternalField\s+uniform\s+([\deE.+-]+)\s*;', source)
+    uniform = re.search(r'\binternalField\s+uniform\s+' +
+                       (r'([\deE.+-]+)' if components == 1 else r'\(([^)]+)\)') + r'\s*;', source)
     if uniform:
-        values = (float(uniform.group(1)),)*cells
+        row = tuple(float(v) for v in uniform.group(1).split())
+        if len(row) != components:
+            raise ValueError(f'잘못된 OpenFOAM 성분 수: {path}')
+        values = row*cells
     else:
-        match = re.search(r'\binternalField\s+nonuniform\s+List<scalar>\s+(\d+)\s*\((.*?)\)\s*;', source, re.S)
+        kind = 'scalar' if components == 1 else 'vector'
+        match = re.search(r'\binternalField\s+nonuniform\s+List<' + kind + r'>\s+(\d+)\s*\((.*?)\)\s*;', source, re.S)
         if not match or int(match.group(1)) != cells:
             raise ValueError(f'잘못된 OpenFOAM 원본장: {path}')
-        values = tuple(float(x) for x in match.group(2).split())
-    if len(values) != cells or not all(math.isfinite(v) for v in values):
+        values = tuple(float(x) for x in match.group(2).replace('(', ' ').replace(')', ' ').split())
+    if len(values) != cells*components or not all(math.isfinite(v) for v in values):
         raise ValueError(f'잘못된 OpenFOAM 스칼라값: {path}')
     return values
 
@@ -90,7 +95,7 @@ class WarehouseResults:
         model = json.loads((case/'model_contract.json').read_text(encoding='utf-8'))
         checks = json.loads((case/'checks.json').read_text(encoding='utf-8'))
         config = json.loads((case/'transport_input.json').read_text(encoding='utf-8'))
-        if not (checks.get('numerical_pass') or checks.get('execution_checks_pass')) or model.get('kind') not in ('normalized_gable_verification', 'clo2_gas_in_air', 'clo2_plan_scenario'):
+        if not (checks.get('numerical_pass') or checks.get('execution_checks_pass')) or model.get('kind') not in ('normalized_gable_verification', 'clo2_gas_in_air', 'clo2_plan_scenario', 'clo2_coupled_scenario'):
             raise ValueError('검사된 저장고 수송 결과가 아닙니다')
         with ZipFile(case/'concentration.npz') as archive:
             time_shape, times = npy_member(archive, 'times_s')
@@ -129,6 +134,9 @@ class WarehouseResults:
         return {'id': name, 'model': model['kind'], 'model_validation': model['model_validation'],
                 'concentration_unit': unit, 'temperature_field': model.get('temperature_representation', 'unavailable'),
                 'temperature_timeseries_C': temperatures, 'loading': model.get('loading'),
+                'velocity_field': model.get('velocity_representation', 'unavailable'),
+                'available_fields': ['concentration', 'temperature', 'velocity'] if model['kind'] == 'clo2_coupled_scenario' else ['concentration'],
+                'relative_energy_balance_error': checks.get('relative_energy_balance_error'),
                 'assumptions': model.get('assumptions', []),
                 'numerical_pass': bool(checks.get('numerical_pass')), 'experimental_validation': False,
                 'times_s': list(times), 'cells': len(centres)//3,
@@ -148,6 +156,25 @@ class WarehouseResults:
             raise ValueError('온도 입력 시계열 크기가 프레임과 다릅니다')
         return list(values)
 
+    @staticmethod
+    def _coupled_frame(case, model, times, index):
+        if model['kind'] != 'clo2_coupled_scenario':
+            return None
+        cells = model['geometry']['cells']
+        with ZipFile(case/'concentration.npz') as archive:
+            tshape, temperatures = npy_member(archive, 'temperature_K')
+            ushape, velocities = npy_member(archive, 'velocity_m_s')
+        if tshape != (len(times), cells) or ushape != (len(times), cells, 3):
+            raise ValueError('연결 계산의 온도·유속 배열 크기가 다릅니다')
+        temperatures = temperatures[index*cells:(index+1)*cells]
+        velocities = velocities[index*cells*3:(index+1)*cells*3]
+        sources = {name: str(case/f'{times[index]:g}'/name) for name in ('T','U')}
+        for name, values, dims, count in [('T', temperatures, '0 0 0 1 0 0 0', 1),
+                                           ('U', velocities, '0 1 -1 0 0 0 0', 3)]:
+            if raw_field(Path(sources[name]), cells, dims, count) != values:
+                raise ValueError(f'{name} 원본장과 조회 배열이 일치하지 않습니다')
+        return temperatures, velocities, sources
+
     def frame(self, name, index, maximum_points=25000):
         case, model, checks, config, times, fields, centres, unit = self._load(name)
         if type(index) is not int or index < 0 or index >= len(times):
@@ -161,7 +188,7 @@ class WarehouseResults:
         selected = range(0, cells, stride)
         scale = 1e6 if unit == 'kg/m3' else 1
         temperatures = self._temperatures(case, model, times)
-        return {'index': index, 'time_s': times[index], 'total_cells': cells,
+        result = {'index': index, 'time_s': times[index], 'total_cells': cells,
                 'temperature_C': temperatures[index] if temperatures else None,
                 'displayed_cells': len(selected), 'sampling_stride': stride,
                 'cell_centres_m': [list(centres[i*3:i*3+3]) for i in selected],
@@ -169,6 +196,17 @@ class WarehouseResults:
                 'concentration_unit': 'mg/m3' if scale != 1 else 'C/C_ref',
                 'minimum': min(values)*scale, 'maximum': max(values)*scale,
                 'raw_file': str(raw_path), 'raw_npz_match': True}
+        coupled = self._coupled_frame(case, model, times, index)
+        if coupled:
+            temp, velocity, sources = coupled
+            speeds = [math.hypot(*velocity[i*3:i*3+3]) for i in range(cells)]
+            result.update(temperature_field_C=[temp[i]-273.15 for i in selected],
+                          velocity_m_s=[list(velocity[i*3:i*3+3]) for i in selected],
+                          speed_m_s=[speeds[i] for i in selected],
+                          temperature_range_C=[min(temp)-273.15,max(temp)-273.15],
+                          speed_range_m_s=[min(speeds),max(speeds)],
+                          source_files={'C':str(raw_path), **sources})
+        return result
 
     def sample(self, name, xyz, time_s, max_cell_distance_m):
         case, model, checks, config, times, fields, centres, unit = self._load(name)
@@ -200,10 +238,19 @@ class WarehouseResults:
         scale = 1e6 if unit == 'kg/m3' else 1
         temperatures = self._temperatures(case, model, times)
         temperature = temperatures[left]*(1-fraction)+temperatures[right]*fraction if temperatures else None
+        velocity = None
+        temperature_status = 'prescribed_uniform_C' if temperatures else 'not_calculated'
+        if model['kind'] == 'clo2_coupled_scenario':
+            frames = {i:self._coupled_frame(case, model, times, i) for i in indices}
+            temperature = frames[left][0][cell]*(1-fraction)+frames[right][0][cell]*fraction-273.15
+            velocity = [frames[left][1][3*cell+k]*(1-fraction)+frames[right][1][3*cell+k]*fraction for k in range(3)]
+            temperature_status = 'solved_energy_C'
+            source_files.extend(Path(path) for v in frames.values() for path in v[2].values())
         return {'requested_xyz_m': list(xyz), 'time_s': time_s,
                 'cell_index': cell, 'cell_centre_m': list(centres[cell*3:cell*3+3]),
                 'cell_centre_distance_m': distance, 'sampling': 'nearest_cell_linear_time',
                 'concentration': value*scale,
                 'concentration_unit': 'mg/m3' if scale != 1 else 'C/C_ref',
-                'temperature': temperature, 'temperature_status': 'prescribed_uniform_C' if temperatures else 'not_calculated',
+                'temperature': temperature, 'temperature_status': temperature_status,
+                'velocity_m_s': velocity, 'speed_m_s': math.hypot(*velocity) if velocity is not None else None,
                 'source_files': [str(p) for p in source_files], 'raw_npz_match': True}

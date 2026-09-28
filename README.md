@@ -4,6 +4,8 @@ Windows에서 OpenFOAM 계산과 프로젝트별 데이터 보관, 브라우저 
 
 **처음 사용한다면 [빠른 사용 안내](docs/quickstart-ko.md)를 확인하세요.** 포대식 쌀 저장고의 계산·조회·검증 상태는 [별도 저장고 사용·검증 안내](docs/CFD-STUDIO-USER-GUIDE.md)에 정리했습니다.
 
+**저장고 U·T·C 연결 계산:** [실행 결과·사용법·가정과 한계](docs/warehouse-coupled-cfd-20260928.md). 1시간 구간을 실제 계산했고 세 물리량을 별도 저장고 화면에서 조회합니다.
+
 ## 설치 및 실행
 
 **필수:** Windows 10/11 x64, WSL2 Ubuntu, WebGL2 브라우저, 인터넷 연결(최초 OpenFOAM 설치).
