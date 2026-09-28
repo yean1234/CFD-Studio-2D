@@ -42,6 +42,16 @@ def validate(spec):
         raise ValueError('Invalid time controls')
     if not np.isclose(n['end_s']/n['write_interval_s'], round(n['end_s']/n['write_interval_s'])):
         raise ValueError('Pilot end must align with output interval')
+    if c.get('time_mode', 'adaptive') not in ('adaptive', 'fixed'):
+        raise ValueError('Unknown time mode')
+    if c.get('advection_scheme', 'upwind') not in ('upwind', 'bounded_high_order'):
+        raise ValueError('Unknown advection scheme')
+    if type(c.get('processes',1)) is not int or not 1 <= c.get('processes',1) <= 8:
+        raise ValueError('Use 1..8 solver processes')
+    if 'porous_mesh' in spec:
+        from .porous_warehouse_mesh import layout
+        *_, count = layout(spec)
+        geometry.update(cells=count, mesher='grain_boundary_aligned', mesh_only=False, transport_ready=True)
     return geometry
 
 
@@ -55,13 +65,20 @@ def generate(spec, out):
     geometry = validate(spec)
     out = Path(out)
     build(spec['geometry_spec'], out, check=False)
+    mesh_data = None
+    if 'porous_mesh' in spec:
+        from .porous_warehouse_mesh import generate_mesh
+        mesh_dictionary, mesh_data = generate_mesh(spec)
+        (out/'system/blockMeshDict').write_text(mesh_dictionary)
+        np.savez_compressed(out/'mesh_layout.npz', **mesh_data)
+        (out/'geometry_report.json').write_text(json.dumps(geometry,indent=2))
     (out/'0').mkdir()
     (out/'state.json').write_text('{"status":"preparing"}')
     for command in ('blockMesh', 'checkMesh'):
         run_command(out, command)
     quality = checked_mesh_quality((out/'log.checkMesh').read_text(), geometry['cells'], geometry['volume_m3'])
     (out/'mesh_quality.json').write_text(json.dumps(quality, indent=2))
-    centres = cell_centres(out/'constant/polyMesh', geometry['cells'])
+    centres = mesh_data['cell_centres_m'] if mesh_data is not None else cell_centres(out/'constant/polyMesh', geometry['cells'])
     loaded = np.zeros(len(centres), bool)
     block_counts = []
     for block in spec['loading']['blocks']:
@@ -76,6 +93,14 @@ def generate(spec, out):
     initial = spec['initial']
     concentration = (initial['background_mg_m3'] + initial['gaussian_peak_mg_m3'] *
         np.exp(-.5*np.sum(((centres-initial['centre_m'])/initial['sigma_m'])**2, axis=1)))*1e-6
+    if mesh_data is not None:
+        from .porous_warehouse_mesh import initial_average
+        concentration = initial_average(spec,mesh_data)
+        if not np.array_equal(loaded,mesh_data['loaded_region'].astype(bool)):
+            raise ValueError('Grain regions disagree with aligned mesh')
+        ideal_volume=sum(float(np.prod(np.asarray(b['max_m'])-b['min_m'])) for b in spec['loading']['blocks'])
+        if not np.isclose(mesh_data['cell_volumes_m3'][loaded].sum(),ideal_volume,rtol=1e-12):
+            raise ValueError('Grain volume differs from physical block envelopes')
     alpha_air = c['nu_m2_s']/c['Pr']
     fields = [
         ('C', concentration, '1 -3 0 0 0 0 0'),
@@ -117,7 +142,7 @@ Pr {c['Pr']}; Prt {c['Prt']};
     (out/'system/controlDict').write_text(header('controlDict')+f'''
 application warehouseBuoyantFoam;
 startFrom startTime; startTime 0; stopAt endTime; endTime {n['end_s']};
-deltaT {n['dt_s']}; adjustTimeStep yes; maxCo {c['max_Co']}; maxDeltaT {c['max_dt_s']};
+deltaT {n['dt_s']}; adjustTimeStep {'no' if c.get('time_mode') == 'fixed' else 'yes'}; maxCo {c['max_Co']}; maxDeltaT {c['max_dt_s']};
 writeControl adjustableRunTime; writeInterval {n['write_interval_s']};
 writeFormat ascii; writePrecision 16; timeFormat general; timePrecision 12;
 runTimeModifiable false; libs ("libthermoTools.so");
@@ -135,6 +160,11 @@ interpolationSchemes { default linear; }
 snGradSchemes { default corrected; }
 fluxRequired { default no; T; p_rgh; }
 ''')
+    if c.get('advection_scheme') == 'bounded_high_order':
+        path=out/'system/fvSchemes'
+        path.write_text(path.read_text().replace('div(phi,U) Gauss upwind','div(phi,U) Gauss linearUpwind grad(U)')
+                        .replace('div(phi,T) Gauss upwind','div(phi,T) Gauss limitedLinear 1')
+                        .replace('div(phi,C) Gauss upwind','div(phi,C) Gauss vanLeer'))
     (out/'system/fvSolution').write_text(header('fvSolution')+'''
 solvers {
  p_rgh { solver GAMG; tolerance 1e-9; relTol 0.01; smoother GaussSeidel; }
@@ -155,13 +185,27 @@ relaxationFactors { equations { ".*" 1; } }
         solver='warehouseBuoyantFoam', field_units={'C':'kg/m3', 'U':'m/s', 'T':'K'},
         coupling='T -> buoyancy -> U,phi -> T,C; T -> D; dilute C has no feedback on flow')
     model['coordinate_representation'] = 'arithmetic_mean_of_six_face_centres; approximate_hexahedral_representative_point'
+    model['leakage'] = 'excluded; sealed impermeable gas boundaries'
+    model['porous_grain'] = 'homogenized grain-stack envelopes; effective porosity, Darcy resistance and LTE heat storage; individual bag membranes unresolved'
+    if mesh_data is not None:
+        model['coordinate_representation']='exact_volume_centres_checked_against_OpenFOAM'
+        model['initial_field_representation']='finite_volume_average_of_same_gaussian'
     source = Path(__file__).parent/'coupled_solver'
     model['solver_sources_sha256'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in source.iterdir() if p.suffix in ('.C','.H')}
     (out/'model_contract.json').write_text(json.dumps(model, ensure_ascii=False, indent=2))
     (out/'transport_input.json').write_text(json.dumps(spec, ensure_ascii=False, indent=2))
-    (out/'loading_report.json').write_text(json.dumps({'blocks':block_counts, 'loaded_cells':int(loaded.sum()), 'representation':'cell-centre masks; pallet gap and exact block interfaces not resolved'}, indent=2))
+    loading_report={'blocks':block_counts, 'loaded_cells':int(loaded.sum()), 'representation':'cell-centre masks; pallet gap and exact block interfaces not resolved'}
+    if mesh_data is not None:
+        loading_report.update(representation='mesh faces aligned to homogenized grain envelopes; pallet air gap resolved',
+            grain_bulk_volume_m3=float(mesh_data['cell_volumes_m3'][loaded].sum()),
+            grain_pore_volume_m3=float((mesh_data['cell_volumes_m3'][loaded]*eps[loaded]).sum()),
+            initial_inventory_kg=float(np.sum(concentration*eps*mesh_data['cell_volumes_m3'])))
+    (out/'loading_report.json').write_text(json.dumps(loading_report, indent=2))
+    if c.get('processes',1)>1:
+        (out/'system/decomposeParDict').write_text(header('decomposeParDict')+f'numberOfSubdomains {c["processes"]}; method scotch;\n')
     files = [p for folder in ('0','constant','system') for p in (out/folder).rglob('*') if p.is_file()]
     files += [out/'model_contract.json', out/'transport_input.json']
+    if mesh_data is not None:files.append(out/'mesh_layout.npz')
     (out/'input_hashes.json').write_text(json.dumps({str(p.relative_to(out)):hashlib.sha256(p.read_bytes()).hexdigest() for p in files}, indent=2))
     return model
 
@@ -186,17 +230,29 @@ def analyse(out, elapsed=None):
     model = json.loads((out/'model_contract.json').read_text())
     spec = json.loads((out/'transport_input.json').read_text())
     cells = model['geometry']['cells']
-    times = np.array(sorted(float(p.name) for p in out.iterdir() if p.is_dir() and re.fullmatch(r'\d+(?:\.\d+)?', p.name)))
-    C = np.array([read_field(out/f'{t:g}'/'C', cells) for t in times])
-    T = np.array([read_field(out/f'{t:g}'/'T', cells) for t in times])
-    U = np.array([read_vector(out/f'{t:g}'/'U', cells) for t in times])
+    directories=sorted((p for p in out.iterdir() if p.is_dir() and re.fullmatch(r'\d+(?:\.\d+)?',p.name)),key=lambda p:float(p.name))
+    times=np.array([float(p.name) for p in directories])
+    C = np.array([read_field(p/'C', cells) for p in directories])
+    T = np.array([read_field(p/'T', cells) for p in directories])
+    U = np.array([read_vector(p/'U', cells) for p in directories])
     rows = np.array([[float(x) for x in line.split()[1:]] for line in (out/'log.warehouseBuoyantFoam').read_text().splitlines() if line.startswith('COUPLED ')])
     if len(rows) < 2:
         raise ValueError('Missing solver diagnostics')
     expected = np.arange(round(spec['numerics']['end_s']/spec['numerics']['write_interval_s'])+1)*spec['numerics']['write_interval_s']
-    complete = times.shape == expected.shape and np.allclose(times, expected, rtol=0, atol=1e-8) and rows[-1,0] == times[-1]
+    complete = times.shape == expected.shape and np.allclose(times, expected, rtol=0, atol=1e-8) and np.isclose(rows[-1,0],times[-1],rtol=0,atol=1e-7)
+    if complete:times=expected.astype(float)
+    (out/'frame_sources.json').write_text(json.dumps([{'time_s':float(t),'directory':p.name} for t,p in zip(times,directories)],indent=2))
     balance = float(np.max(abs(rows[:,1]-rows[0,1]))/max(abs(rows[0,1]),1e-30))
     heat_balance = float(abs(rows[-1,2]-rows[-1,3])/max(abs(rows[-1,3]),1.))
+    centres=cell_centres(out/'constant/polyMesh',cells)
+    volumes=None
+    if 'porous_mesh' in spec:
+        centres=read_vector(out/'0/cellCentres',cells)
+        volumes=read_field(out/'0/cellVolumes',cells)
+        with np.load(out/'mesh_layout.npz',allow_pickle=False) as layout:
+            if not np.allclose(centres,layout['cell_centres_m'],atol=1e-8,rtol=0) or not np.allclose(volumes,layout['cell_volumes_m3'],atol=1e-9,rtol=1e-9):
+                raise ValueError('OpenFOAM geometry differs from analytical mesh layout')
+    courants=[float(v) for v in re.findall(r'Courant Number mean: [\deE.+-]+ max: ([\deE.+-]+)',(out/'log.warehouseBuoyantFoam').read_text())]
     passed = bool(complete and np.isfinite(rows).all() and C.min() >= -1e-14 and balance < 1e-6 and heat_balance < .01 and rows[:,9].max() < 1e-5)
     checks = dict(represented_model=model['kind'], cells=cells, frames=len(times), timeline_complete=bool(complete),
         geometry_basis=spec['geometry_spec']['geometry']['coordinate_basis'], relative_balance_error=balance,
@@ -208,11 +264,17 @@ def analyse(out, elapsed=None):
         minimum_concentration_kg_m3=float(C.min()), max_divergence_s_inv=float(rows[:,9].max()),
         numerical_validation_scope='execution_mass_energy_balance_only; grid/time/turbulence validation incomplete',
         raw_npz_fields=['C','T','U'], raw_npz_max_difference=0.)
+    checks['maximum_observed_Courant']=max(courants) if courants else None
+    clocks=re.findall(r'ClockTime = ([\deE.+-]+) s',(out/'log.warehouseBuoyantFoam').read_text())
+    checks['solver_clock_seconds']=float(clocks[-1]) if clocks else None
+    if spec['coupled'].get('time_mode')=='fixed' and (not courants or max(courants)>spec['coupled']['max_Co']*1.01):
+        checks['execution_checks_pass']=False
+        passed=False
     np.savez_compressed(out/'concentration.npz', times_s=times, concentration=C, concentration_unit='kg/m3',
-        temperature_K=T, velocity_m_s=U, cell_centres_m=cell_centres(out/'constant/polyMesh', cells),
+        temperature_K=T, velocity_m_s=U, cell_centres_m=centres,
         loaded_region=1-read_field(out/'0/freeGas',cells),
         integrated_concentration=np.sum((C[:-1]+C[1:])*.5*np.diff(times)[:,None],axis=0)*1e6,
-        integrated_concentration_unit='mg*s/m3')
+        integrated_concentration_unit='mg*s/m3', **({'cell_volumes_m3':volumes} if volumes is not None else {}))
     # Round-trip check of every exported value against the raw fields just read.
     with np.load(out/'concentration.npz',allow_pickle=False) as saved:
         for name, values in [('concentration',C),('temperature_K',T),('velocity_m_s',U)]:
@@ -230,16 +292,75 @@ def execute(spec, out):
     generate(spec, out)
     (out/'state.json').write_text('{"status":"running"}')
     try:
-        run_command(out, 'warehouseBuoyantFoam')
+        processes=spec['coupled'].get('processes',1)
+        if processes==1:
+            run_command(out, 'warehouseBuoyantFoam')
+        else:
+            run_command(out,'decomposePar')
+            run_arguments(out,['mpirun','-np',str(processes),'warehouseBuoyantFoam','-parallel','-case',str(out.resolve())],'log.warehouseBuoyantFoam')
+            run_arguments(out,['reconstructPar','-case',str(out.resolve()),'-noZero'],'log.reconstructPar')
+            reconstruct_geometry(out,processes)
         return analyse(out, time.perf_counter()-started)
     except BaseException as error:
         (out/'state.json').write_text(json.dumps({'status':'failed','error':str(error)}))
         raise
 
 
+def run_arguments(out, arguments, log_name):
+    import subprocess
+    import os
+    import signal
+    with (out/log_name).open('x') as log:
+        process=subprocess.Popen(arguments,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+        try:
+            code=process.wait()
+        except BaseException:
+            os.killpg(process.pid,signal.SIGTERM)
+            process.wait()
+            raise
+    if code:raise RuntimeError(f'{arguments[0]} failed; inspect {out/log_name}')
+
+
+def reconstruct_geometry(out,processes):
+    """Assemble solver cell geometry via OpenFOAM's exact cellProcAddressing.
+
+    mesh.C() snapshots contain sliced patch fields, which reconstructPar cannot
+    instantiate. Only internal cell geometry is required, so use its addressing.
+    """
+    from .mesh_centres import mesh_list
+    out=Path(out)
+    cells=json.loads((out/'model_contract.json').read_text())['geometry']['cells']
+    centres=np.zeros((cells,3));volumes=np.zeros(cells);seen=np.zeros(cells,dtype=int)
+    sources={}
+    for rank in range(processes):
+        proc=out/f'processor{rank}'
+        addressing=proc/'constant/polyMesh/cellProcAddressing'
+        n,body=mesh_list(addressing);indices=np.fromstring(body,sep=' ',dtype=int)
+        if len(indices)!=n or np.any(indices<0) or np.any(indices>=cells):
+            raise ValueError('Invalid OpenFOAM cell addressing')
+        centres[indices]=read_vector(proc/'0/cellCentres',n)
+        volumes[indices]=read_field(proc/'0/cellVolumes',n)
+        np.add.at(seen,indices,1)
+        for p in (addressing,proc/'0/cellCentres',proc/'0/cellVolumes'):
+            sources[str(p.relative_to(out))]=hashlib.sha256(p.read_bytes()).hexdigest()
+    if not np.all(seen==1) or not np.all(volumes>0):raise ValueError('Incomplete/duplicate cell geometry')
+    write_scalar(out/'0','cellVolumes',volumes,'0 3 0 0 0 0 0',PATCHES)
+    body='\n'.join('('+' '.join(f'{v:.16g}' for v in row)+')' for row in centres)
+    bcs='\n'.join(p+' { type zeroGradient; }' for p in PATCHES)
+    (out/'0/cellCentres').write_text(header('cellCentres','volVectorField')+f'dimensions [0 1 0 0 0 0 0];\ninternalField nonuniform List<vector> {cells} (\n{body}\n);\nboundaryField {{ {bcs} }}\n')
+    (out/'geometry_export_sources.json').write_text(json.dumps(sources,indent=2))
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--refinement', type=int, help='Override aligned-grain mesh refinement')
+    parser.add_argument('--processes', type=int, help='Override CPU process count (1..8)')
     args = parser.parse_args()
-    print(json.dumps(execute(json.loads(args.config.read_text()),args.output),indent=2))
+    spec=json.loads(args.config.read_text())
+    if args.processes is not None:spec['coupled']['processes']=args.processes
+    if args.refinement is not None:
+        if 'porous_mesh' not in spec:parser.error('--refinement requires an aligned porous mesh config')
+        spec['porous_mesh']['refinement']=args.refinement
+    print(json.dumps(execute(spec,args.output),indent=2))

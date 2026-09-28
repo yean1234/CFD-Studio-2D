@@ -25,6 +25,8 @@ eps * dC/dt + div(U C) = div(DEffective * grad(C))
 `alphaEffective = bulk conductivity/(air volumetric heat capacity) + freeGas*nut/Prt`.
 `DEffective = diffusionFactor*D(T) + freeGas*nut/Sct`.
 
-The standard k-epsilon closure is used without a calibrated porous turbulence model or extra buoyancy production term. This is a Darcy–Brinkman penalty approximation; inertial porous drag, bag membranes, reaction, sorption, leakage, moisture, solar radiation and solutal buoyancy are omitted. None of the provisional rice/envelope parameters are claimed to be empirical measurements. No dose control or optimization is implemented.
+The standard k-epsilon closure is used without a calibrated porous turbulence model or extra buoyancy production term. This is a Darcy–Brinkman penalty approximation; inertial porous drag, bag membranes, reaction, sorption, leakage, moisture, solar radiation and solutal buoyancy are omitted. None of the provisional rice/envelope parameters are claimed to be empirical measurements. Leakage is explicitly excluded by the current user-defined scope; exterior gas boundaries are impermeable. No dose control or optimization is implemented.
+
+`cellCentres` and `cellVolumes` are separate geometry snapshots written at startup. The Python runner reconstructs their internal values using `cellProcAddressing`, since the upstream `mesh.C()` sliced patch type cannot be loaded by reconstructPar. Numerical time-directory names are preserved and traced through `frame_sources.json`. Parallel runs remain subject to the continuity gate; failed trials are not eligible for the result viewer.
 
 Run the tests in `tracer_transport.verify_coupled` before interpreting the pilot. These validate restricted analytical laminar limits, not the warehouse turbulence model.

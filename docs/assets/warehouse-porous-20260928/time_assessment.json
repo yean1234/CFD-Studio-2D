@@ -1,0 +1,58 @@
+{
+  "cases": [
+    "output/warehouse_transport_porous_r2_serial_20260928_01",
+    "output/warehouse_transport_porous_timehalf_20260928_02"
+  ],
+  "dt_s": [
+    0.1,
+    0.05
+  ],
+  "cells": 14880,
+  "processes": 1,
+  "frames": [
+    {
+      "time_s": 60.0,
+      "concentration_relative_L2": 0.05177193934474437,
+      "velocity_relative_L2": 0.025479133753630603,
+      "temperature_rmse_C": 0.0004711759790970812
+    },
+    {
+      "time_s": 120.0,
+      "concentration_relative_L2": 0.0920184588462976,
+      "velocity_relative_L2": 0.03448207523745271,
+      "temperature_rmse_C": 0.004746881044400403
+    },
+    {
+      "time_s": 180.0,
+      "concentration_relative_L2": 0.03573291275979746,
+      "velocity_relative_L2": 0.03125673871909146,
+      "temperature_rmse_C": 0.0043438103514635475
+    },
+    {
+      "time_s": 240.0,
+      "concentration_relative_L2": 0.018616299344707293,
+      "velocity_relative_L2": 0.02236256015153338,
+      "temperature_rmse_C": 0.003575228352513236
+    },
+    {
+      "time_s": 300.0,
+      "concentration_relative_L2": 0.011677964037118129,
+      "velocity_relative_L2": 0.015033411656427857,
+      "temperature_rmse_C": 0.0028966186504703747
+    }
+  ],
+  "criteria": {
+    "concentration_relative_L2": 0.05,
+    "velocity_relative_L2": 0.05,
+    "temperature_rmse_C": 0.05
+  },
+  "worst": {
+    "concentration_relative_L2": 0.0920184588462976,
+    "velocity_relative_L2": 0.03448207523745271,
+    "temperature_rmse_C": 0.004746881044400403
+  },
+  "time_step_sensitivity_pass": false,
+  "temporal_order_verified": false,
+  "experimental_validation": false,
+  "scope": "two time steps; same mesh, settings, initial fields and process count; only saved comparison times"
+}

@@ -1,0 +1,382 @@
+{
+  "schema": 1,
+  "geometry_spec": {
+    "schema": 1,
+    "geometry": {
+      "length_m": 78,
+      "width_m": 25,
+      "eaves_m": 7.2,
+      "roof_rise_m": 3.5,
+      "coordinate_basis": "nominal_drawing_envelope"
+    },
+    "mesh": {
+      "nx": 78,
+      "ny_per_half": 13,
+      "nz": 11,
+      "maximum_cells": 100000
+    },
+    "evidence": "PNS/PAES 419:2015 Annex A example drawing; nominal storage-building envelope only, not measured interior clearance",
+    "unresolved": [
+      "Nominal drawing boundary assumed to be air boundary; wall thickness omitted",
+      "Annex isolated by closed interface; no annex air or leakage modeled",
+      "Stacks generated from plan constraints; not a measured layout"
+    ]
+  },
+  "provenance": {
+    "plan": "Detailed research plan 2026-09-25 pp.4-5; PNS/PAES 419:2015 Annex A",
+    "plan_sha256": "2d92c28ff0444530af2c30b8c1ee1cf456da9df1e622262212ed342e07d2fbc3",
+    "temperature_paper": "https://doi.org/10.1016/j.compag.2021.106087",
+    "temperature_paper_sha256": "7d3847d2dcfd8c193aa6814bbf88606ddda2a7ffa478f50b1fe44af5efaec2e6",
+    "temperature_basis": "Agrafioti2021 Fig1 container5 external ambient T digitized at3h (+/-0.5C); applied to Robin roof/exterior-wall boundaries; not an exact reproduction of that paper.",
+    "digitization": "render page at scale 3, crop PDF rect (150,418,475,506); x=57..957 px maps day0..7; y=241..28 maps10..30C; dark-pixel median"
+  },
+  "temperature": {
+    "times_s": [
+      0,
+      10800,
+      21600,
+      32400,
+      43200,
+      54000,
+      64800,
+      75600,
+      86400,
+      97200,
+      108000,
+      118800,
+      129600,
+      140400,
+      151200,
+      162000,
+      172800,
+      183600,
+      194400,
+      205200,
+      216000,
+      226800,
+      237600,
+      248400,
+      259200,
+      270000,
+      280800,
+      291600,
+      302400,
+      313200,
+      324000,
+      334800,
+      345600,
+      356400,
+      367200,
+      378000,
+      388800,
+      399600,
+      410400,
+      421200,
+      432000,
+      442800,
+      453600,
+      464400,
+      475200,
+      486000,
+      496800,
+      507600,
+      518400,
+      529200,
+      540000,
+      550800,
+      561600,
+      572400,
+      583200,
+      594000,
+      604800
+    ],
+    "values_C": [
+      14.6,
+      14.93,
+      20.05,
+      23.05,
+      22.3,
+      20.19,
+      17.04,
+      16.48,
+      16.48,
+      15.82,
+      18.87,
+      24.23,
+      25.26,
+      25.87,
+      20.38,
+      17.89,
+      16.24,
+      15.77,
+      18.97,
+      24.27,
+      26.57,
+      25.12,
+      21.13,
+      17.79,
+      15.82,
+      14.93,
+      16.57,
+      22.68,
+      26.15,
+      23.99,
+      22.86,
+      18.54,
+      16.62,
+      15.4,
+      15.26,
+      19.62,
+      23.94,
+      25.45,
+      24.13,
+      19.11,
+      16.15,
+      14.69,
+      13.9,
+      19.11,
+      24.41,
+      27.28,
+      27.42,
+      23.15,
+      18.97,
+      16.38,
+      14.93,
+      17.04,
+      22.63,
+      26.71,
+      26.85,
+      23.24,
+      17.7
+    ]
+  },
+  "loading": {
+    "blocks": [
+      {
+        "id": "row1-block1",
+        "min_m": [
+          2.0,
+          1,
+          0.15
+        ],
+        "max_m": [
+          13.5,
+          11.5,
+          3
+        ]
+      },
+      {
+        "id": "row1-block2",
+        "min_m": [
+          14.5,
+          1,
+          0.15
+        ],
+        "max_m": [
+          26.0,
+          11.5,
+          3
+        ]
+      },
+      {
+        "id": "row1-block3",
+        "min_m": [
+          27.0,
+          1,
+          0.15
+        ],
+        "max_m": [
+          38.5,
+          11.5,
+          3
+        ]
+      },
+      {
+        "id": "row1-block4",
+        "min_m": [
+          39.5,
+          1,
+          0.15
+        ],
+        "max_m": [
+          51.0,
+          11.5,
+          3
+        ]
+      },
+      {
+        "id": "row1-block5",
+        "min_m": [
+          52.0,
+          1,
+          0.15
+        ],
+        "max_m": [
+          63.5,
+          11.5,
+          3
+        ]
+      },
+      {
+        "id": "row1-block6",
+        "min_m": [
+          64.5,
+          1,
+          0.15
+        ],
+        "max_m": [
+          76.0,
+          11.5,
+          3
+        ]
+      },
+      {
+        "id": "row2-block1",
+        "min_m": [
+          2.0,
+          13.5,
+          0.15
+        ],
+        "max_m": [
+          13.5,
+          24.0,
+          3
+        ]
+      },
+      {
+        "id": "row2-block2",
+        "min_m": [
+          14.5,
+          13.5,
+          0.15
+        ],
+        "max_m": [
+          26.0,
+          24.0,
+          3
+        ]
+      },
+      {
+        "id": "row2-block3",
+        "min_m": [
+          27.0,
+          13.5,
+          0.15
+        ],
+        "max_m": [
+          38.5,
+          24.0,
+          3
+        ]
+      },
+      {
+        "id": "row2-block4",
+        "min_m": [
+          39.5,
+          13.5,
+          0.15
+        ],
+        "max_m": [
+          51.0,
+          24.0,
+          3
+        ]
+      },
+      {
+        "id": "row2-block5",
+        "min_m": [
+          52.0,
+          13.5,
+          0.15
+        ],
+        "max_m": [
+          63.5,
+          24.0,
+          3
+        ]
+      },
+      {
+        "id": "row2-block6",
+        "min_m": [
+          64.5,
+          13.5,
+          0.15
+        ],
+        "max_m": [
+          76.0,
+          24.0,
+          3
+        ]
+      }
+    ],
+    "porosity": 0.4,
+    "tortuosity": 2.0,
+    "basis": "포대에 담긴 곡물 적재 영역을 균질 다공성으로 정의. 유효 공극률0.4·굴곡도2·투과도는 미보정 가정이며 개별 포대 막과 포대 사이 틈은 별도 해상하지 않음.",
+    "representation": "homogenized_bagged_grain"
+  },
+  "initial": {
+    "background_mg_m3": 0.001,
+    "gaussian_peak_mg_m3": 1.0,
+    "centre_m": [
+      4,
+      12.5,
+      1.5
+    ],
+    "sigma_m": [
+      1.5,
+      0.5,
+      0.5
+    ],
+    "basis": "Computational initial pulse only; not a recommended fumigation dose or measured time series"
+  },
+  "numerics": {
+    "dt_s": 0.1,
+    "end_s": 300,
+    "write_interval_s": 60
+  },
+  "assumptions": [
+    "누출은 사용자 요청으로 제외. 외벽·문·부속실 연결면은 가스 불투과 경계.",
+    "곡물 적재 영역은 균질 다공성. 공극률·유동 저항·열저장·전도·확산 계수는 명시한 가정값.",
+    "세 격자에서 동일 적재 외곽·곡물 부피·공극 부피·시간간격·초기 연속 농도 분포 사용.",
+    "곡물과 공기는 셀 안에서 국소 열평형. 개별 포대 막 전달 및 반응·흡착은 이번 연결 계산에 없음.",
+    "외기온은 문헌 도표 판독값. 외피 열통과계수2 W/m2/K, 초기23C, 바닥·부속실 경계 단열은 가정.",
+    "k-epsilon과 Darcy-Brinkman 저항은 미보정 모델. 실험 검증은 미완료.",
+    "격자 수렴 판정은 실행된 초기300초와 정해진 비교 지표에 한정. 전체7일·정상상태 검증을 뜻하지 않음."
+  ],
+  "coupled": {
+    "initial_temperature_C": 23,
+    "nu_m2_s": 1.5e-05,
+    "rho_kg_m3": 1.2,
+    "cp_J_kg_K": 1005,
+    "Pr": 0.71,
+    "Prt": 0.85,
+    "Sct": 0.7,
+    "permeability_m2": 1e-07,
+    "solid_rhoCp_J_m3_K": 1200000.0,
+    "bulk_conductivity_W_m_K": 0.12,
+    "envelope_h_W_m2_K": 2,
+    "initial_k_m2_s2": 1e-05,
+    "initial_epsilon_m2_s3": 1e-06,
+    "max_dt_s": 5,
+    "max_Co": 0.5,
+    "turbulence": "kEpsilon",
+    "basis": "All values in this section are provisional scenario assumptions, not measured rice/bag/envelope properties; generic air constants frozen at initial temperature.",
+    "time_mode": "fixed",
+    "advection_scheme": "bounded_high_order",
+    "processes": 1
+  },
+  "porous_mesh": {
+    "kind": "aligned_grain_blocks",
+    "base_max_spacing_m": [
+      3,
+      3,
+      3
+    ],
+    "refinement": 1,
+    "maximum_cells": 150000
+  },
+  "boundary_policy": {
+    "gas_boundary": "sealed_no_flux",
+    "leakage": "excluded_by_user"
+  }
+}

@@ -1,0 +1,156 @@
+{
+  "cases": [
+    "output/warehouse_transport_porous_r1_20260928_02",
+    "output/warehouse_transport_porous_r2_20260928_01",
+    "output/warehouse_transport_porous_r4_20260928_01"
+  ],
+  "cells": [
+    1860,
+    14880,
+    119040
+  ],
+  "compared_until_s": 300.0,
+  "fixed_dt_s": 0.1,
+  "grain_bulk_volumes_m3": [
+    4129.65,
+    4129.65,
+    4129.65
+  ],
+  "initial_inventories_kg": [
+    2.0704423933842983e-05,
+    2.0704423933842712e-05,
+    2.070442393384261e-05
+  ],
+  "physical_settings_sha256": "016529ab71e809a0ddd4547f98e32ae4e6fe45bf1655d517d1aa452ea4f307c6",
+  "criteria": {
+    "concentration_relative_L2": 0.05,
+    "velocity_relative_L2": 0.05,
+    "temperature_rmse_C": 0.05,
+    "qoi_GCI_fraction": 0.05
+  },
+  "pairs": [
+    {
+      "coarse_cells": 1860,
+      "fine_cells": 14880,
+      "mapping": "exact nested-cell volume-weighted restriction",
+      "frames": [
+        {
+          "time_s": 60.0,
+          "concentration_relative_L2": 0.7939753267145343,
+          "velocity_relative_L2": 0.495479992541517,
+          "temperature_rmse_C": 0.008080973912471572
+        },
+        {
+          "time_s": 120.0,
+          "concentration_relative_L2": 0.5533466562229755,
+          "velocity_relative_L2": 0.45485876898717975,
+          "temperature_rmse_C": 0.031839427539805204
+        },
+        {
+          "time_s": 180.0,
+          "concentration_relative_L2": 0.44463400371264494,
+          "velocity_relative_L2": 0.4796085483208939,
+          "temperature_rmse_C": 0.06663431077169796
+        },
+        {
+          "time_s": 240.0,
+          "concentration_relative_L2": 0.3042824054021447,
+          "velocity_relative_L2": 0.5087257600611326,
+          "temperature_rmse_C": 0.08577702865513487
+        },
+        {
+          "time_s": 300.0,
+          "concentration_relative_L2": 0.24212387871122984,
+          "velocity_relative_L2": 0.5155955633292097,
+          "temperature_rmse_C": 0.08520602148906305
+        }
+      ],
+      "worst": {
+        "concentration_relative_L2": 0.7939753267145343,
+        "velocity_relative_L2": 0.5155955633292097,
+        "temperature_rmse_C": 0.08577702865513487
+      },
+      "pass": false
+    },
+    {
+      "coarse_cells": 14880,
+      "fine_cells": 119040,
+      "mapping": "exact nested-cell volume-weighted restriction",
+      "frames": [
+        {
+          "time_s": 60.0,
+          "concentration_relative_L2": 0.801078215971045,
+          "velocity_relative_L2": 0.45323408315156155,
+          "temperature_rmse_C": 0.021974217009821172
+        },
+        {
+          "time_s": 120.0,
+          "concentration_relative_L2": 0.8293188909442488,
+          "velocity_relative_L2": 0.49816088234960404,
+          "temperature_rmse_C": 0.04765519437027428
+        },
+        {
+          "time_s": 180.0,
+          "concentration_relative_L2": 0.5737343927654635,
+          "velocity_relative_L2": 0.5505427167511657,
+          "temperature_rmse_C": 0.07204360941605224
+        },
+        {
+          "time_s": 240.0,
+          "concentration_relative_L2": 0.36246006426299926,
+          "velocity_relative_L2": 0.4539349101901906,
+          "temperature_rmse_C": 0.054582199238633396
+        },
+        {
+          "time_s": 300.0,
+          "concentration_relative_L2": 0.3295312470852645,
+          "velocity_relative_L2": 0.35119636033264273,
+          "temperature_rmse_C": 0.04822354665579061
+        }
+      ],
+      "worst": {
+        "concentration_relative_L2": 0.8293188909442488,
+        "velocity_relative_L2": 0.5505427167511657,
+        "temperature_rmse_C": 0.07204360941605224
+      },
+      "pass": false
+    }
+  ],
+  "qoi_GCI": {
+    "grain_inventory_kg": {
+      "values_coarse_to_fine": [
+        2.3572835975924466e-06,
+        2.21386441661078e-06,
+        2.060253805894302e-06
+      ],
+      "eligible": false,
+      "reason": "differences do not decrease",
+      "observed_order": -0.09903989026966303
+    },
+    "rms_speed_m_s": {
+      "values_coarse_to_fine": [
+        0.18195801090588098,
+        0.14600080348200872,
+        0.1203139994027563
+      ],
+      "eligible": true,
+      "observed_order": 0.4852535768613721,
+      "fine_GCI_fraction": 0.6674619242066493,
+      "asymptotic_ratio": 0.8240639539876389,
+      "pass": false
+    },
+    "mean_cooling_K": {
+      "values_coarse_to_fine": [
+        0.1305674449190056,
+        0.18020795349790691,
+        0.1735553092608305
+      ],
+      "eligible": false,
+      "reason": "non_monotonic"
+    }
+  },
+  "grid_converged": false,
+  "scope": "sealed homogenized porous grain, initial 300 s only; not a full-duration or experimental validation",
+  "experimental_validation": false,
+  "method_source": "https://www.grc.nasa.gov/www/wind/valid/tutorial/spatconv.html"
+}

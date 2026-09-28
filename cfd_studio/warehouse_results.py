@@ -87,6 +87,26 @@ class WarehouseResults:
             raise ValueError('저장고 결과를 찾을 수 없습니다')
         return case
 
+    @staticmethod
+    def _raw_path(case,times,index,field):
+        manifest=case/'frame_sources.json'
+        folder=f'{times[index]:g}'
+        if manifest.exists():
+            frames=json.loads(manifest.read_text(encoding='utf-8'))
+            if not isinstance(frames,list) or len(frames)!=len(times):
+                raise ValueError('원본 프레임 목록이 시간 배열과 다릅니다')
+            entry=frames[index]
+            if not isinstance(entry,dict):
+                raise ValueError('원본 프레임 항목 형식이 올바르지 않습니다')
+            folder=entry.get('directory')
+            if (entry.get('time_s')!=times[index] or not isinstance(folder,str)
+                    or not re.fullmatch(r'\d+(?:\.\d+)?',folder)
+                    or not math.isclose(float(folder),times[index],rel_tol=0,abs_tol=1e-7)):
+                raise ValueError('원본 프레임 경로·시간이 올바르지 않습니다')
+        if (case/folder).resolve().parent!=case.resolve():
+            raise ValueError('원본 프레임 경로가 계산 폴더 밖입니다')
+        return case/folder/field
+
     def _load(self, name):
         case = self._case(name)
         state = json.loads((case/'state.json').read_text(encoding='utf-8'))
@@ -137,6 +157,11 @@ class WarehouseResults:
                 'velocity_field': model.get('velocity_representation', 'unavailable'),
                 'available_fields': ['concentration', 'temperature', 'velocity'] if model['kind'] == 'clo2_coupled_scenario' else ['concentration'],
                 'relative_energy_balance_error': checks.get('relative_energy_balance_error'),
+                'leakage': model.get('leakage', 'not_modeled'),
+                'porous_grain': model.get('porous_grain'),
+                'coordinate_representation': model.get('coordinate_representation','arithmetic_mean_of_six_face_centres'),
+                'grain_volume_report': json.loads((case/'loading_report.json').read_text(encoding='utf-8')) if (case/'loading_report.json').exists() else None,
+                'grid_assessment': json.loads((case/'grid_assessment.json').read_text(encoding='utf-8')) if (case/'grid_assessment.json').exists() else None,
                 'assumptions': model.get('assumptions', []),
                 'numerical_pass': bool(checks.get('numerical_pass')), 'experimental_validation': False,
                 'times_s': list(times), 'cells': len(centres)//3,
@@ -168,7 +193,7 @@ class WarehouseResults:
             raise ValueError('연결 계산의 온도·유속 배열 크기가 다릅니다')
         temperatures = temperatures[index*cells:(index+1)*cells]
         velocities = velocities[index*cells*3:(index+1)*cells*3]
-        sources = {name: str(case/f'{times[index]:g}'/name) for name in ('T','U')}
+        sources = {name: str(WarehouseResults._raw_path(case,times,index,name)) for name in ('T','U')}
         for name, values, dims, count in [('T', temperatures, '0 0 0 1 0 0 0', 1),
                                            ('U', velocities, '0 1 -1 0 0 0 0', 3)]:
             if raw_field(Path(sources[name]), cells, dims, count) != values:
@@ -181,7 +206,7 @@ class WarehouseResults:
             raise ValueError('저장된 프레임 범위를 벗어났습니다')
         cells = len(centres)//3
         values = fields[index*cells:(index+1)*cells]
-        raw_path = case/f'{times[index]:g}'/'C'
+        raw_path = self._raw_path(case,times,index,'C')
         if raw_field(raw_path, cells, model.get('field_dimensions')) != values:
             raise ValueError('원본장과 조회 배열이 일치하지 않습니다')
         stride = max(1, math.ceil(cells/maximum_points))
@@ -229,7 +254,7 @@ class WarehouseResults:
         left = max(i for i, t in enumerate(times) if t <= time_s)
         right = left if times[left] == time_s else left+1
         indices = sorted({left, right})
-        source_files = [case/f'{times[i]:g}'/'C' for i in indices]
+        source_files = [self._raw_path(case,times,i,'C') for i in indices]
         for i, path in zip(indices, source_files):
             if raw_field(path, cells, model.get('field_dimensions')) != fields[i*cells:(i+1)*cells]:
                 raise ValueError('원본장과 조회 배열이 일치하지 않습니다')

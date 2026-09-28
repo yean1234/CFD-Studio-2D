@@ -15,14 +15,18 @@ def plot(case):
     with np.load(case/'concentration.npz',allow_pickle=False) as a:
         xyz=a['cell_centres_m']; C=a['concentration'][-1]*1e6; T=a['temperature_K'][-1]-273.15; U=a['velocity_m_s'][-1]; times=a['times_s']; allc=a['concentration']*1e6; allt=a['temperature_K']-273.15; allu=a['velocity_m_s']
     speed=np.linalg.norm(U,axis=1)
+    parameter_xyz=xyz.copy()
+    if (case/'mesh_layout.npz').exists():
+        with np.load(case/'mesh_layout.npz',allow_pickle=False) as layout:
+            bounds=layout['bounds'];parameter_xyz[:,0]=(bounds[:,0]+bounds[:,1])/2;parameter_xyz[:,1]=(bounds[:,2]+bounds[:,3])/2
     # One nearest cell in each (x,y) column for an approximately horizontal section.
     columns={}
-    for i,(x,y,z) in enumerate(xyz):
+    for i,(x,y,z) in enumerate(parameter_xyz):
         key=(round(float(x),6),round(float(y),6))
         if key not in columns or abs(z-1.5)<abs(xyz[columns[key],2]-1.5):columns[key]=i
     horizontal=np.array(list(columns.values()))
-    ys=np.unique(xyz[:,1]); y=ys[np.argmin(abs(ys-spec['geometry_spec']['geometry']['width_m']/2))]
-    vertical=np.flatnonzero(np.isclose(xyz[:,1],y,atol=1e-8))
+    ys=np.unique(parameter_xyz[:,1]); y=ys[np.argmin(abs(ys-spec['geometry_spec']['geometry']['width_m']/2))]
+    vertical=np.flatnonzero(np.isclose(parameter_xyz[:,1],y,atol=1e-8))
     fig,axes=plt.subplots(2,3,figsize=(17,7),layout='constrained')
     for row,(idx,dim,label) in enumerate(((horizontal,1,'Nearest cells to z=1.5 m'),(vertical,2,f'y={y:.3f} m'))):
         for col,(values,title,unit,cmap) in enumerate(((C,'ClO2 concentration','mg/m3','viridis'),(T,'Temperature','deg C','coolwarm'),(speed,'Superficial velocity magnitude','m/s','magma'))):

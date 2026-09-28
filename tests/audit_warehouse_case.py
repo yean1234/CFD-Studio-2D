@@ -48,19 +48,23 @@ def audit(case):
     expected_integrated_unit = 'mg*s/m3' if unit == 'kg/m3' else '(C/C_ref)*s'
     if unit != model['initial_unit'] or integrated_unit != expected_integrated_unit:
         raise ValueError('Saved warehouse field units differ from the model contract')
-    raw_times = sorted(float(p.name) for p in case.iterdir()
-                       if p.is_dir() and re.fullmatch(r'\d+(?:\.\d+)?', p.name))
-    if len(raw_times) != len(times) or not np.array_equal(raw_times, times):
+    raw_directories=sorted((p for p in case.iterdir() if p.is_dir() and re.fullmatch(r'\d+(?:\.\d+)?',p.name)),key=lambda p:float(p.name))
+    raw_times=[float(p.name) for p in raw_directories]
+    if len(raw_times) != len(times) or not np.allclose(raw_times,times,rtol=0,atol=1e-7):
         raise ValueError('OpenFOAM and NPZ timelines differ')
+    if (case/'frame_sources.json').exists():
+        frames=json.loads((case/'frame_sources.json').read_text())
+        expected=[{'time_s':float(t),'directory':p.name} for t,p in zip(times,raw_directories)]
+        if frames!=expected:raise ValueError('Frame-source manifest differs from original time directories')
     max_difference = 0.0
     hashes = {}
     for index, time in enumerate(times):
-        path = case/f'{time:g}'/'C'
+        path = raw_directories[index]/'C'
         values, dimensions = raw_field(path, cells)
         if dimensions != expected_dimensions:
             raise ValueError(f'Field dimensions differ at {time:g} s')
         max_difference = max(max_difference, float(np.max(np.abs(values-saved[index]))))
-        hashes[f'{time:g}/C'] = hashlib.sha256(path.read_bytes()).hexdigest()
+        hashes[str(path.relative_to(case))] = hashlib.sha256(path.read_bytes()).hexdigest()
     coupled_max_difference = None
     if model['kind'] == 'clo2_coupled_scenario':
         with np.load(case/'concentration.npz', allow_pickle=False) as archive:
@@ -72,11 +76,11 @@ def audit(case):
             raise ValueError('Non-finite coupled field')
         coupled_max_difference = 0.
         for index, time in enumerate(times):
-            values, dimensions = raw_field(case/f'{time:g}'/'T', cells)
+            values, dimensions = raw_field(raw_directories[index]/'T', cells)
             if dimensions != '0 0 0 1 0 0 0':
                 raise ValueError('Invalid temperature dimensions')
             coupled_max_difference=max(coupled_max_difference,float(abs(values-temperatures[index]).max()))
-            source=(case/f'{time:g}'/'U').read_text()
+            source=(raw_directories[index]/'U').read_text()
             dim=re.search(r'\bdimensions\s*\[([^]]+)\]',source)
             uniform=re.search(r'\binternalField\s+uniform\s*\(([^)]+)\)\s*;',source)
             field=re.search(r'\binternalField\s+nonuniform\s+List<vector>\s+(\d+)\s*\((.*?)\)\s*;',source,re.S)
@@ -87,7 +91,7 @@ def audit(case):
                 raise ValueError('Invalid velocity values')
             coupled_max_difference=max(coupled_max_difference,float(abs(raw-velocities[index]).max()))
             for name in ('T','U'):
-                hashes[f'{time:g}/{name}']=hashlib.sha256((case/f'{time:g}'/name).read_bytes()).hexdigest()
+                hashes[str((raw_directories[index]/name).relative_to(case))]=hashlib.sha256((raw_directories[index]/name).read_bytes()).hexdigest()
         if coupled_max_difference != 0:
             raise ValueError('Temperature or velocity differs from original fields')
     scale = 1e6 if unit == 'kg/m3' and integrated_unit == 'mg*s/m3' else 1

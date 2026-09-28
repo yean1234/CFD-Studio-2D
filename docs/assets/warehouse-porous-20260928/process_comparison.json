@@ -1,0 +1,11 @@
+{
+  "time_s": 300,
+  "process_counts": [
+    1,
+    4
+  ],
+  "concentration_relative_L2": 0.0008514969179044288,
+  "velocity_relative_L2": 0.002253772392540679,
+  "temperature_rmse_C": 0.0002547904862289364,
+  "scope": "same r2 mesh and dt=0.1 s, final frame only; not general MPI validation"
+}

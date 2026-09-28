@@ -69,6 +69,20 @@ class CoupledTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,'일치하지'):
                     reader.sample(case.name,[.5,.5,.5],5.,.1)
 
+    def test_roundoff_time_directory_is_traced_without_renaming_raw(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);case=self.fixture(root);reader=WarehouseResults(root)
+            folder='9.99999999999997'
+            (case/'10').rename(case/folder)
+            manifest=[{'time_s':0.,'directory':'0'},{'time_s':10.,'directory':folder}]
+            path=case/'frame_sources.json';path.write_text(json.dumps(manifest))
+            self.assertEqual(reader.frame(case.name,1)['speed_m_s'],[2.,5.])
+            value=reader.sample(case.name,[.5,.5,.5],5.,.1)
+            self.assertTrue(any(folder in p for p in value['source_files']))
+            for invalid in ('../escape','11','0'):
+                manifest[1]['directory']=invalid;path.write_text(json.dumps(manifest))
+                with self.subTest(directory=invalid),self.assertRaises(ValueError):reader.frame(case.name,1)
+
 
 if __name__ == '__main__':
     unittest.main()

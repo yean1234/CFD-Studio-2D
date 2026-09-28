@@ -1,0 +1,187 @@
+{
+  "warehouse_transport_porous_r1_20260928_02": {
+    "represented_model": "clo2_coupled_scenario",
+    "cells": 1860,
+    "frames": 6,
+    "timeline_complete": true,
+    "geometry_basis": "nominal_drawing_envelope",
+    "relative_balance_error": 1.4727860189971956e-13,
+    "relative_energy_balance_error": 3.4115710227591602e-09,
+    "energy_change_J": -4321342.596826315,
+    "numerical_pass": false,
+    "execution_checks_pass": true,
+    "experimental_validation": false,
+    "simulated_seconds": 300.0,
+    "wall_seconds": 43.16766219001147,
+    "steps": 3000,
+    "maximum_speed_m_s": 0.6281371902622375,
+    "maximum_saved_speed_m_s": 0.6114538369423642,
+    "temperature_range_C": [
+      22.16644846389073,
+      23.0
+    ],
+    "final_temperature_range_C": [
+      22.16644846389073,
+      22.999963820220614
+    ],
+    "minimum_concentration_kg_m3": 8.468600490077372e-10,
+    "max_divergence_s_inv": 9.714147819472886e-09,
+    "numerical_validation_scope": "execution_mass_energy_balance_only; grid/time/turbulence validation incomplete",
+    "raw_npz_fields": [
+      "C",
+      "T",
+      "U"
+    ],
+    "raw_npz_max_difference": 0.0,
+    "maximum_observed_Courant": 0.04055795484613899,
+    "solver_clock_seconds": 42.0
+  },
+  "warehouse_transport_porous_r2_20260928_01": {
+    "represented_model": "clo2_coupled_scenario",
+    "cells": 14880,
+    "frames": 6,
+    "timeline_complete": true,
+    "geometry_basis": "nominal_drawing_envelope",
+    "relative_balance_error": 4.7371998658154736e-11,
+    "relative_energy_balance_error": 3.2435768763297046e-07,
+    "energy_change_J": -5665608.571334124,
+    "numerical_pass": false,
+    "execution_checks_pass": true,
+    "experimental_validation": false,
+    "simulated_seconds": 300.0,
+    "wall_seconds": null,
+    "steps": 3000,
+    "maximum_speed_m_s": 0.7068477280686088,
+    "maximum_saved_speed_m_s": 0.6935474819724982,
+    "temperature_range_C": [
+      21.40285299029233,
+      23.000000942942222
+    ],
+    "final_temperature_range_C": [
+      21.43786266553502,
+      22.999995048934522
+    ],
+    "minimum_concentration_kg_m3": 9.73361859993864e-10,
+    "max_divergence_s_inv": 9.67008967807844e-08,
+    "numerical_validation_scope": "execution_mass_energy_balance_only; grid/time/turbulence validation incomplete",
+    "raw_npz_fields": [
+      "C",
+      "T",
+      "U"
+    ],
+    "raw_npz_max_difference": 0.0,
+    "maximum_observed_Courant": 0.118010402603634,
+    "solver_clock_seconds": 104.0
+  },
+  "warehouse_transport_porous_r4_20260928_01": {
+    "represented_model": "clo2_coupled_scenario",
+    "cells": 119040,
+    "frames": 6,
+    "timeline_complete": true,
+    "geometry_basis": "nominal_drawing_envelope",
+    "relative_balance_error": 5.66040759967938e-13,
+    "relative_energy_balance_error": 1.9717512520060199e-07,
+    "energy_change_J": -6118500.112231493,
+    "numerical_pass": false,
+    "execution_checks_pass": true,
+    "experimental_validation": false,
+    "simulated_seconds": 300.0,
+    "wall_seconds": null,
+    "steps": 3000,
+    "maximum_speed_m_s": 0.8297935117093679,
+    "maximum_saved_speed_m_s": 0.7164709249038951,
+    "temperature_range_C": [
+      21.01871972955064,
+      23.000002988330834
+    ],
+    "final_temperature_range_C": [
+      21.16630770456851,
+      22.999999998278895
+    ],
+    "minimum_concentration_kg_m3": 8.585785559929782e-10,
+    "max_divergence_s_inv": 5.502037528882832e-07,
+    "numerical_validation_scope": "execution_mass_energy_balance_only; grid/time/turbulence validation incomplete",
+    "raw_npz_fields": [
+      "C",
+      "T",
+      "U"
+    ],
+    "raw_npz_max_difference": 0.0,
+    "maximum_observed_Courant": 0.3193633675991248,
+    "solver_clock_seconds": 586.0
+  },
+  "warehouse_transport_porous_timehalf_20260928_02": {
+    "represented_model": "clo2_coupled_scenario",
+    "cells": 14880,
+    "frames": 6,
+    "timeline_complete": true,
+    "geometry_basis": "nominal_drawing_envelope",
+    "relative_balance_error": 1.641338196726816e-13,
+    "relative_energy_balance_error": 2.0276239674365524e-06,
+    "energy_change_J": -5739728.851344109,
+    "numerical_pass": false,
+    "execution_checks_pass": true,
+    "experimental_validation": false,
+    "simulated_seconds": 300.0,
+    "wall_seconds": 356.57546008899226,
+    "steps": 6000,
+    "maximum_speed_m_s": 0.7134726775298005,
+    "maximum_saved_speed_m_s": 0.6928816289349704,
+    "temperature_range_C": [
+      21.3673166765397,
+      23.000000000102148
+    ],
+    "final_temperature_range_C": [
+      21.427192509863403,
+      22.99999449714761
+    ],
+    "minimum_concentration_kg_m3": 9.899424808810816e-10,
+    "max_divergence_s_inv": 5.264474657133238e-08,
+    "numerical_validation_scope": "execution_mass_energy_balance_only; grid/time/turbulence validation incomplete",
+    "raw_npz_fields": [
+      "C",
+      "T",
+      "U"
+    ],
+    "raw_npz_max_difference": 0.0,
+    "maximum_observed_Courant": 0.05831204649549159,
+    "solver_clock_seconds": 356.0
+  },
+  "warehouse_transport_porous_r2_serial_20260928_01": {
+    "represented_model": "clo2_coupled_scenario",
+    "cells": 14880,
+    "frames": 6,
+    "timeline_complete": true,
+    "geometry_basis": "nominal_drawing_envelope",
+    "relative_balance_error": 2.7295634218747045e-13,
+    "relative_energy_balance_error": 8.403389979059206e-09,
+    "energy_change_J": -5665557.546768664,
+    "numerical_pass": false,
+    "execution_checks_pass": true,
+    "experimental_validation": false,
+    "simulated_seconds": 300.0,
+    "wall_seconds": 197.2356178550108,
+    "steps": 3000,
+    "maximum_speed_m_s": 0.7068477131001654,
+    "maximum_saved_speed_m_s": 0.6935484801493199,
+    "temperature_range_C": [
+      21.403991412036248,
+      23.000000000012733
+    ],
+    "final_temperature_range_C": [
+      21.43787657557425,
+      22.999995077645337
+    ],
+    "minimum_concentration_kg_m3": 9.733618463340937e-10,
+    "max_divergence_s_inv": 8.1607002035596e-08,
+    "numerical_validation_scope": "execution_mass_energy_balance_only; grid/time/turbulence validation incomplete",
+    "raw_npz_fields": [
+      "C",
+      "T",
+      "U"
+    ],
+    "raw_npz_max_difference": 0.0,
+    "maximum_observed_Courant": 0.1180131688663757,
+    "solver_clock_seconds": 196.0
+  }
+}

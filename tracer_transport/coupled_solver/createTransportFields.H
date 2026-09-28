@@ -23,3 +23,11 @@ volScalarField molecularD(IOobject("molecularD", runTime.timeName(), mesh),
 scalar cumulativeHeat = 0;
 const scalar initialHeat = fvc::domainIntegrate(heatCapacityRatio*T).value();
 mesh.setFluxRequired(T.name());
+// Independent geometry outputs; never overwrite the species field C.
+volVectorField cellCentres(IOobject("cellCentres", runTime.timeName(), mesh,
+    IOobject::NO_READ, IOobject::NO_WRITE), mesh.C());
+cellCentres.write();
+volScalarField cellVolumes(IOobject("cellVolumes", runTime.timeName(), mesh,
+    IOobject::NO_READ, IOobject::NO_WRITE), mesh, dimensionedScalar("V", dimVolume, 0));
+cellVolumes.primitiveFieldRef() = mesh.V();
+cellVolumes.write();
