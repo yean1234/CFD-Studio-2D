@@ -15,9 +15,27 @@
     return value;
   }
   function currentProject(){return data.projects.find(p=>p.id===projectId);}
+  function visualizationProgress(runs=[]){
+    const ready=runs.filter(r=>r.has_results&&r.result_status==='ready').length,total=runs.length;
+    return {ready,total,percent:total?Math.round(100*ready/total):0};
+  }
+  function renderSidebarAction(){
+    const control=$('ewCreateProject');if(!control)return;
+    const viewer=document.body.classList.contains('execution-viewer');
+    control.classList.toggle('ew-visualization-progress',viewer);
+    if(!viewer){control.textContent='새 프로젝트';control.title='새 프로젝트';control.removeAttribute('aria-label');control.onclick=createProject;return;}
+    const {ready,total,percent}=visualizationProgress(currentProject()?.runs);
+    const summary=`시각화 준비 ${percent}% · ${ready}/${total} Case`;
+    control.replaceChildren();control.title=summary+' · 클릭하여 실행 목록 보기';control.setAttribute('aria-label',summary+' · 실행 목록 보기');
+    const fill=node('span',null,'ew-visualization-fill');fill.style.width=percent+'%';
+    const label=node('span','시각화 준비','ew-visualization-label');
+    const count=node('span',`${percent}%`, 'ew-visualization-percent');
+    const gauge=node('span',null,'ew-visualization-gauge');gauge.setAttribute('role','progressbar');gauge.setAttribute('aria-label','프로젝트 시각화 준비율');gauge.setAttribute('aria-valuemin','0');gauge.setAttribute('aria-valuemax','100');gauge.setAttribute('aria-valuenow',String(percent));gauge.setAttribute('aria-valuetext',`${ready}/${total} Case 준비됨`);gauge.append(fill);
+    control.append(gauge,label,count);control.onclick=()=>{showList();$('ewSearch').focus();};
+  }
   function button(text, action, cls='btn') {const b=node('button',text,cls); b.type='button'; b.onclick=action; return b;}
   function message(text){$('ewMessage').textContent=text;}
-  function showList(){viewMode='cfd';suspendWarehouseViewer();setPlay(false,true);setMode('cfd');document.body.classList.remove('execution-viewer','warehouse-viewer');$('appContext').textContent='CFD Studio · '+(currentProject()?.name||'프로젝트');}
+  function showList(){viewMode='cfd';suspendWarehouseViewer();setPlay(false,true);setMode('cfd');document.body.classList.remove('execution-viewer','warehouse-viewer');renderSidebarAction();$('appContext').textContent='CFD Studio · '+(currentProject()?.name||'프로젝트');}
   function renderProjects() {
     const list=$('ewProjects');
     const signature=JSON.stringify([projectId,data.projects.map(p=>[p.id,p.name,p.runs.length])]);
@@ -30,7 +48,7 @@
     $('ewTitle').textContent=currentProject()?.name||'프로젝트';
     $('ewDescription').textContent=currentProject()?.description||'';
     $('ewDefault').textContent='기본 프리셋: '+(presets.find(p=>p.id===currentProject()?.default_preset)?.name||'미지정');
-    $('ewNewRun').disabled=pending;
+    $('ewNewRun').disabled=pending;renderSidebarAction();
     $('appContext').textContent='CFD Studio · '+(currentProject()?.name||'프로젝트');
     $('stTxt').textContent=data.busy?'계산 중':'실행 대기';$('stDot').className=data.busy?'dot run':'dot ok';
   }
@@ -67,7 +85,7 @@
     $('ewStatus').replaceChildren();$('ewStats').replaceChildren();$('ewProgress').hidden=true;$('ewRunError').textContent='';$('ewStopLabel').textContent='—';$('ewDifferenceCount').textContent='';$('ewConfigSummary').textContent='';$('ewFacts').textContent='';$('ewView').disabled=true;$('ewSettings').disabled=true;$('ewEnqueue').disabled=true;$('ewFolder').disabled=true;$('ewStop').hidden=true;$('ewDifferences').textContent='';$('ewGoals').textContent='';
   }
   function showDetail(value){
-    detail=value;const row=currentProject()?.runs.find(r=>r.id===value.id);if(row){for(const k of ['result_status','last_saved','numerical_status','has_results','frame_counts'])if(k in value)row[k]=value[k];renderRuns();}$('ewRunTitle').textContent=value.name;$('ewLog').textContent=value.log||'보존된 솔버 로그 없음';
+    detail=value;const row=currentProject()?.runs.find(r=>r.id===value.id);if(row){for(const k of ['result_status','last_saved','numerical_status','has_results','frame_counts'])if(k in value)row[k]=value[k];renderRuns();renderSidebarAction();}$('ewRunTitle').textContent=value.name;$('ewLog').textContent=value.log||'보존된 솔버 로그 없음';
     $('ewStatus').replaceChildren(badge(stateText(value),value.status));
     $('ewConfigSummary').textContent=CFDSettings.summary(value.config);$('ewSettings').disabled=false;
     const checks=value.checks||{};
@@ -95,7 +113,7 @@
     if(detail.can_generate&&(!detail.has_results||detail.result_status==='update')){await prepareResult();return;}
     if(!detail.has_results){showList();message('선택한 실행의 결과가 아직 없습니다. 설정과 로그를 확인하세요.');return;}
     const selected=detail,token=generation;viewMode='viewer';setPlay(false,true);
-    document.body.classList.add('execution-viewer');
+    document.body.classList.add('execution-viewer');renderSidebarAction();
     document.body.classList.toggle('warehouse-viewer',selected.kind==='warehouse');
     cancelViewerLoad();
     if(selected.kind!=='warehouse'){restoreWarehouseUI();VIZCFG=selected.config||null;VPROJ=selected.rid;}
@@ -122,7 +140,7 @@
   }
   function stopText(t,end){if(!t)return end==null?'—':end+' s';return t.mode==='frames'?t.frames+' 프레임 · 초기 '+(t.include_initial?'포함':'제외'):t.mode==='time'?t.time_s+' s':'수렴 기준';}
   function resultText(r){return {ready:'준비됨',update:'새 데이터',preparing:'변환 중',none:'없음'}[r.result_status]||'없음';}
-  function renderPresets(){const select=$('ewPresetPicker'),value=select.value,signature=JSON.stringify(presets);if(select.dataset.signature===signature)return;select.dataset.signature=signature;select.replaceChildren(new Option('프리셋 선택',''));for(const p of presets)select.append(new Option(p.name,p.id));select.value=presets.some(p=>p.id===value)?value:'';}
+  function renderPresets(){const select=$('ewPresetPicker'),value=select.value,signature=JSON.stringify(presets);if(select.dataset.signature===signature)return;select.dataset.signature=signature;select.replaceChildren(new Option('프리셋 리스트',''));for(const p of presets)select.append(new Option(p.name,p.id));select.value=presets.some(p=>p.id===value)?value:'';}
   function renderQueue(){const q=data.queue||{},box=$('ewQueue');box.replaceChildren();$('ewQueueCard').hidden=!q.active&&!q.order?.length&&!q.failure&&!q.service_error;const all=data.projects.flatMap(p=>p.runs);$('ewQueueState').textContent=q.failure?'실패 확인 필요':q.paused?(q.active?'현재 실행 후 일시정지':'일시정지'):q.active||q.order?.length?'순차 실행':'대기열 완료';
     for(const [i,id] of (q.order||[]).entries()){const r=all.find(r=>r.id===id),row=node('div',null,'ew-bar ew-queue-row');row.append(node('span',(i+1)+'. '+(data.projects.find(p=>p.id===r?.project_id)?.name||'프로젝트')+' / '+(r?.name||id)));const move=delta=>{const order=[...q.order],j=i+delta;if(j<0||j>=order.length)return;[order[i],order[j]]=[order[j],order[i]];queueAction('reorder',{ids:order});};const up=button('↑',()=>move(-1)),down=button('↓',()=>move(1));up.title='실행 순서 위로';down.title='실행 순서 아래로';up.disabled=i===0;down.disabled=i===q.order.length-1;row.append(up,down,button('제외',()=>queueAction('remove',{id})));box.append(row);}
     $('ewQueueStart').disabled=!!q.failure||(!q.order?.length&&!q.active);$('ewQueuePause').disabled=!!q.paused||(!q.active&&!q.order?.length);$('ewFailures').hidden=!q.failure;$('ewRetry').hidden=!q.failure;$('ewSkip').hidden=!q.failure;
@@ -158,7 +176,7 @@
   async function prepareResult(){const selected=detail;if(!selected)return;try{await api('/result',{id:selected.id});message('누락된 결과 확인 중');await refresh();}catch(e){message(e.message);}}
   function mount(){
     const style=node('style');style.textContent=`
-body.grouped #side>section{flex:0 0 auto;min-height:auto}body.grouped #secRun,body.grouped #secData{display:none!important}body.grouped.execution-viewer #secData{display:block!important}body.grouped.execution-viewer #ewPresets,body.grouped.execution-viewer #ewCreateProject{display:none!important}body.grouped #projList2,body.grouped #secData>.fgroup,body.grouped #secData>button[onclick="newProj()"]{display:none!important}
+body.grouped #side>section{flex:0 0 auto;min-height:auto}body.grouped #secRun,body.grouped #secData{display:none!important}body.grouped.execution-viewer #secData{display:block!important}body.grouped.execution-viewer #ewPresets{display:none!important}body.grouped #projList2,body.grouped #secData>.fgroup,body.grouped #secData>button[onclick="newProj()"]{display:none!important}
 body.grouped #dash{display:block!important;padding:20px}body.grouped.execution-viewer #dash{display:none!important}body.grouped #dash>.dlog{padding:0;border:0;background:none;border-radius:0;display:block}body.grouped #dash>:not(.dlog),body.grouped .dlog>pre,body.grouped .dlog>.dlab{display:none!important}
 #ewSidebar{padding:16px}#ewSidebar h2{font-size:11px;color:var(--muted);font-weight:600;margin:0 0 12px}#ewProjects{display:grid;align-content:start;gap:6px;margin:12px 0 0;height:clamp(240px,38vh,400px);overflow-y:scroll;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;padding:7px;background:var(--page);border:1px solid var(--line);border-radius:9px}#ewProjects::-webkit-scrollbar{width:9px}#ewProjects::-webkit-scrollbar-track{background:#151514;border-radius:8px}#ewProjects::-webkit-scrollbar-thumb{background:#464642;border:2px solid #151514;border-radius:8px}.ew-project{width:100%;text-align:left;padding:12px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;cursor:pointer}.ew-project strong,.ew-project span{display:block}.ew-project strong{font-size:13px}.ew-project span{font-size:11px;color:var(--muted);margin-top:5px}.ew-project.selected{border-color:var(--s1);background:rgba(57,135,229,.07)}
 #ewPresets{border:0;border-top:1px solid var(--line);margin-top:12px;padding:18px 0 0}#ewPresets .ew-bar{display:grid;grid-template-columns:1fr 1fr;gap:7px}#ewPresetPicker{margin-bottom:10px}
@@ -172,10 +190,38 @@ body.grouped #dash{display:block!important;padding:20px}body.grouped.execution-v
 @media(max-width:1100px){.ew-layout{grid-template-columns:1fr}#ewRows{grid-template-columns:minmax(0,1fr);max-height:250px;min-height:100px}.ew-heading{align-items:flex-start}body.grouped #dash{padding:14px}}@media(max-width:720px){.ew-heading{display:block}.ew-heading>.ew-bar{margin-top:12px}#ewStats{grid-template-columns:1fr;gap:12px}.ew-stat{border:0;padding:0}}
 
 #ewRunCount{margin-left:6px}
-#ewPanel details>summary{display:flex;align-items:center;gap:10px;list-style:none;padding:10px 12px;border:1px solid var(--line);border-radius:7px;background:var(--surface2);color:var(--ink2)}#ewPanel details>summary::-webkit-details-marker{display:none}#ewPanel details>summary:before{content:'';width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);flex:none;transition:transform .15s}#ewPanel details[open]>summary:before{transform:rotate(45deg)}#ewPanel details>summary:hover{border-color:var(--s1)}#ewPanel details>summary:focus-visible{outline:2px solid var(--s1);outline-offset:2px}.ew-disclosure-state{font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap}#ewDifferenceCount{float:none;font-size:10px}#ewQueueCard>summary{background:transparent;border:0;padding:0}
+/* Shared disclosure surface: right chevron and a continuous rounded panel. */
+body.grouped details>summary,#ewPanel details>summary{position:relative;display:flex;align-items:center;gap:10px;list-style:none;padding:11px 36px 11px 12px!important;min-height:36px;box-sizing:border-box;border:0;border-radius:9px;background:var(--surface2);color:var(--ink2);letter-spacing:0}
+body.grouped details>summary::-webkit-details-marker,#ewPanel details>summary::-webkit-details-marker{display:none}
+body.grouped details>summary::before,#ewPanel details>summary::before{display:none!important}
+body.grouped details>summary::after,#ewPanel details>summary::after{content:'';position:absolute;right:14px;top:50%;width:6px;height:6px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:translateY(-65%) rotate(45deg);transition:transform .15s}
+body.grouped details[open]>summary::after,#ewPanel details[open]>summary::after{transform:translateY(-20%) rotate(225deg)}
+body.grouped details>summary:hover,#ewPanel details>summary:hover{background:#2c2c29;color:var(--ink)}
+body.grouped details>summary:focus-visible,#ewPanel details>summary:focus-visible{outline:2px solid var(--s1);outline-offset:-2px}
+#ewPanel .ew-disclosure-state{display:none}#ewDifferenceCount{float:none;font-size:10px;margin-left:auto}
+body.grouped details,#ewPanel #ewDifferenceBox,#ewPanel #ewLogBox,#ewPanel #ewQueueCard{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:0;overflow:hidden}
+body.grouped details[open]>summary,#ewPanel details[open]>summary{border-radius:9px 9px 0 0;box-shadow:0 1px 0 var(--line);position:relative;z-index:1}
+body.grouped details> :not(summary){margin-left:12px;margin-right:12px}
+#ewPanel #ewLogBox{margin:0 20px 16px}#ewPanel #ewLog{margin:12px;height:180px}#ewPanel #ewDifferenceBox{margin-top:12px}#ewPanel #ewQueueCard{margin-top:14px}#ewPanel #ewQueueCard>.ew-queue-actions{margin:12px}
+body.grouped #warehouseDetails details{margin-top:8px}body.grouped #warehouseDetails details>summary{font-size:11px}body.grouped #warehouseDetails details>form{margin-top:12px}body.grouped #warehouseDetails details>p{margin-top:12px;margin-bottom:12px}
+/* Keep native select keyboard, focus and disabled-option behavior. */
+@supports (appearance:base-select){
+ body.grouped select:not([multiple]),body.grouped select:not([multiple])::picker(select){appearance:base-select}
+ body.grouped select:not([multiple]){anchor-name:--studio-select;anchor-scope:--studio-select;background-image:none!important;display:inline-flex;align-items:center;gap:12px;padding-right:12px!important;border-radius:8px;transition:border-color .15s}
+ body.grouped select:not([multiple])::picker-icon{content:'';width:6px;height:6px;flex:none;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);margin-left:auto;margin-right:2px;transition:transform .15s}
+ body.grouped select:not([multiple]):open{border-radius:8px 8px 0 0;border-color:rgba(255,255,255,.28)}
+ body.grouped select:not([multiple]):open::picker-icon{transform:rotate(225deg)}
+ body.grouped select:not([multiple])::picker(select){position-anchor:--studio-select;position-try-order:normal;position-area:none;inset:auto;top:anchor(bottom);left:anchor(left);width:anchor-size(width);box-sizing:border-box;position-try-fallbacks:flip-block;border:1px solid rgba(255,255,255,.28);border-top:0;border-radius:0 0 10px 10px;background:var(--surface2);color:var(--ink);padding:6px;margin:0;max-height:min(320px,45vh);overflow-y:auto;box-shadow:0 12px 24px #0005;font:inherit;font-size:12px}
+ body.grouped select:not([multiple]) option{border-radius:6px;padding:9px 10px;cursor:pointer;white-space:normal;overflow-wrap:anywhere}
+ body.grouped select:not([multiple]) option:checked{background:rgba(57,135,229,.18);color:#8fc3ff}body.grouped select:not([multiple]) option:hover{background:rgba(255,255,255,.08)}body.grouped select:not([multiple]) option:disabled{color:var(--muted);opacity:.6;cursor:default}
+ body.grouped select:not([multiple]) option::checkmark{color:#8fc3ff}
+}
+
+
+#ewCreateProject{position:relative;isolation:isolate;overflow:hidden;width:100%;height:38px;min-height:38px;box-sizing:border-box}#ewCreateProject.ew-visualization-progress{justify-content:space-between;padding:0 12px;gap:8px}#ewCreateProject .ew-visualization-gauge{position:absolute;inset:0;z-index:-1;pointer-events:none}#ewCreateProject .ew-visualization-fill{display:block;height:100%;background:rgba(57,135,229,.23);border-right:1px solid rgba(57,135,229,.5);transition:width .25s}#ewCreateProject .ew-visualization-label{font-size:12px}#ewCreateProject .ew-visualization-percent{font-size:13px;font-weight:600;color:#8fc3ff;font-variant-numeric:tabular-nums}
 `;document.head.append(style);
     const sidebar=node('section',null);sidebar.id='ewSidebar';const create=button('새 프로젝트',createProject);create.id='ewCreateProject';sidebar.append(node('h2','프로젝트'),create);
-    const projects=node('div');projects.id='ewProjects';projects.setAttribute('aria-label','프로젝트 목록');projects.tabIndex=0;sidebar.append(projects);const presetBox=node('section');presetBox.id='ewPresets';presetBox.append(node('h2','설정 프리셋'));const presetSelect=node('select');presetSelect.id='ewPresetPicker';presetSelect.setAttribute('aria-label','설정 프리셋');presetBox.append(presetSelect);const actions=node('div',null,'ew-bar');actions.append(button('새로 만들기',()=>presetEditor('new')),button('열기',()=>presetEditor('view')),button('복제',()=>presetEditor('copy')),button('이름 변경',()=>presetEditor('rename')));presetBox.append(actions);sidebar.append(presetBox);$('side').prepend(sidebar);
+    const projects=node('div');projects.id='ewProjects';projects.setAttribute('aria-label','프로젝트 목록');projects.tabIndex=0;sidebar.append(projects);const presetBox=node('section');presetBox.id='ewPresets';presetBox.append(node('h2','설정 프리셋'));const presetSelect=node('select');presetSelect.id='ewPresetPicker';presetSelect.setAttribute('aria-label','프리셋 리스트');presetBox.append(presetSelect);const actions=node('div',null,'ew-bar');actions.append(button('새로 만들기',()=>presetEditor('new')),button('열기',()=>presetEditor('view')),button('복제',()=>presetEditor('copy')),button('이름 변경',()=>presetEditor('rename')));presetBox.append(actions);sidebar.append(presetBox);$('side').prepend(sidebar);
     const panel=node('section');panel.id='ewPanel';panel.innerHTML=`
 <header class="ew-heading"><div><h2 id="ewTitle">프로젝트</h2><p id="ewDescription"></p><p id="ewDefault"></p></div><div class="ew-bar"><button id="ewRename" class="btn">프로젝트 설정</button><button id="ewNewRun" class="btn pri">+CFD Case</button></div></header>
 <p id="ewMessage" role="status"></p>

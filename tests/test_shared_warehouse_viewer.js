@@ -11,7 +11,7 @@ const transition=workspace.slice(workspace.indexOf('  async function viewResult(
 function transitionContext(detail){
  const calls=[];
  const ctx={detail,generation:1,viewMode:'cfd',VIZCFG:{_해석유형:'warehouse'},VPROJ:null,
-  document:{body:{classList:{add(){},toggle(){}}}},setPlay(){},cancelViewerLoad(){},
+  document:{body:{classList:{add(){},toggle(){}}}},setPlay(){},cancelViewerLoad(){},renderSidebarAction(){},
   restoreWarehouseUI(){calls.push('restore');},message(t){calls.push(t);},showList(){ctx.viewMode='cfd';},
   setMode(m){assert.equal(ctx.VIZCFG,ctx.detail.config,'selected config must be available before geometry is rendered');calls.push(m);},
   async selVz(rid){calls.push(rid);}};
@@ -25,4 +25,15 @@ test('warehouse to legacy transition prepares the selected model before renderin
 });
 test('Viewer requested while run detail is loading stays pending for automatic entry',async()=>{
  const {ctx,calls}=transitionContext(null);await ctx.viewResult();assert.equal(ctx.viewMode,'viewer');assert.equal(calls.length,1);
+});
+
+
+test('project visualization percentage counts ready Cases and handles empty projects',()=>{
+ const helper=workspace.slice(workspace.indexOf('  function visualizationProgress('),workspace.indexOf('  function renderSidebarAction('));
+ const ctx={};vm.createContext(ctx);vm.runInContext(helper,ctx);
+ assert.equal(ctx.visualizationProgress([]).percent,0);
+ const runs=[{has_results:true,result_status:'ready'},{has_results:true,result_status:'update'},{has_results:false,result_status:'ready'},{has_results:false,result_status:'none'}];
+ const before=JSON.stringify(runs),p=ctx.visualizationProgress(runs);
+ assert.equal(p.ready,1);assert.equal(p.total,4);assert.equal(p.percent,25);assert.equal(JSON.stringify(runs),before);
+ assert.equal(ctx.visualizationProgress([{has_results:true,result_status:'ready'}]).percent,100);
 });
