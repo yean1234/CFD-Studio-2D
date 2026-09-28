@@ -376,13 +376,11 @@ test('failed initial result read does not report a loaded timeline', async () =>
   assert.ok(messages.some(message => message.includes('읽기 실패')));
 });
 
-test('Studies is a direct header link with a mobile layout in all analysis modes', () => {
+test('Studio header preserves CFD and Viewer controls without external study navigation', () => {
   const header = app.slice(app.indexOf('<div id="hdr">'), app.indexOf('<div id="app">'));
-  assert.match(header, /<a\b[^>]*id="studiesLink"[^>]*href="\/studies"/);
-  const mobile = app.slice(app.indexOf('@media(max-width:700px)'), app.indexOf('</style></head>'));
-  assert.match(mobile, /#hdr\{display:grid;/);
-  assert.match(mobile, /#studiesLink\{grid-column:2;grid-row:2;/);
-  assert.doesNotMatch(mobile, /#studiesLink[^{}]*\{[^}]*display:none/);
+  assert.doesNotMatch(header, /studiesLink|href="\/studies"/);
+  assert.match(header, /id="mCFD"/);
+  assert.match(header, /id="mViz"/);
 });
 
 const geometry = length => ({geometry: {length_m: length}, mesh: {nx: 2}, unresolved: []});
@@ -530,4 +528,15 @@ test('late Viewer metadata cannot replace fields of a newly selected execution',
   assert.equal(updates.length,0);
   ctx.fetch=async()=>({json:async()=>({rid:'immersion',flows:['flow_0.bin']})});await ctx.refreshVizInfo();
   assert.equal(updates.length,1);assert.equal(updates[0].flows.length,1);
+});
+
+test('one wheel event has the same gentle relative effect for a tank and a warehouse',()=>{
+ const ctx={};vm.createContext(ctx);vm.runInContext(declaration(app,'function boundedZoomRadius('),ctx);
+ for(const span of [1000,78000]){const start=span*2.1,next=ctx.boundedZoomRadius(start,-120,0,span);assert.ok(next/start>.97&&next/start<1);assert.ok(Math.abs(ctx.boundedZoomRadius(next,120,0,span)-start)<1e-7);}
+ assert.ok(ctx.boundedZoomRadius(163800,-1,0,78000)>163000);
+ assert.ok(ctx.boundedZoomRadius(2100,-1,1,1000)>2000);
+});
+test('wheel limits scale with model size and bound even extreme input',()=>{
+ const ctx={};vm.createContext(ctx);vm.runInContext(declaration(app,'function boundedZoomRadius('),ctx);
+ for(const span of [1000,78000]){assert.equal(ctx.boundedZoomRadius(span*.12,-1e9,0,span),span*.12);assert.equal(ctx.boundedZoomRadius(span*10,1e9,2,span),span*10);assert.ok(ctx.boundedZoomRadius(span*2,1e9,0,span)<span*2.07);}
 });

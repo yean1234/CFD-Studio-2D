@@ -1,124 +1,101 @@
-import * as THREE from '/studies/three.module.js';
-
-export function mountWarehouseViewer(root, onSettings) {
-  root.className='warehouse-native';root.hidden=true;
-  root.innerHTML=`<div data-wv="scene" class="wn-scene" tabindex="0" aria-label="저장고 3D Viewer"></div>
-<div class="wn-title"><strong data-wv="title">실행 결과</strong><small data-wv="status" role="status"></small></div>
-<aside class="wn-tools"><div class="wn-bar"><strong>결과 표시</strong><button data-wv="settings" class="btn">설정 보기</button></div>
-<label>물리량<select data-wv="field"><option value="concentration">농도</option><option value="temperature">온도</option><option value="velocity">유속·방향</option></select></label>
-<label>표시 영역<select data-wv="slice"><option value="all">전체</option><option value="aisle">중앙 통로 단면</option></select></label>
-<div class="wn-gradient"></div><p data-wv="legend"></p>
-<details><summary>위치·시간 조회</summary><form data-wv="probe"><div class="wn-grid"><label>X (m)<input data-wv="x" type="number" step="any" value="39" required></label><label>Y (m)<input data-wv="y" type="number" step="any" value="12.5" required></label><label>Z (m)<input data-wv="z" type="number" step="any" value="3" required></label><label>시간 (s)<input data-wv="time" type="number" step="any" value="0" required></label><label>최대 거리 (m)<input data-wv="distance" type="number" step="any" min="0.000001" value="3" required></label></div><button class="btn" type="submit">조회</button></form><p data-wv="probeResult"></p></details>
-<details><summary>모델·검증</summary><div data-wv="facts"></div></details>
-<details><summary>원본 파일</summary><p data-wv="sources"></p></details>
-<div class="wn-bar"><button data-wv="reset" class="btn">시점 초기화</button><button data-wv="capture" class="btn">화면 저장</button><button data-wv="csv" class="btn">CSV 저장</button><button data-wv="video" class="btn">영상 저장</button></div>
-</aside>
-<div class="wn-timeline"><button data-wv="previous" class="btn" aria-label="이전 프레임">◀</button><button data-wv="play" class="btn pri">재생</button><button data-wv="next" class="btn" aria-label="다음 프레임">▶</button><input data-wv="frame" aria-label="저장 프레임" type="range" min="0" max="0" value="0" disabled><span data-wv="clock">0 s</span><select data-wv="speed" aria-label="재생 속도"><option value="0.5">0.5 프레임/s</option><option value="1" selected>1 프레임/s</option><option value="2">2 프레임/s</option><option value="4">4 프레임/s</option></select></div>`;
-  const style=document.createElement('style');style.textContent=`
-.warehouse-native{position:absolute;inset:0;z-index:3;background:var(--page);color:var(--ink);overflow:hidden}.warehouse-native[hidden]{display:none}.wn-scene{position:absolute;inset:85px 340px 100px 0;touch-action:none}.wn-scene canvas{display:block}.wn-title{position:absolute;left:16px;top:16px;max-width:calc(100% - 360px);pointer-events:none;background:#1a1a19da;padding:10px 14px;border:1px solid var(--line);border-radius:9px}.wn-title strong,.wn-title small{display:block;overflow-wrap:anywhere}.wn-title small{margin-top:6px;color:var(--ink2)}.wn-tools{position:absolute;right:16px;top:16px;width:295px;max-height:calc(100% - 110px);overflow:auto;background:#1a1a19ed;padding:14px;border:1px solid var(--line);border-radius:10px;font-size:12px}.wn-tools label{display:grid;gap:5px;margin:10px 0}.wn-tools select,.wn-tools input,.wn-timeline select{background:var(--surface2);color:var(--ink);border:1px solid var(--line);padding:7px;border-radius:5px;min-width:0;width:100%;font:inherit}.wn-tools p{font-size:11px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}.wn-tools summary{cursor:pointer;padding:10px 0;border-top:1px solid var(--line)}.wn-tools strong{font-size:12px}.wn-tools [data-wv=facts]>div{margin:8px 0;display:grid;gap:4px}.wn-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.wn-bar strong{flex:1}.wn-bar .btn{font-size:11px;padding:6px 8px}.wn-gradient{height:8px;border-radius:4px;background:linear-gradient(90deg,blue,cyan,lime,yellow,red);margin-top:12px}.wn-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 8px}.wn-timeline{position:absolute;left:16px;right:16px;bottom:16px;display:flex;align-items:center;gap:9px;padding:12px;background:#1a1a19ec;border:1px solid var(--line);border-radius:13px;font-size:12px}.wn-timeline input{flex:1;min-width:50px}.wn-timeline select{width:115px}.wn-timeline span{min-width:58px}.wn-timeline .btn{padding:7px 10px}@media(max-width:900px){.wn-scene{right:275px}.wn-tools{width:230px}.wn-title{max-width:calc(100% - 280px)}.wn-timeline{gap:5px}.wn-timeline select{width:85px}}
-`;document.head.append(style);
-  const $=id=>root.querySelector(`[data-wv="${id}"]`);
-  let meta=null,scene,camera,renderer,points,currentFrame=null,rotation=0,tilt=0,frameGeneration=0,caseGeneration=0,playing=false,timer=null,request=null,recording=null;
-  const saved=new Map(),cache=new Map();let resizeObserver;
-  const events=new AbortController();
-  async function api(path,signal){const response=await fetch(path,{signal});const data=await response.json();if(!response.ok)throw Error(data.error||data.msg||'결과 읽기 실패');return data;}
-  function fact(label,value){const div=document.createElement('div'),a=document.createElement('span'),b=document.createElement('strong');a.textContent=label;b.textContent=String(value);div.append(a,b);$('facts').append(div);}
-  function disposePoints(){if(points){scene.remove(points);points.traverse(p=>{p.geometry?.dispose();p.material?.dispose();});points=null;}}
-  function pause(){playing=false;clearTimeout(timer);$('play').textContent='재생';}
-  function remember(){if(meta)saved.set(meta.id,{frame:Number($('frame').value),field:$('field').value,slice:$('slice').value,rotation,tilt,camera:camera?.position.toArray()});}
-  function resetCamera(){rotation=0;tilt=0;camera.position.set(0,25,Math.max(85,(meta?.geometry.length_m||78)*1.25));camera.lookAt(0,0,0);if(points)points.rotation.set(0,0,0);renderer.render(scene,camera);}
-  function rendererReady(){if(renderer)return;scene=new THREE.Scene();scene.background=new THREE.Color(0x141819);camera=new THREE.PerspectiveCamera(45,1,.1,2000);renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));$('scene').append(renderer.domElement);resetCamera();
-    resizeObserver=new ResizeObserver(()=>{const host=$('scene');if(!host.clientWidth||!host.clientHeight)return;renderer.setSize(host.clientWidth,host.clientHeight);camera.aspect=host.clientWidth/host.clientHeight;camera.updateProjectionMatrix();renderer.render(scene,camera);});resizeObserver.observe($('scene'));
-    let down=null;const host=$('scene');host.addEventListener('pointerdown',e=>{down=[e.clientX,e.clientY];host.setPointerCapture(e.pointerId);},{signal:events.signal});
-    host.addEventListener('pointermove',e=>{if(!down||!points)return;const dx=e.clientX-down[0],dy=e.clientY-down[1];down=[e.clientX,e.clientY];if(e.shiftKey){camera.position.x-=dx*.06;camera.position.y+=dy*.06;}else{rotation+=dx*.008;tilt=Math.max(-1.5,Math.min(1.5,tilt+dy*.008));points.rotation.set(tilt,rotation,0);}renderer.render(scene,camera);},{signal:events.signal});
-    for(const type of ['pointerup','pointercancel'])host.addEventListener(type,()=>{down=null;},{signal:events.signal});
-    host.addEventListener('wheel',e=>{e.preventDefault();camera.position.multiplyScalar(e.deltaY>0?1.08:.92);renderer.render(scene,camera);},{passive:false,signal:events.signal});
-  }
-function showFrame(data) {
-  rendererReady();
-  if (points) {scene.remove(points); points.traverse(p => {p.geometry?.dispose(); p.material?.dispose();});}
-  currentFrame = data;
-  const field = $('field').value;
-  const values = field === 'temperature' ? data.temperature_field_C : field === 'velocity' ? data.speed_m_s : data.concentration;
-  const bounds = field === 'temperature' ? data.temperature_range_C : field === 'velocity' ? data.speed_range_m_s : [data.minimum, data.maximum];
-  const unit = field === 'temperature' ? '°C' : field === 'velocity' ? 'm/s' : data.concentration_unit;
-  const indices = data.cell_centres_m.map((_,i) => i).filter(i => $('slice').value === 'all' || Math.abs(data.cell_centres_m[i][1]-meta.geometry.width_m/2) <= .6);
-  const geometry = new THREE.BufferGeometry();
-  const positions = new Float32Array(indices.length * 3);
-  const colors = new Float32Array(indices.length * 3);
-  const span = Math.max(bounds[1] - bounds[0], Number.EPSILON);
-  for (let i = 0; i < indices.length; i++) {
-    const sourceIndex = indices[i];
-    const xyz = data.cell_centres_m[sourceIndex];
-    positions[3*i] = xyz[0] - meta.geometry.length_m/2;
-    positions[3*i+1] = xyz[2] - (meta.geometry.eaves_m+meta.geometry.roof_rise_m)/2;
-    positions[3*i+2] = xyz[1] - meta.geometry.width_m/2;
-    const ratio = Math.max(0, Math.min(1, (values[sourceIndex]-bounds[0])/span));
-    const c = new THREE.Color().setHSL((1-ratio)*0.66, 0.9, 0.56);
-    colors[3*i] = c.r; colors[3*i+1] = c.g; colors[3*i+2] = c.b;
-  }
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  points = new THREE.Group();
-  points.add(new THREE.Points(geometry, new THREE.PointsMaterial({size: 1.0, vertexColors: true, sizeAttenuation: true})));
-  if (field === 'velocity' && bounds[1] > 0) {
-    const stride = Math.max(1, Math.ceil(indices.length / 180));
-    for (let j=0; j<indices.length; j+=stride) {
-      const i=indices[j], xyz=data.cell_centres_m[i], u=data.velocity_m_s[i];
-      const magnitude=data.speed_m_s[i];
-      if (magnitude < bounds[1]*.03) continue;
-      const direction=new THREE.Vector3(u[0],u[2],u[1]).normalize();
-      const origin=new THREE.Vector3(xyz[0]-meta.geometry.length_m/2,
-        xyz[2]-(meta.geometry.eaves_m+meta.geometry.roof_rise_m)/2,xyz[1]-meta.geometry.width_m/2);
-      points.add(new THREE.ArrowHelper(direction,origin,3*magnitude/bounds[1],0xffffff,.4,.2));
-    }
-  }
-  for (const block of meta.loading?.blocks || []) {
-    const lo=block.min_m, hi=block.max_m;
-    const box = new THREE.BoxGeometry(hi[0]-lo[0],hi[2]-lo[2],hi[1]-lo[1]);
-    const outline = new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({color:0xffffff}));
-    box.dispose();
-    outline.position.set((hi[0]+lo[0]-meta.geometry.length_m)/2,
-      (hi[2]+lo[2]-meta.geometry.eaves_m-meta.geometry.roof_rise_m)/2,
-      (hi[1]+lo[1]-meta.geometry.width_m)/2);
-    points.add(outline);
-  }
-  const L=meta.geometry.length_m/2,W=meta.geometry.width_m/2,H=(meta.geometry.eaves_m+meta.geometry.roof_rise_m)/2,E=meta.geometry.eaves_m-H;
-  const vertices=[[-L,-H,-W],[L,-H,-W],[L,-H,W],[-L,-H,W],[-L,E,-W],[L,E,-W],[L,E,W],[-L,E,W],[-L,H,0],[L,H,0]];
-  const edges=[[0,1],[1,2],[2,3],[3,0],[0,4],[1,5],[2,6],[3,7],[4,5],[6,7],[4,8],[7,8],[5,9],[6,9],[8,9]];
-  const outlineGeometry=new THREE.BufferGeometry().setFromPoints(edges.flatMap(pair=>pair.map(i=>new THREE.Vector3(...vertices[i]))));
-  points.add(new THREE.LineSegments(outlineGeometry,new THREE.LineBasicMaterial({color:0x8c969f,transparent:true,opacity:.45})));
-  points.rotation.set(tilt, rotation, 0);
-  scene.add(points);
-  renderer.render(scene, camera);
-  $('status').textContent='원본장 대조 통과 · '+data.total_cells.toLocaleString()+'셀';
-  if(document.activeElement!==$('time'))$('time').value = data.time_s;
-  $('clock').textContent=data.time_s+' s';
-  $('legend').textContent = `${data.time_s} s (${(data.time_s/3600).toFixed(2)} h) · ${bounds[0].toPrecision(5)}–${bounds[1].toPrecision(5)} ${unit} · 파랑: 낮음 / 빨강: 높음 (프레임별 범위) · 표시 ${indices.length.toLocaleString()} / 전체 ${data.total_cells.toLocaleString()}셀 · 원본장 대조 통과` + (field === 'velocity' ? ' · 화살표: 방향, 길이: 현재 최대속도 대비 상대값' : '') + (data.temperature_C == null ? '' : ` · 가정 기온 ${data.temperature_C.toFixed(2)} °C`);
-  $('sources').textContent = `원본장: ${data.source_files ? Object.values(data.source_files).join(' , ') : data.raw_file}`;
+// Warehouse data adapter for the original Studio canvas, controls and export UI.
+let WH=null,WHGEN=0,WHREQUESTS=new Set(),WHBASE=null,WHGPU=null;
+const WHSAVED=new Map(),WHLAYERS=['lyBub','lyPhase','lySlice','lyTvol','lyGeo','lyCoil','lyTank','lyBound','lyProbe','lyInfo','gcT','gcV','gcB','gcL'];
+function warehouseActive(){return VIZCFG?._해석유형==='warehouse';}
+function warehouseBlend(a,b,u){return a+(b-a)*Math.max(0,Math.min(1,u));}
+function warehouseBracket(times,time){let i=0;while(i+1<times.length&&times[i+1]<=time)i++;const j=Math.min(i+1,times.length-1);return {i,j,u:j===i?0:Math.max(0,Math.min(1,(time-times[i])/(times[j]-times[i])))};}
+function warehouseCompatible(a,b){return a.total_cells===b.total_cells&&a.sampling_stride===b.sampling_stride&&a.cell_centres_m.length===b.cell_centres_m.length&&a.cell_centres_m.every((p,i)=>p.every((v,k)=>v===b.cell_centres_m[i][k]));}
+function warehouseField(){return LY('lyTvol')?'temperature':'concentration';}
+function warehouseValues(f,field){return field==='temperature'?f.temperature_field_C:f.concentration;}
+function warehouseRange(a,b,field){const x=field==='temperature'?a.temperature_range_C:[a.minimum,a.maximum],y=field==='temperature'?b.temperature_range_C:[b.minimum,b.maximum];return [Math.min(x[0],y[0]),Math.max(x[1],y[1])];}
+function warehouseCamera(){if(!WH)return;const g=WH.meta.geometry;tgt=[g.length_m*500,g.width_m*500,(g.eaves_m+g.roof_rise_m)*420];rad=Math.max(g.length_m,g.width_m,g.eaves_m+g.roof_rise_m)*2500;th=-.25;ph=.35;}
+function rememberWarehouse(){if(!WH||!warehouseActive())return;WHSAVED.set(WH.id,{clock,th,ph,rad,tgt:[...tgt],layers:Object.fromEntries(WHLAYERS.map(id=>[id,!!document.getElementById(id).checked]))});}
+function suspendWarehouseViewer(){rememberWarehouse();WHGEN++;for(const r of WHREQUESTS)r.abort();WHREQUESTS.clear();setPlay(false,true);PLAYBUFSEQ++;PLAYBUFFERING=false;}
+function cancelViewerLoad(){VLOADGEN++;VFRAMEGEN++;VPREFETCHTOKEN++;PLAYBUFSEQ++;PLAYBUFFERING=false;loadFrames.busy=false;loadFrames.pending=false;if(REC)stopVideo();setPlay(false,true);}
+async function warehouseAPI(path){const abort=new AbortController();WHREQUESTS.add(abort);try{const r=await fetch('/api/warehouse/results/'+path,{signal:abort.signal});const d=await r.json();if(!r.ok)throw Error(d.error||d.msg||'결과 읽기 실패');return d;}finally{WHREQUESTS.delete(abort);}}
+function warehouseLabel(id,text,show=true){const input=document.getElementById(id),row=input.closest('label'),sw=row.querySelector('.sw');row.style.display=show?'':'none';row.title=text;while(sw?.nextSibling)sw.nextSibling.remove();if(sw)row.append(document.createTextNode(text));}
+function saveWarehouseUI(){if(WHBASE)return;WHBASE={gradient:document.querySelector('#tcbar .grad').style.background,mode:configureViewerFields.mode,labels:{},titles:GDEF.map(d=>d.title),hrow:document.querySelector('#hud .hrow').innerHTML,graph:document.getElementById('exGraph').innerHTML};
+ for(const id of WHLAYERS){const input=document.getElementById(id),row=input.closest('label'),sw=row.querySelector('.sw'),nodes=[];for(let n=sw?.nextSibling;n;n=n.nextSibling)nodes.push(n.cloneNode(true));WHBASE.labels[id]={nodes,display:row.style.display,title:row.title,checked:input.checked,disabled:input.disabled};}}
+function restoreWarehouseUI(){if(!WHBASE)return;lastTbarShow=null;lastVbarShow=null;for(const [id,v] of Object.entries(WHBASE.labels)){const input=document.getElementById(id),row=input.closest('label'),sw=row.querySelector('.sw');while(sw?.nextSibling)sw.nextSibling.remove();for(const n of v.nodes)row.append(n.cloneNode(true));row.style.display=v.display;row.title=v.title;input.checked=v.checked;input.disabled=v.disabled;}
+ document.querySelector('#tcbar .grad').style.background=WHBASE.gradient;configureViewerFields.mode=WHBASE.mode;GDEF.forEach((d,i)=>d.title=WHBASE.titles[i]);document.querySelector('#hud .hrow').innerHTML=WHBASE.hrow;document.getElementById('exGraph').innerHTML=WHBASE.graph;WHBASE=null;
+ document.getElementById('warehouseDetails')?.remove();document.getElementById('warehouseCSV')?.remove();document.getElementById('autoSync').closest('label').style.display='';document.getElementById('saveShot').title='현재 3D 화면 저장';document.getElementById('gcol')._keys='';
+ document.querySelector('#tcbar>div').textContent='온도 °C';document.getElementById('tcSat').style.display='';document.getElementById('tcSatL').style.display='';
+ const old=document.getElementById('tracerStats');if(old)old.style.display='none';}
+function configureWarehouseUI(){if(!WH)return;saveWarehouseUI();document.body.classList.remove('tracerView');
+ const old=document.getElementById('tracerStats');if(old)old.style.display='none';
+ configureViewerFields.mode='warehouse';const available=WH.meta.available_fields||['concentration'];
+ for(const [id,text,show] of [['lyBub','농도장',true],['lyPhase','상분율',false],['lySlice','속도장 · 흐름 마커',available.includes('velocity')],['lyTvol','온도장',available.includes('temperature')],['lyGeo','다공성 곡물',!!WH.meta.loading?.blocks?.length],['lyTank','저장고 외곽',true],['lyCoil','코일',false],['lyBound','중앙 통로 단면',true],['lyProbe','측정점',false],['lyInfo','시간·원본 정보',true],['gcT','온도 범위',available.includes('temperature')],['gcV','농도 범위',true],['gcB','최대 유속',available.includes('velocity')],['gcL','층별 평균',false]])warehouseLabel(id,text,show);
+ for(const id of ['lyBub','lySlice','lyTvol']){const input=document.getElementById(id);input.disabled=!available.includes(id==='lyBub'?'concentration':id==='lySlice'?'velocity':'temperature');input.closest('label').classList.toggle('off2',input.disabled);}
+ GDEF[0].title='온도 범위 (°C)';GDEF[1].title='농도 범위 ('+WH.unit+')';GDEF[2].title='최대 유속 (m/s)';
+ for(const d of GDEF){const option=document.querySelector('#exGraph option[value="'+d.id+'"]');if(option){option.textContent=d.title;option.disabled=d.id==='gcL'||d.id==='gcT'&&!available.includes('temperature')||d.id==='gcB'&&!available.includes('velocity');}}
+ if(document.querySelector('#exGraph option:checked')?.disabled)document.getElementById('exGraph').value='gcV';
+ document.querySelector('#hud .hrow').innerHTML='<span>t <b id="hT">—</b> s</span><span>표시 <b id="hC">—</b>셀</span><span hidden>농도 표본최대 <b id="hV">—</b> '+WH.unit+'</span>';
+ document.querySelector('#hud .hrow').style.display='';document.getElementById('hLiveG').style.display='none';
+ const g=WH.meta.geometry;document.getElementById('hGeo').textContent=g.length_m+' × '+g.width_m+' m · '+(WH.meta.loading?.blocks?.length?'다공성 곡물 · ':'')+(WH.meta.model==='normalized_gable_verification'?'정규화 시험':'ClO₂ 가정 기반 계산');
+ document.getElementById('plabels').replaceChildren();document.getElementById('gcol')._keys='';document.getElementById('autoSync').closest('label').style.display='none';
+ document.getElementById('saveShot').title='현재 3D 화면 저장';document.getElementById('vizWarn').style.display='none';document.getElementById('empty').style.display='none';
+ for(const title of document.querySelectorAll('#vlegend .ltit'))title.style.display='';
+ if(!document.getElementById('warehouseDetails')){const box=document.createElement('div');box.id='warehouseDetails';box.innerHTML=`
+<details><summary>위치·시간 조회</summary><form id="whProbe"><div class="wh-inputs"><label>X (m)<input name="x" type="number" step="any" value="39" required></label><label>Y (m)<input name="y" type="number" step="any" value="12.5" required></label><label>Z (m)<input name="z" type="number" step="any" value="3" required></label><label>시간 (s)<input name="time" type="number" step="any" value="0" required></label><label>최대 거리 (m)<input name="max_distance" type="number" step="any" value="3" required></label></div><button class="btn sm">조회</button></form><p id="whProbeResult"></p></details>
+<details><summary>모델·검증</summary><p id="whFacts"></p></details><details><summary>원본 파일</summary><p id="whSources"></p></details>`;document.getElementById('vlegend').append(box);
+ document.getElementById('whProbe').onsubmit=async e=>{e.preventDefault();const w=WH,gen=WHGEN;if(!w)return;const q=new URLSearchParams(new FormData(e.target));q.set('id',w.id);document.getElementById('whProbeResult').textContent='조회 중';try{const d=await warehouseAPI('sample?'+q);if(gen!==WHGEN)return;document.getElementById('whProbeResult').textContent=`농도 ${d.concentration.toPrecision(6)} ${d.concentration_unit}\n온도 ${d.temperature==null?'해당 없음':d.temperature.toFixed(3)+' °C'}\n유속 ${d.speed_m_s==null?'해당 없음':d.speed_m_s.toPrecision(6)+' m/s'}\n셀 ${d.cell_index} · 중심 거리 ${d.cell_centre_distance_m.toPrecision(4)} m\n원본 ${d.source_files.join(' , ')}`;}catch(err){if(gen===WHGEN)document.getElementById('whProbeResult').textContent=err.message;}};
+ const card=document.createElement('div');card.id='warehouseCSV';card.className='excard';card.innerHTML='<h4>프레임 데이터</h4><p>선택한 저장 프레임의 표본 좌표·농도·온도·유속을 저장합니다.</p><button class="btn">CSV 저장</button>';card.querySelector('button').onclick=exportWarehouseCSV;document.querySelector('#exportBg .exgrid').append(card);
+ }
+ for(const [id,other] of [['lyBub','lyTvol'],['lyTvol','lyBub']]){const input=document.getElementById(id);if(!input.dataset.warehouseBound){input.addEventListener('change',()=>{if(warehouseActive()&&input.checked)document.getElementById(other).checked=false;});input.dataset.warehouseBound='1';}}
+ const probe=document.getElementById('whProbe');for(const [key,value] of Object.entries({x:g.length_m/2,y:g.width_m/2,z:g.eaves_m/2,time:WH.meta.times_s[0]}))probe.elements[key].value=value;document.getElementById('whProbeResult').textContent='';
+ const m=WH.meta;document.getElementById('whFacts').textContent=['계산 모델: '+m.model,'농도 단위: '+WH.unit,'수치 수렴: '+(m.numerical_pass?'해당 시험 통과':'미완료'),'실험 검증: 미완료','누출: 제외','표시: 셀 표본의 부드러운 체적 표현','재생: 저장 프레임 사이 선형 보간','흐름 마커: 유속 방향 표시',...(m.assumptions||[])].join('\n');
+ updateWarehouseSlots();
 }
-  function stopVideo(discard=false){if(recording&&recording.state!=='inactive'){recording.discard=discard;recording.stop();}$('video').textContent='영상 저장';}
-  function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-  async function loadFrame(){const generation=++frameGeneration;if(!meta)return false;request?.abort();request=new AbortController();const index=Number($('frame').value),key=meta.id+':'+index;$('status').textContent='프레임 불러오는 중';
-    try{const data=cache.get(key)||await api(`/api/warehouse/results/frame?id=${encodeURIComponent(meta.id)}&index=${index}`,request.signal);if(generation!==frameGeneration)return false;cache.set(key,data);while(cache.size>6)cache.delete(cache.keys().next().value);showFrame(data);return true;}
-    catch(e){if(e.name!=='AbortError'&&generation===frameGeneration){pause();stopVideo(true);$('status').textContent=e.message;}if(generation===frameGeneration)$('play').disabled=!currentFrame;return false;}
-  }
-  async function tick(){if(!playing||!meta||root.hidden)return;const i=Number($('frame').value);if(i>=Number($('frame').max)){pause();stopVideo();return;}$('frame').value=i+1;const ok=await loadFrame();if(playing&&ok)timer=setTimeout(tick,1000/Number($('speed').value));}
-  async function play(){if(!meta||!currentFrame)return;if(playing){pause();return;}playing=true;$('play').textContent='일시정지';if(Number($('frame').value)>=Number($('frame').max)){$('frame').value=0;if(!await loadFrame())return;}timer=setTimeout(tick,1000/Number($('speed').value));}
-  async function load(id,title){remember();pause();stopVideo(true);request?.abort();const generation=++caseGeneration;++frameGeneration;meta=null;currentFrame=null;root.hidden=false;rendererReady();disposePoints();renderer.render(scene,camera);$('title').textContent=title;$('status').textContent='결과 불러오는 중';$('sources').textContent='';$('legend').textContent='';$('facts').replaceChildren();$('probeResult').textContent='';$('clock').textContent='—';for(const control of root.querySelectorAll('button,input,select'))if(control!==$('settings'))control.disabled=true;
-    try{const loaded=await api('/api/warehouse/results/meta?id='+encodeURIComponent(id));if(generation!==caseGeneration)return;meta=loaded;const state=saved.get(id);for(const o of $('field').options)o.disabled=!(meta.available_fields||['concentration']).includes(o.value);$('field').value=state?.field&&meta.available_fields.includes(state.field)?state.field:'concentration';$('slice').value=state?.slice||'all';$('frame').max=meta.times_s.length-1;$('frame').value=Math.min(state?.frame||0,Number($('frame').max));$('frame').disabled=false;resetCamera();if(state){rotation=state.rotation;tilt=state.tilt;if(state.camera)camera.position.fromArray(state.camera);}
-      fact('계산 모델',meta.model==='clo2_coupled_scenario'?'유동·온도·ClO₂ 연결':meta.model==='normalized_gable_verification'?'정규화 추적자 시험':'가정 기반 확산');fact('수치 검증',meta.grid_assessment&&!meta.grid_assessment.grid_converged?'격자 수렴 기준 미달':meta.numerical_pass?'해당 시험 통과':'수렴 미검증');fact('실험 검증','미완료');fact('셀 수',meta.cells.toLocaleString());fact('농도 단위',meta.concentration_unit==='kg/m3'?'mg/m³ · 원본 kg/m³':meta.concentration_unit);fact('누출','해석 범위에서 제외');fact('질량수지 상대오차',meta.relative_balance_error);if(meta.loading)fact('다공성 곡물',meta.loading.blocks.length+'개 적재 블록 · 공극률 '+meta.loading.porosity);for(const assumption of meta.assumptions||[])fact('가정',assumption);
-      if(await loadFrame()&&generation===caseGeneration)for(const control of root.querySelectorAll('button,input,select'))control.disabled=false;
-    }catch(e){if(generation===caseGeneration)$('status').textContent=e.message;}
-  }
-  function hide(){remember();pause();stopVideo(true);request?.abort();caseGeneration++;frameGeneration++;root.hidden=true;}
-  $('settings').onclick=onSettings;$('play').onclick=play;$('frame').oninput=()=>{pause();loadFrame();};
-  for(const [id,step] of [['previous',-1],['next',1]])$(id).onclick=()=>{if(!meta)return;pause();$('frame').value=Math.max(0,Math.min(Number($('frame').max),Number($('frame').value)+step));loadFrame();};
-  for(const id of ['field','slice'])$(id).onchange=()=>{if(currentFrame)showFrame(currentFrame);};
-  $('reset').onclick=()=>{if(renderer)resetCamera();};$('capture').onclick=()=>{if(renderer&&currentFrame){renderer.render(scene,camera);renderer.domElement.toBlob(blob=>{if(blob)download(blob,meta.id+'_'+currentFrame.time_s+'s.png');});}};
-  $('csv').onclick=()=>{if(!currentFrame)return;const f=currentFrame;const rows=[['time_s','cell_index','x_m','y_m','z_m','concentration_'+f.concentration_unit,'temperature_C','Ux_m_s','Uy_m_s','Uz_m_s']];f.cell_centres_m.forEach((xyz,i)=>rows.push([f.time_s,i*f.sampling_stride,...xyz,f.concentration[i],f.temperature_field_C?.[i]??'',...(f.velocity_m_s?.[i]||['','',''])]));download(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}),meta.id+'_'+f.time_s+'s_sampled.csv');};
-  $('video').onclick=async()=>{if(!currentFrame)return;if(recording){if(recording.state!=='inactive'){pause();stopVideo();}return;}try{if(typeof MediaRecorder==='undefined')throw Error('이 브라우저에서는 영상 저장을 지원하지 않습니다');pause();$('frame').value=0;if(!await loadFrame())return;const stream=renderer.domElement.captureStream(15);recording=new MediaRecorder(stream);const session=recording;session.discard=false;const chunks=[],name=meta.id;recording.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};recording.onstop=()=>{stream.getTracks().forEach(t=>t.stop());if(!session.discard)download(new Blob(chunks,{type:'video/webm'}),name+'.webm');if(recording===session)recording=null;};recording.start();$('video').textContent='영상 저장 종료';play();}catch(e){$('status').textContent=e.message;}};
-  $('probe').onsubmit=async e=>{e.preventDefault();if(!meta)return;const token=caseGeneration;const p=new URLSearchParams({id:meta.id,x:$('x').value,y:$('y').value,z:$('z').value,time:$('time').value,max_distance:$('distance').value});try{const v=await api('/api/warehouse/results/sample?'+p);if(token!==caseGeneration)return;$('probeResult').textContent=`농도 ${v.concentration.toPrecision(7)} ${v.concentration_unit}\n온도 ${v.temperature==null?'계산되지 않음':v.temperature.toFixed(3)+' °C'}\n유속 ${v.speed_m_s==null?'계산되지 않음':v.speed_m_s.toPrecision(6)+' m/s'}\n셀 ${v.cell_index} · 중심 거리 ${v.cell_centre_distance_m.toPrecision(4)} m\n원본 ${v.source_files.join(' , ')}`;}catch(e){if(token===caseGeneration)$('probeResult').textContent=e.message;}};
-  root.addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA','BUTTON'].includes(e.target.tagName))return;if(e.code==='Space'){e.preventDefault();play();}else if(e.key==='ArrowLeft')$('previous').click();else if(e.key==='ArrowRight')$('next').click();},{signal:events.signal});
-  return {load,hide,pause,destroy(){hide();events.abort();resizeObserver?.disconnect();disposePoints();renderer?.dispose();style.remove();root.replaceChildren();}};
+function updateWarehouseSlots(){if(!WH)return;const m=WH.meta,n=m.times_s.length;for(const [id,title,text] of [['slBub','농도장',n+'개'],['slPhase','계산 격자',m.cells.toLocaleString()+'셀'],['slFlow','속도장',m.available_fields?.includes('velocity')?n+'개':'해당 없음'],['slTherm','온도장',m.available_fields?.includes('temperature')?n+'개':'해당 없음']]){const e=document.getElementById(id);e.textContent=text;e.parentElement.querySelector('b').textContent=title;e.className='sst ok';}document.getElementById('projDataName').textContent=WH.name;document.getElementById('btnRunTxt').textContent='다시 읽기';document.getElementById('btnRun').disabled=false;document.getElementById('btnUpdateViz').style.display='none';}
+function warehouseBuildGeometry(){for(const g of WH.geometry||[])gl.deleteBuffer(g.mesh.b);WH.geometry=[];const g=WH.meta.geometry,L=g.length_m*1000,W=g.width_m*1000,E=g.eaves_m*1000,H=E+g.roof_rise_m*1000;
+ const v=[[0,0,0],[L,0,0],[L,W,0],[0,W,0],[0,0,E],[L,0,E],[L,W,E],[0,W,E],[0,W/2,H],[L,W/2,H]];
+ const edges=[[0,1],[1,2],[2,3],[3,0],[0,4],[1,5],[2,6],[3,7],[4,5],[6,7],[4,8],[8,7],[5,9],[9,6],[8,9]];
+ WH.geometry.push({type:'outline',mesh:mesh(edges.flatMap(([a,b])=>[...v[a],...v[b]]))});
+ const roof=[v[4],v[5],v[9],v[4],v[9],v[8],v[8],v[9],v[6],v[8],v[6],v[7]];WH.geometry.push({type:'roof',mesh:mesh(roof.flat())});
+ for(const b of WH.meta.loading?.blocks||[]){const a=b.min_m.map(x=>x*1000),z=b.max_m.map(x=>x*1000);WH.geometry.push({type:'grain',mesh:mesh(boxTris(...a,...z))},{type:'grainEdge',mesh:mesh(boxEdges(...a,...z))});}
 }
+async function loadWarehouseResult(id,name){rememberWarehouse();suspendWarehouseViewer();cancelViewerLoad();const gen=WHGEN;if(WH?.geometry)for(const g of WH.geometry)gl.deleteBuffer(g.mesh.b);WH=null;CFG=VIZCFG={_해석유형:'warehouse'};FRAMES=[];VSTREAMERR.clear();idx=0;clock=0;FLOWMAP={};THERMMAP={};PHASEMAP={};PRESSUREMAP={};TURBMAP={};BUBLOADED=0;Cxyz=null;VHIST=[];VHISTC=[];VHISTV=[];
+ document.getElementById('tbar').max=0;document.getElementById('tlab').textContent='불러오는 중';loadMsg('결과 불러오는 중');document.getElementById('empty').style.display='';gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+ try{const meta=await warehouseAPI('meta?id='+encodeURIComponent(id));if(gen!==WHGEN)return;
+ if(!meta.times_s?.length||meta.times_s.some((t,i)=>!Number.isFinite(t)||(i&&t<=meta.times_s[i-1])))throw Error('결과 시간 순서를 확인해 주세요');
+ WH={id,name,meta,unit:meta.concentration_unit==='kg/m3'?'mg/m³':'C/C_ref',cache:new Map(),pending:new Map(),stats:new Map(),geometry:[],pairKey:'',lastHud:0};VIZCFG=CFG={_해석유형:'warehouse',warehouse:meta};LOADED_RID='warehouse:'+id;
+ saveWarehouseUI();const saved=WHSAVED.get(id),defaults={lyBub:true,lyPhase:false,lySlice:meta.available_fields?.includes('velocity'),lyTvol:false,lyGeo:true,lyTank:true,lyCoil:false,lyBound:false,lyProbe:false,lyInfo:true,gcT:meta.available_fields?.includes('temperature'),gcV:true,gcB:false,gcL:false};
+ for(const key of WHLAYERS)document.getElementById(key).checked=!!(saved?.layers||defaults)[key];warehouseBuildGeometry();warehouseCamera();if(saved){clock=saved.clock;th=saved.th;ph=saved.ph;rad=saved.rad;tgt=[...saved.tgt];}
+ FRAMES=meta.times_s.map(t=>({t,pt:t,ready:false}));configureWarehouseUI();finishFrames(false);if(!await ensureWarehouseFrame(idx))throw Error('첫 표시 프레임을 읽지 못했습니다');if(gen!==WHGEN)return;await ensureWarehouseFrame(Math.min(idx+1,FRAMES.length-1));if(gen!==WHGEN)return;resize();prefetchViz(idx,true);
+ }catch(e){if(gen===WHGEN&&e.name!=='AbortError'){setPlay(false,true);FRAMES=[];loadMsg('결과 읽기 실패');toast(e.message,true);}}
+}
+function warehouseFrameReady(i){return !!(WH&&FRAMES[i]&&WH.cache.has(i));}
+async function ensureWarehouseFrame(i){const w=WH,gen=WHGEN;if(!w||!FRAMES[i])return false;if(w.cache.has(i))return true;if(w.pending.has(i))return w.pending.get(i);
+ const promise=(async()=>{try{const f=await warehouseAPI('frame?id='+encodeURIComponent(w.id)+'&index='+i);if(gen!==WHGEN||WH!==w)return false;const first=w.cache.values().next().value;if(first&&!warehouseCompatible(first,f))throw Error('프레임 간 셀 좌표 또는 표본 순서가 다릅니다');w.cache.set(i,f);while(w.cache.size>8){const keys=[...w.cache.keys()].sort((a,b)=>Math.abs(b-idx)-Math.abs(a-idx));w.cache.delete(keys[0]);}w.stats.set(i,{t:f.time_s,c:[f.minimum,f.maximum],T:f.temperature_range_C,U:f.speed_range_m_s});FRAMES[i].ready=true;FRAMES[i].statsReady=true;document.getElementById('gcol')._keys='';return true;
+ }catch(e){if(gen===WHGEN&&e.name!=='AbortError'){VSTREAMERR.add('frame-load');setPlay(false,true);toast('결과 읽기 실패: '+e.message,true);}return false;}finally{w.pending.delete(i);}})();w.pending.set(i,promise);return promise;
+}
+function warehouseGPU(){if(WHGPU)return WHGPU;const shader=prog(`attribute vec3 aP;attribute float aA;attribute float aB;uniform mat4 uM;uniform float uMix;uniform vec2 uRange;uniform float uSize;uniform float uK;varying float vValue;varying float vY;void main(){gl_Position=uM*vec4(aP,1.);gl_PointSize=clamp(uSize*uK/max(gl_Position.w,1.),2.,46.);vValue=clamp((mix(aA,aB,uMix)-uRange.x)/max(uRange.y-uRange.x,0.000000001),0.,1.);vY=aP.y;}`,
+ `precision mediump float;varying float vValue;varying float vY;uniform float uSlice;uniform float uMid;uniform float uTemp;void main(){if(uSlice>.5&&abs(vY-uMid)>650.)discard;vec2 p=gl_PointCoord*2.-1.;float d=dot(p,p);if(d>1.)discard;float edge=exp(-3.5*d)*(1.-smoothstep(.65,1.,d));vec3 c=vValue<.5?mix(vec3(.08,.3,.85),vec3(.15,.9,.73),vValue*2.):mix(vec3(.15,.9,.73),vec3(1.,.29,.09),(vValue-.5)*2.);float opacity=uTemp>.5?.17:(.008+.19*vValue);gl_FragColor=vec4(c,opacity*edge);}`);
+ WHGPU={shader,pos:gl.createBuffer(),a:gl.createBuffer(),b:gl.createBuffer(),arrows:gl.createBuffer(),dots:gl.createBuffer()};return WHGPU;}
+function warehousePreparePair(a,b,i,j,field){const key=i+':'+j+':'+field;if(WH.pairKey===key)return;WH.pairKey=key;const gpu=warehouseGPU();const pos=new Float32Array(a.cell_centres_m.length*3);a.cell_centres_m.forEach((p,k)=>p.forEach((x,d)=>pos[k*3+d]=x*1000));
+ for(const [buffer,data] of [[gpu.pos,pos],[gpu.a,new Float32Array(warehouseValues(a,field)||[])],[gpu.b,new Float32Array(warehouseValues(b,field)||[])]]){gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);}WH.range=warehouseRange(a,b,field);WH.count=a.cell_centres_m.length;}
+function warehouseDrawCloud(M,a,b,u,field){if(!warehouseValues(a,field)||!warehouseValues(b,field))return;const g=WHGPU,p=g.shader;gl.useProgram(p);gl.uniformMatrix4fv(gl.getUniformLocation(p,'uM'),false,new Float32Array(M));gl.uniform1f(gl.getUniformLocation(p,'uMix'),u);gl.uniform2fv(gl.getUniformLocation(p,'uRange'),WH.range);gl.uniform1f(gl.getUniformLocation(p,'uK'),cv.height/2/Math.tan(19*Math.PI/180));
+ const geo=WH.meta.geometry;const size=Math.cbrt(geo.length_m*geo.width_m*geo.eaves_m/WH.count)*2300;gl.uniform1f(gl.getUniformLocation(p,'uSize'),size);gl.uniform1f(gl.getUniformLocation(p,'uSlice'),LY('lyBound')?1:0);gl.uniform1f(gl.getUniformLocation(p,'uMid'),geo.width_m*500);gl.uniform1f(gl.getUniformLocation(p,'uTemp'),field==='temperature'?1:0);
+ for(const [name,buffer,n] of [['aP',g.pos,3],['aA',g.a,1],['aB',g.b,1]]){const loc=gl.getAttribLocation(p,name);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,0,0);}gl.drawArrays(gl.POINTS,0,WH.count);
+ for(const name of ['aP','aA','aB'])gl.disableVertexAttribArray(gl.getAttribLocation(p,name));}
+function warehouseDrawFlow(M,a,b,u){if(!a.velocity_m_s||!b.velocity_m_s)return;const stride=Math.max(1,Math.ceil(a.cell_centres_m.length/350)),arrows=[],dots=[],max=Math.max(a.speed_range_m_s[1],b.speed_range_m_s[1],1e-10),scale=Math.max(WH.meta.geometry.width_m,WH.meta.geometry.eaves_m)*1000;
+ for(let k=0;k<a.cell_centres_m.length;k+=stride){const xyz=a.cell_centres_m[k];if(LY('lyBound')&&Math.abs(xyz[1]-WH.meta.geometry.width_m/2)>.65)continue;const velocity=a.velocity_m_s[k].map((x,d)=>warehouseBlend(x,b.velocity_m_s[k][d],u)),speed=Math.hypot(...velocity);if(speed<max*.025)continue;const r=Math.min(1,speed/max),length=scale*(.018+.065*r),v=velocity.map(x=>x/speed),start=xyz.map(x=>x*1000),end=start.map((x,d)=>x+v[d]*length);const perp=Math.hypot(v[0],v[1])>1e-5?[-v[1],v[0],0]:[1,0,0];const norm=Math.hypot(...perp);for(const sign of [-1,1]){const tip=end.map((x,d)=>x-v[d]*length*.23+sign*perp[d]/norm*length*.1);arrows.push(...end,r,...tip,r);}arrows.push(...start,r,...end,r);const q=(k*.6180339+clock*(.32+.55*r))%1;dots.push(...start.map((x,d)=>x+v[d]*length*q),r);}
+ for(const [program,buffer,vertices,mode] of [[arrowP,WHGPU.arrows,arrows,gl.LINES],[flowDotP,WHGPU.dots,dots,gl.POINTS]]){gl.useProgram(program);gl.uniformMatrix4fv(gl.getUniformLocation(program,'uM'),false,new Float32Array(M));if(program===arrowP){gl.uniform1f(gl.getUniformLocation(program,'uSilo'),1);gl.uniform1f(gl.getUniformLocation(program,'uIf'),0);}gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(vertices),gl.DYNAMIC_DRAW);for(const [name,n,offset] of [['aP',3,0],['aS',1,12]]){const loc=gl.getAttribLocation(program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,16,offset);}gl.drawArrays(mode,0,vertices.length/4);for(const name of ['aP','aS'])gl.disableVertexAttribArray(gl.getAttribLocation(program,name));}
+ document.getElementById('vbarTitle').textContent='유속 m/s · 방향 표시 마커';document.getElementById('vbarRange').textContent='0 ~ '+max.toPrecision(3);}
+function frameWarehouse(now,dt){gl.clearColor(.051,.051,.051,1);gl.enable(gl.DEPTH_TEST);gl.depthMask(true);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);if(!WH||!FRAMES.length)return;
+ const times=WH.meta.times_s;if(playing){const next=Math.min(times.at(-1),clock+Math.min(dt,.1)*(+document.getElementById('speed').value||1)),p=warehouseBracket(times,next);if(warehouseFrameReady(p.i)&&warehouseFrameReady(p.j)){clock=next;idx=p.i;if(clock>=times.at(-1))setPlaybackEnded();}else{ensureWarehouseFrame(p.i);ensureWarehouseFrame(p.j);}}
+ const {i,j,u}=warehouseBracket(times,clock),a=WH.cache.get(i),b=WH.cache.get(j);if(!a||!b){ensureWarehouseFrame(i);ensureWarehouseFrame(j);return;}idx=i;const field=warehouseField();warehousePreparePair(a,b,i,j,field);
+ const projection=persp(38*Math.PI/180,VW/VH,Math.max(1,rad/1500),rad+cameraModelSpan()*12);projection[8]=Math.min(.38,(document.getElementById('lcol').clientWidth+16)/VW);const M=mul(projection,lookAt(eye(),tgt,viewUp()));gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);
+ for(const part of WH.geometry){if(part.type==='grain'&&LY('lyGeo'))dM(part.mesh,[.32,.49,.28,.12],M);if(part.type==='roof'&&LY('lyTank'))dM(part.mesh,[.6,.69,.8,.025],M);}
+ if(LY('lyBub')||LY('lyTvol'))warehouseDrawCloud(M,a,b,u,field);
+ for(const part of WH.geometry){if(part.type==='outline'&&LY('lyTank'))dL(part.mesh,[.8,.84,.92,.5],M);if(part.type==='grainEdge'&&LY('lyGeo'))dL(part.mesh,[.45,.72,.3,.27],M);}
+ if(LY('lySlice'))warehouseDrawFlow(M,a,b,u);gl.depthMask(true);
+ document.getElementById('tbar').value=idx;document.getElementById('tlab').textContent='t = '+clock.toFixed(2)+' s';document.getElementById('hT').textContent=clock.toFixed(2);document.getElementById('hC').textContent=a.displayed_cells.toLocaleString();
+ const show=LY('lyBub')||LY('lyTvol');document.getElementById('tcbar').style.display=show?'flex':'none';document.getElementById('vbar').style.display=LY('lySlice')?'':'none';document.querySelector('#tcbar>div').textContent=field==='temperature'?'온도 °C':'농도 '+WH.unit;document.getElementById('tcHi').textContent=WH.range[1].toPrecision(4);document.getElementById('tcLo').textContent=WH.range[0].toPrecision(4);document.getElementById('tcSat').style.display='none';document.getElementById('tcSatL').style.display='none';document.querySelector('#tcbar .grad').style.background='linear-gradient(to top,#144dd9,#26e6ba,#ff4a17)';document.querySelector('#hud .hrow').style.display=LY('lyInfo')?'':'none';
+ if(now-WH.lastHud>150){WH.lastHud=now;let max=-Infinity;for(let k=0;k<a.concentration.length;k++)max=Math.max(max,warehouseBlend(a.concentration[k],b.concentration[k],u));document.getElementById('hV').textContent=max.toPrecision(3);document.getElementById('whSources').textContent=(u>1e-8?'화면 보간: '+a.time_s+'~'+b.time_s+' s\n':'저장 프레임: '+a.time_s+' s\n')+[...new Set([...Object.values(a.source_files||{C:a.raw_file}),...Object.values(b.source_files||{C:b.raw_file})])].join('\n');renderGCol();}
+ if(REC)recTick();
+}
+function warehouseSeries(id){if(!WH)return [];const rows=[...WH.stats.values()].sort((a,b)=>a.t-b.t);const field=id==='gcT'?'T':id==='gcV'?'c':id==='gcB'?'U':null;if(!field)return [];const values=rows.filter(r=>r[field]);return (id==='gcB'?[1]:[0,1]).map((k,i)=>({name:k?'최댓값':'최솟값',color:i?'#e08a3a':'#3987e5',pts:values.map(r=>[r.t,r[field][k]])}));}
+function drawWarehouseOverlay(ctx,d){if(!WH)return;ctx.save();ctx.font=12*d+'px Segoe UI';const text=WH.name+' · t = '+clock.toFixed(2)+' s · '+(warehouseField()==='temperature'?'온도 °C':'농도 '+WH.unit);ctx.fillStyle='rgba(18,18,18,.8)';ctx.fillRect(10*d,10*d,Math.min(ctx.canvas.width-20*d,ctx.measureText(text).width+20*d),34*d);ctx.fillStyle='#eee';ctx.fillText(text,20*d,32*d);ctx.restore();}
+async function exportWarehouseCSV(){if(!WH)return;const w=WH,index=idx;await ensureWarehouseFrame(index);if(WH!==w)return;const f=w.cache.get(index);if(!f)return;const rows=[['time_s','cell_index','x_m','y_m','z_m','concentration_'+f.concentration_unit,'temperature_C','Ux_m_s','Uy_m_s','Uz_m_s']];f.cell_centres_m.forEach((xyz,k)=>rows.push([f.time_s,k*f.sampling_stride,...xyz,f.concentration[k],f.temperature_field_C?.[k]??'',...(f.velocity_m_s?.[k]||['','',''])]));exportDownload(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}),w.id+'_'+f.time_s+'s_sampled.csv');}
+if(typeof module!=='undefined')module.exports={warehouseBlend,warehouseBracket,warehouseCompatible,warehouseRange};

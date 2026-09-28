@@ -3,7 +3,7 @@
   const $ = id => document.getElementById(id);
   const selectedRuns=new Map();
   let data = {projects: []}, projectId = '', runId = '', generation = 0, detail = null;
-  let pending=false, refreshing=false, projectSignature='',runSignature='',viewMode='cfd',nativeViewer=null,nativePromise=null,preferredTemplate='warehouse';
+  let pending=false, refreshing=false, projectSignature='',runSignature='',viewMode='cfd',preferredTemplate='warehouse';
   const status = {complete:'완료', failed:'실패', running:'계산 중', queued:'준비 중', preparing:'준비 중', saved:'보관'};
   const model = {clo2_coupled_scenario:'저장고 연결', clo2_plan_scenario:'저장고 확산', normalized_gable_verification:'정규화 시험', gas_transport:'추적자 시험', immersion:'액침냉각', grain_silo:'단상 저장고'};
   const node = (tag, text, cls) => {const e=document.createElement(tag); if(text!=null)e.textContent=text; if(cls)e.className=cls; return e;};
@@ -16,7 +16,7 @@
   function currentProject(){return data.projects.find(p=>p.id===projectId);}
   function button(text, action, cls='btn') {const b=node('button',text,cls); b.type='button'; b.onclick=action; return b;}
   function message(text){$('ewMessage').textContent=text;}
-  function showList(){viewMode='cfd';nativeViewer?.hide();setPlay(false,true);setMode('cfd');document.body.classList.remove('execution-viewer','warehouse-viewer');$('appContext').textContent='CFD Studio · '+(currentProject()?.name||'프로젝트');}
+  function showList(){viewMode='cfd';suspendWarehouseViewer();setPlay(false,true);setMode('cfd');document.body.classList.remove('execution-viewer','warehouse-viewer');$('appContext').textContent='CFD Studio · '+(currentProject()?.name||'프로젝트');}
   function renderProjects() {
     const list=$('ewProjects');
     const signature=JSON.stringify([projectId,data.projects.map(p=>[p.id,p.name,p.runs.length])]);
@@ -46,7 +46,7 @@
     if(!rows.children.length){const tr=node('tr'), td=node('td',search?'검색 결과 없음':'실행 이력 없음');td.colSpan=4;tr.append(td);rows.append(tr);}
   }
   async function selectProject(id){
-    projectId=id;runId='';detail=null;generation++;nativeViewer?.hide();setPlay(false,true);
+    projectId=id;runId='';detail=null;generation++;suspendWarehouseViewer();setPlay(false,true);
     $('ewSearch').value='';renderProjects();renderRuns();
     try{localStorage.setItem('cfd-project',id);}catch(_){}
     const runs=currentProject()?.runs||[];
@@ -68,26 +68,24 @@
     $('ewView').disabled=!value.has_results;
   }
   async function selectRun(id){
-    const token=++generation;runId=id;selectedRuns.set(projectId,id);detail=null;renderRuns();nativeViewer?.hide();setPlay(false,true);
+    const token=++generation;runId=id;selectedRuns.set(projectId,id);detail=null;renderRuns();suspendWarehouseViewer();setPlay(false,true);
     clearDetail();$('ewRunTitle').textContent='불러오는 중';
     try{const value=await api('/detail?id='+encodeURIComponent(id));if(token!==generation)return;showDetail(value);message('');if(viewMode==='viewer')await viewResult();}
     catch(e){if(token===generation){clearDetail();message(e.message);}}
   }
-  async function viewer(){
-    if(!nativePromise)nativePromise=import('/warehouse_viewer.js').then(module=>nativeViewer=module.mountWarehouseViewer($('warehouseNative'),inspectSettings));
-    return nativePromise;
-  }
   async function viewResult(){
-    if(!detail?.has_results){showList();message('선택한 실행의 결과가 아직 없습니다. 설정과 로그를 확인하세요.');return;}
+    if(!detail){viewMode='viewer';message('실행 정보를 불러오는 중입니다.');return;}
+    if(!detail.has_results){showList();message('선택한 실행의 결과가 아직 없습니다. 설정과 로그를 확인하세요.');return;}
     const selected=detail,token=generation;viewMode='viewer';setPlay(false,true);
     document.body.classList.add('execution-viewer');
     document.body.classList.toggle('warehouse-viewer',selected.kind==='warehouse');
-    if(selected.kind!=='warehouse')VPROJ=selected.rid;
+    cancelViewerLoad();
+    if(selected.kind!=='warehouse'){restoreWarehouseUI();VIZCFG=selected.config||null;VPROJ=selected.rid;}
     setMode('viz');
     if(selected.kind==='warehouse'){
-      const v=await viewer();if(token!==generation||viewMode!=='viewer')return;
-      await v.load(selected.rid,selected.name);
-    }else{nativeViewer?.hide();await selVz(selected.rid);}
+      if(token!==generation||viewMode!=='viewer')return;
+      await loadWarehouseResult(selected.rid,selected.name);
+    }else{await selVz(selected.rid);}
   }
   function inspectSettings(){
     if(!detail)return;const snapshot=structuredClone(detail);
@@ -137,7 +135,7 @@
   }
   function mount(){
     const style=node('style');style.textContent=`
-body.grouped #secRun,body.grouped #secData{display:none!important}body.grouped.execution-viewer:not(.warehouse-viewer) #secData{display:block!important}body.grouped #projList2,body.grouped #secData>.fgroup,body.grouped #secData>button[onclick="newProj()"]{display:none!important}body.grouped.warehouse-viewer #viz{visibility:hidden}#ewRunPicker{width:100%;padding:8px;margin:10px 0;background:var(--surface);color:var(--ink);border:1px solid var(--line)}body.grouped #dash{display:flex!important}body.grouped.execution-viewer #dash{display:none!important}
+body.grouped #secRun,body.grouped #secData{display:none!important}body.grouped.execution-viewer #secData{display:block!important}body.grouped #projList2,body.grouped #secData>.fgroup,body.grouped #secData>button[onclick="newProj()"]{display:none!important}#ewRunPicker{width:100%;padding:8px;margin:10px 0;background:var(--surface);color:var(--ink);border:1px solid var(--line)}body.grouped #dash{display:flex!important}body.grouped.execution-viewer #dash{display:none!important}
 body.grouped #dash>.dlog{flex:none;display:block;min-height:0}body.grouped #dash>:not(.dlog){display:none!important}body.grouped .dlog>pre,body.grouped .dlog>.dlab{display:none!important}
 #ewSidebar{padding:16px}#ewSidebar h2{font-size:14px}#ewProjects{display:grid;gap:8px;margin:12px 0}.ew-project{width:100%;text-align:left;padding:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;cursor:pointer}.ew-project strong,.ew-project span{display:block}.ew-project span{font-size:12px;color:var(--muted);margin-top:5px}.ew-project.selected{border-color:#3987e5}
 #ewPanel{display:grid;gap:14px;min-width:0}#ewPanel h2,#ewPanel h3{margin:0;font-size:17px}.ew-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.ew-bar h2,.ew-bar h3{flex:1}.ew-table{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:8px}#ewPanel table{width:100%;border-collapse:collapse}#ewPanel th,#ewPanel td{text-align:left;padding:10px;border-bottom:1px solid var(--line)}#ewPanel th{position:sticky;top:0;background:var(--surface)}#ewPanel tr.selected{background:rgba(57,135,229,.16)}.ew-run{color:var(--ink);background:none;border:0;text-align:left;cursor:pointer;overflow-wrap:anywhere}#ewRows td:first-child{width:56%}#ewSearch{max-width:320px;padding:8px;background:var(--surface);color:var(--ink);border:1px solid var(--line)}
@@ -153,7 +151,6 @@ body.grouped #dash>.dlog{flex:none;display:block;min-height:0}body.grouped #dash
 <div class="ew-bar"><p id="ewConfigSummary"></p><button id="ewSettings" class="btn" disabled>설정 보기</button></div>
 <h3>솔버 로그</h3><p id="ewSource"></p><pre id="ewLog"></pre>`;
     document.querySelector('#dash .dlog').append(panel);
-    const native=node('section');native.id='warehouseNative';native.hidden=true;$('main').append(native);
     $('ewNewRun').onclick=()=>openRun();$('ewRename').onclick=renameProject;$('ewView').onclick=viewResult;$('ewSearch').oninput=renderRuns;$('ewSettings').onclick=inspectSettings;
     $('mCFD').onclick=showList;$('mViz').onclick=viewResult;
     document.body.classList.add('grouped');showList();

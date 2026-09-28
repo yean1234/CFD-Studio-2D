@@ -13,7 +13,7 @@ sys.dont_write_bytecode = True                             # __pycache__ 생성 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v178"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v179"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 
@@ -4595,8 +4595,6 @@ INDEX_HTML = r'''<!DOCTYPE html>
  @keyframes pulse{50%{opacity:.4}}
  #hdr .path{margin-left:auto;color:var(--muted);font-size:11px;font-family:Consolas,monospace}
  #hdr .path{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
- #studiesLink{flex:none;color:var(--ink2);font-size:12px;text-decoration:none;white-space:nowrap;padding:8px 4px}
- #studiesLink:hover,#studiesLink:focus-visible{color:var(--acc);text-decoration:underline}
  #hdr .tag2{color:var(--ink2);font-size:11.5px;margin-left:14px;white-space:nowrap}
  #modeSeg{display:flex;background:var(--surface2);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
  .seg{border:none;background:none;color:var(--ink2);padding:5px 15px;border-radius:999px;font-size:12px;
@@ -4980,7 +4978,6 @@ INDEX_HTML = r'''<!DOCTYPE html>
  #modal .row{display:flex;gap:8px;justify-content:flex-end}
  @media(max-width:1100px){
   #envPath,#appContext,#hdr .pill{display:none}
-  #studiesLink{margin-left:auto}
  }
  @media(max-width:700px){
   #hdr{display:grid;grid-template-columns:minmax(0,1fr) auto;height:88px;gap:4px 8px;padding:8px 10px}
@@ -4988,7 +4985,6 @@ INDEX_HTML = r'''<!DOCTYPE html>
   #logo img,#logo span,#infoBtn{display:none}
   #settingsBtn{grid-column:2;grid-row:1;justify-self:end;margin:0}
   #modeSeg{grid-column:1;grid-row:2;justify-self:start}
-  #studiesLink{grid-column:2;grid-row:2;margin:0}
   #app{height:calc(100% - 88px)}
   body.tracerView #app{flex-direction:column}
   body.tracerView #side{width:100%;min-width:0;flex:0 0 140px;border-bottom:1px solid var(--line)}
@@ -5006,6 +5002,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
   body.tracerView #tlab{min-width:0;font-size:11px}
   body.tracerView #speed{width:62px}
  }
+.warehouse-viewer #lcol{width:240px;flex:none;min-height:0;max-height:calc(100vh - 152px)}.warehouse-viewer #hud{flex:none}.warehouse-viewer #vlegend{min-height:0}#warehouseDetails{border-top:1px solid var(--line);margin-top:9px;padding-top:4px}#warehouseDetails summary{cursor:pointer;padding:7px 0;font-size:11px;color:var(--ink2)}#warehouseDetails p{font-size:10px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}.wh-inputs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:5px}#warehouseDetails .wh-inputs label{display:grid;font-size:10px;gap:3px;margin:0}#warehouseDetails input{width:100%;min-width:0;height:28px;padding:4px;font-size:11px;background:var(--surface2);border:1px solid var(--line);border-radius:5px;color:var(--ink)}#warehouseDetails button{margin:7px 0}.warehouse-viewer #hLiveG,.warehouse-viewer #vizWarn{display:none!important}
 </style></head>
 <body>
 <div id="hdr">
@@ -5017,7 +5014,6 @@ INDEX_HTML = r'''<!DOCTYPE html>
     <button class="seg on" id="mCFD" onclick="setMode('cfd')">CFD</button>
     <button class="seg" id="mViz" onclick="setMode('viz')">Viewer</button>
   </div>
-  <a id="studiesLink" href="/studies">실험 묶음</a>
   <span class="pill"><span class="dot" id="stDot"></span><span id="stTxt">연결 확인 중…</span></span>
   <span class="path" id="envPath">환경 확인 중…</span><span class="tag2" id="appContext">액침냉각 디지털트윈 · __APP_VER__</span>
   <button id="settingsBtn" onclick="showSettings()" title="환경 설정">⚙</button>
@@ -5360,7 +5356,8 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <h4>설정 보기</h4>
    <ul><li>실행 목록 또는 Viewer의 <b>설정 보기</b>: 실행에 사용한 원본 입력 조회</li><li><b>이 설정으로 새 실행</b>: 기존 입력을 가져와 수정, 앞선 실행 보존</li><li>설정 창을 닫으면 보고 있던 결과 유지</li></ul>
    <h4>결과 보기</h4>
-   <ul><li>왼쪽 실행 선택: 같은 Viewer에서 결과 전환</li><li>아래 시간 막대·이전·다음·재생: 저장 프레임 탐색</li><li>오른쪽 물리량·표시 영역: 농도·온도·유속과 단면 선택</li><li>드래그: 회전, Shift+드래그: 이동, 휠: 확대·축소</li><li>위치·시간 조회, 원본 파일, 모델·검증 상태 확인</li><li>화면 저장·CSV 저장·영상 저장: 현재 결과 내보내기</li></ul>
+   <ul><li>왼쪽 실행 선택: 같은 Viewer에서 결과 전환</li><li>아래 시간 막대·재생·배속: 모든 결과에서 같은 방식으로 탐색</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>위치·시간 조회, 원본 파일, 모델·검증 상태 확인</li><li>왼쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
+   <p class="mhint">저장고 애니메이션: 저장 프레임 사이 선형 보간. 흐름 마커: 유속 방향 표시. 1×는 물리시간 1초를 화면 1초로 재생합니다.</p>
    <h4>프로젝트와 실행</h4>
    <ul><li>프로젝트: 실행 이력을 묶는 공간</li><li>설정: 새 CFD 실행 시 입력, 실행별 원본 보관</li><li>실행 목록: 선택한 실행의 설정·로그·결과 표시</li><li>저장고 기록: 식량창고 프로젝트의 실행 이력으로 보존</li><li>이중액침: 별도 프로젝트에서 3mm_Test 결과 조회</li><li>동시 계산: 한 번에 한 실행, 완료 후 추가 실행</li></ul>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>사용법</b></a></p>
@@ -5843,6 +5840,7 @@ async function fetchVizBuffer(url){
  throw last||new Error('파일 읽기 실패');
 }
 function vizFrameReady(i,withFields=true){
+ if(typeof warehouseActive==='function'&&warehouseActive()){return warehouseFrameReady(i);}
  if(isTracerConfig(VIZCFG||CFG))return tracerFrameReady(i);
  const f=FRAMES[i];if(!f)return false;
  // 꺼 레이어의 파일은 재생 준비 판정에서 제외한다. 표시하지 않는 4 GB 기포
@@ -5856,6 +5854,7 @@ function vizFrameReady(i,withFields=true){
   &&(!LY('lyPhase')||!f.turbulence||TURBMAP[f.turbulence.t]!=null);
 }
 async function ensureVizFrame(i,withFields=true){
+ if(typeof warehouseActive==='function'&&warehouseActive()){return ensureWarehouseFrame(i);}
  if(isTracerConfig(VIZCFG||CFG))return ensureTracerFrame(i);
  const f=FRAMES[i],gen=VFRAMEGEN;if(!f)return false;
  if(vizFrameReady(i,withFields))return true;if(f.loading)return f.loading;
@@ -6017,6 +6016,7 @@ async function loadFrames(autoplay){
   if(again){SRVDIRTY=true;setTimeout(()=>loadFrames(false),0);}}}
 }
 function updateSlots(){
+ if(typeof warehouseActive==='function'&&warehouseActive()){updateWarehouseSlots();return;}
  if(isTracerConfig(VIZCFG||CFG)){updateTracerSlots();return;}
  const set=(id,txt,ok)=>{const el=document.getElementById(id); if(!el)return;
   el.textContent=txt; el.className='sst'+(ok?' ok':'');};
@@ -6074,6 +6074,7 @@ function configFileName(){
  return CFGFILE||'config.json';
 }
 function setDataAvail(){
+ if(typeof warehouseActive==='function'&&warehouseActive()){updateWarehouseSlots();return;}
  if(isTracerConfig(VIZCFG||CFG)){updateTracerSlots();return;}
  const hb=BUBLOADED>0,hf=Object.keys(FLOWMAP).length>0,ht=Object.keys(THERMMAP).length>0,hp=Object.keys(PHASEMAP).length>0;
  const want=vizFields();
@@ -6160,6 +6161,7 @@ function refreshViewerFields(){
 }
 const VIEWLAYERSTATE={};
 function configureViewerFields(c){
+ if(c?._해석유형==='warehouse'){configureWarehouseUI();return;}
  if(isTracerConfig(c)){configureTracerFields(c);return;}
  document.body.classList.remove('tracerView');
  const tracerStats=document.getElementById('tracerStats');if(tracerStats)tracerStats.style.display='none';
@@ -6304,6 +6306,7 @@ function cacheNeedsUpdate(){
  return ends.length>0&&Math.min(...ends)+1e-7<newest;
 }
 function vizRun(){ // 시각화 준비만 담당 — 시간 재생은 하단 재생 버튼에서 시작
+ if(typeof warehouseActive==='function'&&warehouseActive()){loadWarehouseResult(WH.id,WH.name);return;}
  if(isTracerConfig(VIZCFG||CFG)){loadFrames(false);return;}
  if(isWatching()){toast('이 프로젝트는 변환 중입니다 — 위 진행바를 확인하세요');return;}
  const vz=vzrid();
@@ -6599,6 +6602,7 @@ function updateProbeLabels(M){
 }
 function setConfig(c){
  CFG=c;
+ if(c?._해석유형==='warehouse'){VIZCFG=c;configureWarehouseUI();return;}
  if(isTracerConfig(c)){setTracerConfig(c);return;}
  if(isSiloConfig(c)){
   VIZCFG=c;
@@ -6967,6 +6971,7 @@ function drawSlice(F,M){
  gl.disableVertexAttribArray(lt);
 }
 function uploadPoints(){
+ if(typeof warehouseActive==='function'&&warehouseActive()){ensureWarehouseFrame(idx);return;}
  const f=FRAMES[idx];GPUFRAME=-1;GPUN=0;
  if(!f||!f.pos||!f.al){if(f)ensureVizFrame(idx);return;}
  gl.bindBuffer(gl.ARRAY_BUFFER,pBuf);gl.bufferData(gl.ARRAY_BUFFER,f.pos,gl.DYNAMIC_DRAW);
@@ -6974,6 +6979,7 @@ function uploadPoints(){
  GPUFRAME=idx;GPUN=f.n;
 }
 function resetCam(){
+ if(typeof warehouseActive==='function'&&warehouseActive()){warehouseCamera();return;}
  th=0; ph=0;
  if(isTracerConfig(VIZCFG||CFG)){tracerCamera(VIZCFG||CFG);return;}
  if(isSiloConfig(VIZCFG||CFG)){const p=(VIZCFG||CFG).published||{},r=(+p.storage_diameter_m||.8)*500,H=(+p.total_height_m||1.4)*1000;tgt=[0,0,H*.48];rad=Math.max(r*2,H)*1.65;ph=.08;}
@@ -6982,8 +6988,8 @@ function resetCam(){
   tgt=[W/2,(H+AIR)*0.45,D/2]; rad=Math.max(W,H+AIR)*2.25;}
  else{tgt=[228,380,35];rad=1650;}
  toast('카메라를 기본 시점으로 재조정했습니다');}
-function eye(){if(isSiloConfig(VIZCFG||CFG)||isTracerConfig(VIZCFG||CFG))return[tgt[0]+rad*Math.cos(ph)*Math.sin(th),tgt[1]+rad*Math.cos(ph)*Math.cos(th),tgt[2]+rad*Math.sin(ph)];return[tgt[0]+rad*Math.cos(ph)*Math.sin(th),tgt[1]+rad*Math.sin(ph),tgt[2]+rad*Math.cos(ph)*Math.cos(th)];}
-function viewUp(){return isSiloConfig(VIZCFG||CFG)||isTracerConfig(VIZCFG||CFG)?[0,0,1]:[0,1,0];}
+function eye(){if((typeof warehouseActive==='function'&&warehouseActive())||isSiloConfig(VIZCFG||CFG)||isTracerConfig(VIZCFG||CFG))return[tgt[0]+rad*Math.cos(ph)*Math.sin(th),tgt[1]+rad*Math.cos(ph)*Math.cos(th),tgt[2]+rad*Math.sin(ph)];return[tgt[0]+rad*Math.cos(ph)*Math.sin(th),tgt[1]+rad*Math.sin(ph),tgt[2]+rad*Math.cos(ph)*Math.cos(th)];}
+function viewUp(){return (typeof warehouseActive==='function'&&warehouseActive())||isSiloConfig(VIZCFG||CFG)||isTracerConfig(VIZCFG||CFG)?[0,0,1]:[0,1,0];}
 let VW,VH;
 function resize(){const d=Math.min(devicePixelRatio||1,2);VW=cv.clientWidth;VH=cv.clientHeight;cv.width=VW*d;cv.height=VH*d;gl.viewport(0,0,cv.width,cv.height);}
 addEventListener('resize',resize); setTimeout(resize,60);
@@ -6992,7 +6998,19 @@ cv.addEventListener('mousedown',e=>{if(e.button!==0)return;dragV={x:e.clientX,y:
 addEventListener('mouseup',()=>{dragV=null;cv.style.cursor='grab';});
 addEventListener('mousemove',e=>{if(!dragV)return;const dx=e.clientX-dragV.x,dy=e.clientY-dragV.y;dragV.x=e.clientX;dragV.y=e.clientY;
  th-=dx*0.0055;ph=Math.min(1.5,Math.max(-0.35,ph+dy*0.0045));});
-cv.addEventListener('wheel',e=>{e.preventDefault();rad=Math.min(4200,Math.max(200,rad*Math.exp(e.deltaY*0.0011)));},{passive:false});
+function cameraModelSpan(){
+ const c=VIZCFG||CFG;
+ if(c?._해석유형==='warehouse'&&c.warehouse){const g=c.warehouse.geometry;return Math.max(g.length_m,g.width_m,g.eaves_m+g.roof_rise_m)*1000;}
+ if(isTracerConfig(c))return Math.max(...c.tracer.lengths_m)*1000;
+ if(isSiloConfig(c))return Math.max(c.published?.storage_diameter_m||.8,c.published?.total_height_m||1.4)*1000;
+ return Math.max(c?.tank?.width_mm||456,c?.tank?.depth_mm||70,(c?.tank?.liquid_height_mm||800)+(c?.layers?.air_mm??200));
+}
+function boundedZoomRadius(radius,delta,mode,span){
+ const pixels=delta*(mode===1?16:mode===2?240:1),step=Math.max(-60,Math.min(60,pixels));
+ return Math.max(span*.12,Math.min(span*10,radius*Math.exp(step*.0005)));
+}
+cv.addEventListener('wheel',e=>{e.preventDefault();rad=boundedZoomRadius(rad,e.deltaY,e.deltaMode,cameraModelSpan());},{passive:false});
+cv.addEventListener('dblclick',()=>resetCam());
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 function dM(m,c,M){gl.useProgram(solP);gl.uniformMatrix4fv(gl.getUniformLocation(solP,'uM'),false,new Float32Array(M));
  gl.uniform4fv(gl.getUniformLocation(solP,'uC'),c);gl.bindBuffer(gl.ARRAY_BUFFER,m.b);
@@ -7039,6 +7057,7 @@ const GDEF=[
 const GCOL4=['#3987e5','#d95926','#199e70','#c98500'];   // --s1~--s4 (3D 라벨·대시보드 범례와 동일)
 const GNAME4=['T1 CPU','T2 계면↓','T3 계면↑','T4 코일↑'];
 function gSeries(id){                                   // [{name,color,pts:[[t,v]..]}], 값 없으면 []
+ if(typeof warehouseActive==='function'&&warehouseActive()){return warehouseSeries(id);}
  const HP=(VPROJ==null)?HIST:VHIST;
  if(id==='gcT'){
   if(HP.length<2)return [];
@@ -7134,7 +7153,7 @@ function GKEY(){const tk=Object.keys(THERMMAP).map(Number).sort((a,b)=>a-b),stat
   tk.length+'/'+(tk.length?(tk[0]+'-'+tk[tk.length-1]):'')+'/'+(CFG&&CFG.coil?((CFG.coil.Ta_C||'')+'/'+(CFG.coil.flow_LPM||'')):'');}
 function gTick(){                                        // 재생 시점 커서·현재값 갱신 (매 프레임, 가벼움)
  const col=document.getElementById('gcol'); if(!col||!col.children.length)return;
- const t=FRAMES.length?FRAMES[Math.min(idx,FRAMES.length-1)].t:null;
+ const t=(typeof warehouseActive==='function'&&warehouseActive())?clock:(FRAMES.length?FRAMES[Math.min(idx,FRAMES.length-1)].t:null);
  for(const c of col.children){
   const m=c._map, ser=c._ser, cur=c.querySelector('.gcur'), val=c.querySelector('b');
   if(!m||!ser||!ser.length){continue;}
@@ -7155,6 +7174,7 @@ function frame(){
  const now=performance.now(),dt=(now-last)/1000;last=now;
  if(MODE!=='viz'){requestAnimationFrame(frame);return;}
  if(!VW||VW<10)resize();
+ if(typeof warehouseActive==='function'&&warehouseActive()){frameWarehouse(now,dt);requestAnimationFrame(frame);return;}
  if(isTracerConfig(VIZCFG||CFG)){frameTracer(now,dt);requestAnimationFrame(frame);return;}
  const spd=+document.getElementById('speed').value;   // 1=실시간(물리시간 배속)
  if(playing)FLOWPHASE+=Math.min(dt,.08)*spd;
@@ -7231,6 +7251,7 @@ requestAnimationFrame(frame);
 // ══════════════ Export — 현재 프로젝트의 영상·그래프·화면 ══════════════
 let REC=null;
 function exportProjectName(){
+ if(typeof warehouseActive==='function'&&warehouseActive()){return WH?.name||"저장고";}
  const rid=vzrid()||CURC,p=LASTPROJS.find(x=>x.rid===rid);
  return (p&&p.name)||rid||'project';
 }
@@ -7274,8 +7295,8 @@ async function startExportVideo(){
  if(!FRAMES.length){toast('시각화 데이터가 있는 프로젝트를 먼저 선택하세요',true);return;}
  const fmt=document.getElementById('exVidFmt').value,mime=pickVideoMime(fmt);
  if(!mime){toast(fmt.toUpperCase()+' 녹화를 지원하지 않는 브라우저입니다',true);return;}
- const ext=fmt==='mp4'?'.mp4':'.webm',t0=framePlayTime(FRAMES[0]),t1=framePlayTime(FRAMES[FRAMES.length-1]);
- const name='CFD_'+exportSafeName(exportProjectName())+'_'+t0.toFixed(2)+'s-'+t1.toFixed(2)+'s'+ext;
+ const ext=fmt==='mp4'?'.mp4':'.webm';
+ const name='CFD_'+exportSafeName(exportProjectName())+'_animation'+ext;
  const handle=await exportPick(name,mime.split(';')[0],ext,fmt.toUpperCase()+' 영상');
  if(handle===false)return;
  closeExport();exportVideo(fmt,mime,name,handle);
@@ -7307,6 +7328,7 @@ function recTick(){
 function rrect(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);
  x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath();}
 function drawRecOv(x,d){
+ if(typeof warehouseActive==='function'&&warehouseActive()){drawWarehouseOverlay(x,d);return;}
  if(isTracerConfig(VIZCFG||CFG)){drawTracerOverlay(x,d);return;}
  x.save();x.textBaseline='middle';
  const F=FRAMES[idx];
@@ -7343,6 +7365,7 @@ function exportGraphInfo(){
 }
 function exportCanvasBlob(c){return new Promise((ok,no)=>c.toBlob(b=>b?ok(b):no(new Error('이미지 생성 실패')),'image/png'));}
 async function saveProjectScreenshot(){
+ if(typeof warehouseActive==='function'&&warehouseActive()){await exportViewPNG();return;}
  if(!FRAMES.length){toast('시각화 데이터가 있는 프로젝트를 먼저 선택하세요',true);return;}
  const rid=extractTarget();
  if(!rid){toast('스크린샷을 저장할 프로젝트를 선택하세요',true);return;}
@@ -7396,7 +7419,8 @@ async function exportGraphCSV(){
 }
 async function exportViewPNG(){
  if(!FRAMES.length){toast('시각화 데이터가 있는 프로젝트를 먼저 선택하세요',true);return;}
- const name='CFD_'+exportSafeName(exportProjectName())+'_view_'+FRAMES[idx].t.toFixed(2)+'s.png';
+ const displayedTime=(typeof warehouseActive==='function'&&warehouseActive())?clock:FRAMES[idx].t;
+ const name='CFD_'+exportSafeName(exportProjectName())+'_view_'+displayedTime.toFixed(2)+'s.png';
  const handle=await exportPick(name,'image/png','.png','PNG 화면');if(handle===false)return;
  const c=document.createElement('canvas');c.width=cv.width;c.height=cv.height;const x=c.getContext('2d');x.drawImage(cv,0,0);drawRecOv(x,cv.width/Math.max(1,VW));
  try{await exportSave(await exportCanvasBlob(c),name,handle);}catch(e){toast('화면 저장 실패: '+e.message,true);}
@@ -7440,7 +7464,7 @@ function togglePlay(){
  if(!FRAMES.length){vizRun();return;}
  if(PLAYENDED){resetPlaybackToStart();startBufferedPlayback(false);return;}
  if(PLAYBUFFERING){PLAYBUFSEQ++;PLAYBUFFERING=false;setPlay(false,true);loadMsg('프레임 '+FRAMES.length+'개');return;}
- if(playing)setPlay(false,true);else startBufferedPlayback(isTracerConfig(VIZCFG||CFG));
+ if(playing)setPlay(false,true);else startBufferedPlayback((typeof warehouseActive==='function'&&warehouseActive())||isTracerConfig(VIZCFG||CFG));
 }
 function changePlaybackSpeed(){const resume=playing||PLAYBUFFERING;PLAYBUFSEQ++;PLAYBUFFERING=false;setPlay(false,true);if(resume)startBufferedPlayback(true);saveUI(false);}
 function scrub(v){PLAYBUFSEQ++;PLAYBUFFERING=false;idx=+v;clock=FRAMES[idx]?framePlayTime(FRAMES[idx]):0;PLAYENDED=FRAMES.length>0&&idx>=FRAMES.length-1;setPlay(false,true);uploadPoints();trimVizCache(idx);prefetchViz(idx,true);
@@ -7465,6 +7489,7 @@ function setMode(m){
  else if(m==='viz'){setTimeout(resize,30);refreshVizInfo();}                 // 선택 프로젝트의 파일 상태를 즉시 반영
 }
 async function refreshVizInfo(){
+ if(typeof warehouseActive==='function'&&warehouseActive()){return;}
  try{
   const r=vzrid(),i=await (await fetch('/api/info'+(r?('?rid='+encodeURIComponent(r)):''))).json();
   if(r!==vzrid()||MODE!=='viz'||document.body.classList.contains('warehouse-viewer'))return;
@@ -7486,6 +7511,7 @@ function playbackDuration(c,p){
 }
 function fmtPlaybackSeconds(v){return Number(v).toLocaleString(undefined,{maximumFractionDigits:2});}
 function applyAnalysisTypeUI(){
+ if(typeof warehouseActive==='function'&&warehouseActive()){return;}
  if(document.body.classList.contains('grouped')&&(MODE==='cfd'||document.body.classList.contains('warehouse-viewer')))return;
  const active=MODE==='viz'?(VIZCFG||CFG):CFG;
  if(isTracerConfig(active)){
@@ -7628,7 +7654,7 @@ async function showCfg(){
 // 키보드: Space 재생/정지 · ←→ 프레임 이동
 addEventListener('keydown',e=>{
  const tag=(e.target.tagName||'').toUpperCase();
- if(tag==='SELECT'||tag==='INPUT'||tag==='TEXTAREA')return;
+ if(tag==='SELECT'||tag==='INPUT'||tag==='TEXTAREA'||e.target.closest?.('dialog[open]'))return;
  if(e.code==='Space'){e.preventDefault();if(FRAMES.length)togglePlay();}
  else if(e.key==='ArrowRight'&&FRAMES.length){e.preventDefault();scrub(Math.min(FRAMES.length-1,idx+1));}
  else if(e.key==='ArrowLeft'&&FRAMES.length){e.preventDefault();scrub(Math.max(0,idx-1));}
@@ -8674,6 +8700,7 @@ __TRACER_VIEWER__
  }catch(_){}
 })();
 </script>
+<script src="/warehouse_viewer.js"></script>
 <script src="/config_editor.js"></script>
 <script src="/execution_workspace.js"></script>
 </body></html>
