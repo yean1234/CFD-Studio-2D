@@ -45,11 +45,11 @@ test('legacy selection waits for frame reading before signaling ready',async()=>
 test('playback keys do not hijack CFD, buttons or settings',()=>{
  const app=fs.readFileSync(path.join(__dirname,'../cfd_studio/app.py'),'utf8');
  const start=app.indexOf("addEventListener('keydown',e=>{\n if(MODE"),source=app.slice(start,app.indexOf('\n});',start)+4);
- let handler,plays=0,seeks=0;const ctx={MODE:'cfd',FRAMES:[{},{}],idx:0,addEventListener:(_,f)=>handler=f,togglePlay:()=>plays++,scrub:()=>seeks++};
+ let handler,plays=0,seeks=0,dataMode=false;const ctx={document:{body:{classList:{contains:()=>dataMode}}},MODE:'cfd',FRAMES:[{},{}],idx:0,addEventListener:(_,f)=>handler=f,togglePlay:()=>plays++,scrub:()=>seeks++};
  vm.createContext(ctx);vm.runInContext(source,ctx);
  const event=(tag,code='Space')=>({target:{tagName:tag,closest:()=>null},code,key:code,preventDefault(){}});
  handler(event('DIV'));ctx.MODE='viz';for(const tag of ['BUTTON','SUMMARY','INPUT','TEXTAREA','SELECT','A'])handler(event(tag));
- assert.equal(plays,0);handler(event('DIV'));assert.equal(plays,1);handler(event('DIV','ArrowRight'));assert.equal(seeks,1);
+ assert.equal(plays,0);handler(event('DIV'));assert.equal(plays,1);handler(event('DIV','ArrowRight'));assert.equal(seeks,1);dataMode=true;handler(event('DIV'));handler(event('SVG','ArrowRight'));assert.equal(plays,1);assert.equal(seeks,1);
 });
 
 test('settings comparison distinguishes missing baseline from equality and identifies the saved basis',()=>{

@@ -22,7 +22,8 @@ class CFDForms:
             items.append(overrides.pop(key, {'id': key, 'name': name, 'model': key,
                 'description': '', 'solver': solvers[0], 'config': config, 'revision': 1, 'sections': {}}))
         items.extend(overrides.values())
-        return [{**item, 'solvers': next(b[3] for b in BUILTINS if b[0] == item['model'])} for item in items]
+        from cfd_studio.result_series import output_definitions
+        return [{**item, 'outputs': output_definitions(item['model']), 'solvers': next(b[3] for b in BUILTINS if b[0] == item['model'])} for item in items]
 
     def form(self, key):
         found = next((f for f in self.forms() if f['id'] == key), None)

@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v185"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v186"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -5345,7 +5345,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <h4>Config</h4>
    <ul><li>CFD 실행 카드의 <b>Config 보기</b>: 실행에 사용한 원본 입력 조회</li><li><b>이 Config로 새 Case</b>: 기존 입력을 가져와 수정, 앞선 실행 보존</li><li>형상·격자 / 물성·경계조건 / 솔버·계산 / 관측·비교로 구분. 출처는 마지막 항목</li></ul>
    <h4>결과 보기</h4>
-   <ul><li>실행 전환: 상단 CFD → 실행 선택 → 열기</li><li>아래 시간 막대·재생·배속: 모든 결과에서 같은 방식으로 탐색</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>왼쪽 <b>3D Virtual Viewer</b> 버튼: <b>Data Sheet Viewer</b>로 전환, 다시 누르면 3D 복귀</li><li>Data Sheet: 물리량별 그래프·표·CSV, 위치·시간 조회, 모델·검증 확인</li><li>저장고 <b>전체 구간 읽기</b>: 누락된 저장 프레임부터 읽기, 200개 이하 자동 읽기</li><li>왼쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
+   <ul><li>Viewer 왼쪽 CFD Case: 이름을 눌러 3D 결과 전환, 체크박스로 그래프 비교 대상 선택</li><li>3D 아래 시간 막대·재생·배속: 저장 프레임 탐색</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>왼쪽 <b>3D Virtual Viewer</b> 버튼: <b>Data Sheet Viewer</b>로 전환, 다시 누르면 3D 복귀</li><li>Data Sheet: 여러 Case의 결과 항목 비교·CSV 저장. 그래프 클릭·드래그 또는 좌우 화살표로 저장 시점의 X·Y 확인</li><li><b>전체 구간 읽기</b>: 아직 읽지 않은 저장값부터 읽기. Case별 200개 이하 자동 읽기. 정상 해석의 X축은 반복 횟수</li><li>왼쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
    <p class="mhint">저장고 애니메이션: 저장 프레임 사이 선형 보간. 흐름 마커: 유속 방향 표시. 1×는 물리시간 1초를 화면 1초로 재생합니다.</p>
    <h4>프로젝트 저장</h4>
    <ul><li>새 프로젝트·프로젝트 관리에서 저장 폴더 지정. C·D 등 드라이브 선택 가능</li><li>설정·Case별 실행 기록·원본·시각화·캐시를 프로젝트 폴더에 저장</li><li>왼쪽 프로젝트 <b>열기</b>: 기존 프로젝트 폴더 연결</li><li>기존 결과는 원래 경로를 유지. 프로젝트 위치 변경 시 복사·검증 후 연결 전환, 원본 보존</li><li>실행 중에는 위치 변경 불가. 독립 프리셋은 Studio에 보관</li></ul>
@@ -5891,7 +5891,7 @@ function playbackStride(){
  return Math.max(1,Math.ceil((spd/12)/Math.max(FDT,0.001)));
 }
 function prefetchViz(start,reset=false){
- if(!FRAMES.length)return;
+ if(!FRAMES.length||(typeof DataSheetViewer!=='undefined'&&DataSheetViewer.mode==='data'))return;
  // 계산 저장 간격(0.01 s)은 화면 FPS가 아니다. 모든 파일을 1×에서 100개/s로
  // 읽으면 디스크·파싱이 포화된다. 앞 구간은 약 12 fps로 표본 로딩한다.
  const spd=Math.max(.1,+document.getElementById('speed').value||1),stride=playbackStride();
@@ -7450,6 +7450,7 @@ async function startBufferedPlayback(preserveClock=false){
  setPlay(true,true);
 }
 function togglePlay(){
+ if(document.body.classList.contains('data-sheet-viewer'))return;
  if(loadFrames.busy){loadFrames.autoplay=true;toast('전체 데이터 로딩 후 자동 재생합니다');return;}
  if(!FRAMES.length){vizRun();return;}
  if(PLAYENDED){resetPlaybackToStart();startBufferedPlayback(false);return;}
@@ -7639,7 +7640,7 @@ async function showCfg(){
 
 // 키보드: Space 재생/정지 · ←→ 프레임 이동
 addEventListener('keydown',e=>{
- if(MODE!=='viz')return;
+ if(MODE!=='viz'||document.body.classList.contains('data-sheet-viewer'))return;
  const tag=(e.target.tagName||'').toUpperCase();
  if(['SELECT','INPUT','TEXTAREA','BUTTON','SUMMARY','A'].includes(tag)||e.target.isContentEditable||e.target.closest?.('dialog[open],button,summary,a,[contenteditable=true]'))return;
  if(e.code==='Space'){e.preventDefault();if(FRAMES.length)togglePlay();}

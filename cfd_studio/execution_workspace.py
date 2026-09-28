@@ -15,6 +15,7 @@ import threading
 import time
 import uuid
 from urllib.parse import parse_qs, urlparse
+from zipfile import BadZipFile
 
 
 def read_json(path, default=None):
@@ -101,6 +102,8 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
         self.live = live or (lambda: {})
         self.lock = threading.RLock()
         self.processes = {}
+        from cfd_studio.result_series import ResultSeries
+        self.series = ResultSeries(self)
 
     def external_entries(self):
         """Explicitly linked result folders; never scan or relocate their siblings."""
@@ -461,6 +464,11 @@ def get_route(handler, workspace):
             result = {'config': workspace.template(parse_qs(url.query).get('id', ['warehouse'])[0])}
         elif url.path == '/api/executions/storage-defaults':
             result = workspace.project_defaults()
+        elif url.path == '/api/executions/chart-catalog':
+            result = workspace.series.catalog(parse_qs(url.query).get('id', [''])[0])
+        elif url.path == '/api/executions/chart':
+            q = parse_qs(url.query)
+            result = workspace.series.page(q.get('id', [''])[0], q.get('metric', [''])[0], int(q.get('offset', ['0'])[0]), int(q.get('limit', ['16'])[0]))
         elif url.path == '/api/executions/forms':
             result = {'forms': workspace.forms()}
         elif url.path == '/api/executions/presets':
@@ -470,7 +478,7 @@ def get_route(handler, workspace):
         else:
             raise ValueError('알 수 없는 요청입니다')
         handler._json(result)
-    except (ValueError, OSError, KeyError) as error:
+    except (ValueError, OSError, KeyError, BadZipFile, EOFError) as error:
         handler._json({'ok': False, 'msg': str(error)}, 400)
     return True
 

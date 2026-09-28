@@ -10,6 +10,7 @@
 - [설명서](docs/CFD-STUDIO-MANUAL.md)
 - [설치 안내](cfd_studio/README.md)
 - [CFD FORM 검토](docs/cfd-form-review-20260928.md)
+- [Case 그래프 검토](docs/case-chart-review-20260928.md)
 
 ## 개발 상태
 
@@ -42,7 +43,7 @@
 2. WSL이 없다면 관리자 PowerShell에서 `wsl --install -d Ubuntu`를 실행하고 재부팅 및 Ubuntu 사용자 설정을 마칩니다.
 3. `cfd_studio/설치.bat`을 실행합니다. OpenCFD OpenFOAM v2312, Linux NumPy 및 케이스를 준비합니다. Ubuntu sudo 비밀번호를 요청할 수 있습니다.
 4. `cfd_studio/실행.bat`을 실행합니다. 기본 주소는 `http://127.0.0.1:8712`입니다.
-5. **프로젝트 → CFD 실행 추가**에서 설정·종료 조건을 저장하고 **대기열에 추가 → 대기열 시작**을 선택합니다.
+5. **프로젝트 → +CFD Case**에서 설정·종료 조건을 저장하고 **대기열에 추가 → 대기열 시작**을 선택합니다.
 
 - Windows 실행용 Python **3.12.10 x64 embedded runtime**이 포함되어 있습니다. 시스템 Python이나 Conda 설치가 필요하지 않습니다. Linux 계산·변환용 Python과 NumPy는 설치 스크립트가 준비합니다. WSL 배포판 선택이 필요하면 `cfd_studio/studio_config.example.json`을 `studio_config.json`으로 복사해 수정합니다.
 
@@ -53,6 +54,7 @@
 - 형상·물성·열경계·격자·시간 설정, 입력 JSON과 실행별 설정 보존
 - 하드웨어 감지, CPU/MPI 배정, 실행·중단·재개 및 계산 상태 표시
 - 한 프로젝트의 실행 목록, 실행별 설정·로그·결과 분리 보관
+- Viewer에서 Case 전환, 여러 Case 그래프 비교·정확한 X/Y 조회
 - 기존 Raw·시각화 결과 보존 및 조회
 - 기포·상분율·속도·온도 및 해석 유형에 따른 압력·난류 출력
 - 재생 배속, 그래프, 스크린샷, 영상·CSV 내보내기

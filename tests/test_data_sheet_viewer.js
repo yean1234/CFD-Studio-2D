@@ -13,29 +13,14 @@ test('normalized arrays report their actual bounds without mutating source',()=>
  const series=sheetRanges(map);assert.deepEqual(series[0].pts,[[0,0],[2,0],[3,null]]);assert.deepEqual(series[1].pts,[[0,0],[2,2],[3,null]]);assert.equal(map[2].v[1],2);
 });
 
-const vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
-function sheetContext(){
- class Node {constructor(){this.dataset={};this.style={setProperty(){}};this.value='';this.children=[];}append(...nodes){this.children.push(...nodes);}replaceChildren(...nodes){this.children=nodes;if(nodes[0]?.value)this.value=nodes[0].value;}setAttribute(){} }
- const nodes=new Map(),get=id=>{if(!nodes.has(id))nodes.set(id,new Node());return nodes.get(id);};
- const ctx={document:{getElementById:get,createElement:()=>new Node(),body:{classList:{toggle(){},remove(){}}}},
- VIZCFG:{},Option:function(title,value){this.value=value;},warehouseActive:()=>true,isTracerConfig:()=>false,
- WH:{unit:'C/C_ref',meta:{available_fields:[]},stats:new Map()},FRAMES:[{t:0}],warehouseSeries:()=>[],clock:0,setPlay(){},ensureWarehouseFrame:async()=>true};
- vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'../cfd_studio/data_sheet_viewer.js'),'utf8')+';globalThis.viewer=DataSheetViewer;',ctx);
- return {ctx,get};
-}
-test('failed result stays failed when toggling modes and clears stale controls',()=>{
- const {ctx,get}=sheetContext();ctx.viewer.begin({name:'failed'});ctx.FRAMES=[];ctx.viewer.loaded();ctx.viewer.toggle();
- assert.match(get('dsCoverage').textContent,/읽지 못했습니다/);assert.equal(get('dsExport').disabled,true);assert.equal(get('dsTable').children.length,0);
+const {sheetMetricKey,sheetPick}=require('../cfd_studio/data_sheet_viewer.js');
+test('comparison never mixes normalized and physical units or steady and transient axes',()=>{
+ const metric={id:'concentration.mean',unit:'mg/m³'};
+ assert.notEqual(sheetMetricKey(metric,'time'),sheetMetricKey({...metric,unit:'C/C_ref'},'time'));
+ assert.notEqual(sheetMetricKey(metric,'time'),sheetMetricKey(metric,'iteration'));
 });
-test('an old frame failure cannot overwrite the newly selected Case',async()=>{
- const {ctx,get}=sheetContext();let finish;ctx.ensureWarehouseFrame=()=>new Promise(resolve=>finish=resolve);
- ctx.viewer.begin({name:'old'});ctx.viewer.loaded();ctx.viewer.toggle();ctx.viewer.begin({name:'new'});
- finish(false);await Promise.resolve();await Promise.resolve();ctx.FRAMES=Array.from({length:201},(_,i)=>({t:i}));ctx.viewer.loaded();assert.equal(get('dsName').textContent,'new');assert.equal(get('dsError').textContent,'');
-});
-
-test('steady silo does not show immersion fields or label iterations as seconds',()=>{
- const {ctx,get}=sheetContext();ctx.warehouseActive=()=>false;ctx.isSiloConfig=()=>true;
- ctx.viewer.begin({name:'silo',model:'grain_silo'});ctx.viewer.loaded();
- assert.equal(get('dsField').disabled,true);assert.equal(get('dsExport').disabled,true);
- assert.match(get('dsEmpty').textContent,/아직 지원하지 않습니다/);assert.equal(get('dsPlot').children.length,0);
+test('cursor snaps to a stored X and preserves precise Y without interpolating another Case',()=>{
+ const s=[{pts:[[0,.123456789123],[2,3]]},{pts:[[1,8],[2,4]]}];
+ assert.deepEqual(sheetPick(s,.01),[0,.123456789123,null]);assert.deepEqual(sheetPick(s,1.8),[2,3,4]);
+ assert.deepEqual(sheetPick(s,.7),[1,null,8]);assert.equal(sheetPick([],0),null);
 });
