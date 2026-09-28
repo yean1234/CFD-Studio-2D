@@ -27,3 +27,18 @@
 - 기존 저장고 결과: 4프레임 Viewer 연결 확인
 - JavaScript 관련 검사: 42개 통과
 - 이번 변경에서 새 CFD 계산: 수행하지 않음
+
+## 사이드바 수정
+
+- 실행 선택·설정 보기·실행 목록 묶음 제거
+- 프로젝트 목록: 프리셋 영역 위까지 전용 스크롤 적용
+- Viewer: 프리셋 관리·프로젝트 생성 숨김
+- 이중액침 `3mm_Test` 실행 설정: 별도 프리셋 저장, 원본 설정과 동일성 확인
+- `+CFD Case`: 이름 변경, 프로젝트 화면 우측 상단 유지
+- 펼침 항목: 화살표·펼치기·접기 표시, 키보드 접근 유지
+- 실제 Viewer: 기존 6프레임 열람·관리 영역 숨김 확인
+- 관련 JavaScript 검사: 42개 통과
+
+![CFD](assets/studio-layout-20260928/sidebar-cfd.png)
+
+![Viewer](assets/studio-layout-20260928/sidebar-viewer.png)
