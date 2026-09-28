@@ -520,3 +520,14 @@ test('late preset-save response never selects a different active project', async
   assert.equal(ctx.applied, undefined); assert.equal(ctx.CFGREF, 'cfg:different-selection');
   assert.equal(get('cbBg').style.display, 'none'); assert.equal(run('CBSAVING'), false);
 });
+
+test('late Viewer metadata cannot replace fields of a newly selected execution',async()=>{
+  let selected='old';const gate=deferred(),updates=[];
+  const ctx={MODE:'viz',vzrid:()=>selected,fetch:async()=>({json:()=>gate.promise}),
+    document:{body:{classList:{contains:()=>false}}},srvFromInfo:i=>updates.push(i),renderProjects(){},updateSlots(){}};
+  vm.createContext(ctx);vm.runInContext(declaration(app,'async function refreshVizInfo('),ctx);
+  const request=ctx.refreshVizInfo();selected='immersion';gate.resolve({rid:'old',flows:[]});await request;
+  assert.equal(updates.length,0);
+  ctx.fetch=async()=>({json:async()=>({rid:'immersion',flows:['flow_0.bin']})});await ctx.refreshVizInfo();
+  assert.equal(updates.length,1);assert.equal(updates[0].flows.length,1);
+});

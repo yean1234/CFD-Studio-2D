@@ -94,7 +94,7 @@ class Workspace:
                     prefix += ['-d', distro]
                 paths = []
                 for path in (root, cfg, out):
-                    paths.append(subprocess.check_output(prefix+['--', 'wslpath', '-u', path], text=True, timeout=15).strip())
+                    paths.append(subprocess.check_output(prefix+['--', 'wslpath', '-u', path], text=True, timeout=15, creationflags=0x08000000 if os.name == 'nt' else 0).strip())
                 root, cfg, out = paths
                 prefix += ['--']
             bashrc = self.settings.get('openfoam_bashrc', 'auto')
@@ -107,7 +107,7 @@ class Workspace:
             command = (load+' && cd '+shlex.quote(root)+' && python3 -m tracer_transport.warehouse_geometry'
                        +' --config '+shlex.quote(cfg)+' --output '+shlex.quote(out)+' --check-mesh')
             with (folder/'execution.log').open('w', encoding='utf-8') as log:
-                subprocess.run(prefix+['bash', '-c', command], stdout=log, stderr=subprocess.STDOUT, check=True, timeout=660)
+                subprocess.run(prefix+['bash', '-c', command], stdout=log, stderr=subprocess.STDOUT, check=True, timeout=660, creationflags=0x08000000 if os.name == 'nt' else 0)
             report = json.loads((folder/'mesh/geometry_report.json').read_text(encoding='utf-8'))
             with self.lock:
                 self.jobs[key].update(status='complete', report=report, folder=str(folder))

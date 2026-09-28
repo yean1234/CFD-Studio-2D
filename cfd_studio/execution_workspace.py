@@ -41,14 +41,54 @@ def label(value):
     return value.strip()
 
 
+def config_kind(config):
+    if not isinstance(config, dict):
+        raise ValueError('설정은 JSON 객체여야 합니다')
+    if 'coupled' in config and 'numerics' in config:
+        return 'warehouse'
+    if config.get('_해석유형') == 'grain_silo':
+        return 'grain_silo'
+    if 'tank' in config and 'dielectric_fluid' in config:
+        return 'immersion'
+    return 'unsupported'
+
+
+def validate_settings(config):
+    json.dumps(config, allow_nan=False)
+    def check(value, path='설정'):
+        if value is None:
+            raise ValueError(path+' 값을 입력해 주세요')
+        if isinstance(value, dict):
+            for key, item in value.items(): check(item, path+'.'+key)
+        elif isinstance(value, list):
+            for i, item in enumerate(value): check(item, path+f'[{i}]')
+    check(config)
+    kind = config_kind(config)
+    if kind == 'warehouse':
+        for section in ('numerics', 'coupled', 'geometry_spec', 'loading', 'initial', 'temperature'):
+            if not isinstance(config.get(section), dict):
+                raise ValueError('설정 항목 누락: '+section)
+        for key in ('end_s', 'dt_s', 'write_interval_s'):
+            value = config['numerics'].get(key)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+                raise ValueError('계산 시간과 간격을 양수로 입력해 주세요')
+    elif kind in ('immersion', 'grain_silo'):
+        from cfd_studio.config_presets import validate_numerics
+        validate_numerics(config)
+    else:
+        raise ValueError('새 실행을 지원하지 않는 설정입니다')
+    return kind
+
+
 class ExecutionWorkspace:
-    def __init__(self, root, project_roots, folder=None, output=None, settings=None, busy=None):
+    def __init__(self, root, project_roots, folder=None, output=None, settings=None, busy=None, live=None):
         self.root = Path(root).resolve()
         self.project_roots = project_roots
         self.folder = Path(folder or self.root/'cfd_studio/_runtime/executions')
         self.output = Path(output or self.root/'output')
         self.settings = settings or {}
         self.busy = busy or (lambda: False)
+        self.live = live or (lambda: {})
         self.lock = threading.RLock()
         self.processes = {}
 
@@ -134,6 +174,10 @@ class ExecutionWorkspace:
                 'model': 'clo2_coupled_scenario', 'has_results': current.get('has_results', False),
                 'error': job.get('error', ''), 'numerical_pass': current.get('numerical_pass', False),
                 'experimental_validation': False}
+        live = self.live()
+        active = records.get('legacy:'+str(live.get('rid', '')))
+        if active and live.get('running'):
+            active['status'] = 'running'
         return records
 
     def _catalog(self, records):
@@ -162,7 +206,7 @@ class ExecutionWorkspace:
             for p in data['projects']:
                 runs = sorted((records[k] for k in p['runs'] if k in records), key=lambda r: r['created'], reverse=True)
                 projects.append({'id': p['id'], 'name': p['name'], 'created': p['created'], 'runs': runs})
-            return {'projects': projects, 'busy': any(r['status'] in ('queued', 'running') for r in records.values())}
+            return {'projects': projects, 'busy': bool(self.busy()) or any(r['status'] in ('queued', 'running') for r in records.values())}
 
     def create_project(self, name):
         with self.lock:
@@ -209,11 +253,46 @@ class ExecutionWorkspace:
             with path.open('rb') as stream:
                 stream.seek(max(0, path.stat().st_size-50000))
                 log = stream.read().decode('utf-8', errors='replace')
+        live = self.live()
+        if key == 'legacy:'+str(live.get('rid', '')) and live.get('running'):
+            log = live.get('log') or log
         return {**record, 'config': config, 'log': log, 'log_source': str(path) if path else None,
                 'checks': read_json(p/'checks.json', {}), 'grid': read_json(p/'grid_assessment.json', None)}
 
-    def template(self):
-        return read_json(self.root/'tracer_transport/warehouse_porous_convergence.json')
+    def preset_paths(self):
+        paths = {'warehouse': self.root/'tracer_transport/warehouse_porous_convergence.json'}
+        for folder, prefix in ((self.root/'cfd_studio/configs', 'config:'), (self.folder/'presets', 'preset:')):
+            paths.update({prefix+p.stem: p for p in sorted(folder.glob('*.json'))})
+        return paths
+
+    def template(self, key='warehouse'):
+        paths = self.preset_paths()
+        if key not in paths:
+            raise ValueError('설정을 찾을 수 없습니다')
+        return read_json(paths[key])
+
+    def presets(self):
+        return [{'id': key, 'name': '저장고 연결 기본값' if key == 'warehouse' else path.stem,
+                 'model': config_kind(read_json(path))} for key, path in self.preset_paths().items()]
+
+    def save_preset(self, name, config):
+        from cfd_studio.config_presets import save_new_preset
+        validate_settings(config)
+        target = save_new_preset(self.folder/'presets', label(name), config)
+        return {'id': 'preset:'+target.stem, 'name': target.stem}
+
+    def attach_legacy(self, project_id, rid):
+        with self.lock:
+            data = self._catalog(self.discover())
+            project = next((p for p in data['projects'] if p['id'] == project_id), None)
+            key = 'legacy:'+str(rid)
+            if project is None or key not in self.discover():
+                raise ValueError('프로젝트 또는 실행을 찾을 수 없습니다')
+            for p in data['projects']:
+                p['runs'] = [r for r in p['runs'] if r != key]
+            project['runs'].append(key)
+            atomic_json(self.folder/'projects.json', data)
+            return key
 
     def _command(self, job_path):
         prefix = []
@@ -222,7 +301,7 @@ class ExecutionWorkspace:
             prefix = ['wsl.exe']
             if self.settings.get('wsl_distro'):
                 prefix += ['-d', self.settings['wsl_distro']]
-            root, job = [subprocess.check_output(prefix+['--exec', 'wslpath', '-u', p.replace('\\', '/')], text=True, encoding='utf-8', timeout=15).strip() for p in (root, job)]
+            root, job = [subprocess.check_output(prefix+['--exec', 'wslpath', '-u', p.replace('\\', '/')], text=True, encoding='utf-8', timeout=15, creationflags=0x08000000 if os.name == 'nt' else 0).strip() for p in (root, job)]
             prefix += ['--exec']
         shell = ('shopt -s nullglob; rcs=(/opt/openfoam*/etc/bashrc /usr/lib/openfoam/openfoam*/etc/bashrc); '
                  '((${#rcs[@]})) || { echo "OpenFOAM 환경 없음"; exit 1; }; source "${rcs[-1]}"; '
@@ -268,7 +347,7 @@ class ExecutionWorkspace:
                 log = (folder/'execution.log').open('x', encoding='utf-8')
                 try:
                     process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT,
-                        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0,
+                        creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP | 0x08000000) if os.name == 'nt' else 0,
                         start_new_session=os.name != 'nt')
                 finally:
                     log.close()
@@ -292,8 +371,8 @@ class ExecutionWorkspace:
 
 def get_route(handler, workspace):
     url = urlparse(handler.path)
-    if url.path == '/execution_workspace.js':
-        handler._send(200, Path(__file__).with_suffix('.js').read_bytes(), 'text/javascript; charset=utf-8')
+    if url.path in ('/execution_workspace.js', '/config_editor.js', '/warehouse_viewer.js'):
+        handler._send(200, Path(__file__).with_name(url.path[1:]).read_bytes(), 'text/javascript; charset=utf-8')
         return True
     if not url.path.startswith('/api/executions'):
         return False
@@ -301,7 +380,9 @@ def get_route(handler, workspace):
         if url.path == '/api/executions':
             result = workspace.snapshot()
         elif url.path == '/api/executions/template':
-            result = {'config': workspace.template()}
+            result = {'config': workspace.template(parse_qs(url.query).get('id', ['warehouse'])[0])}
+        elif url.path == '/api/executions/presets':
+            result = {'presets': workspace.presets()}
         elif url.path == '/api/executions/detail':
             result = workspace.detail(parse_qs(url.query).get('id', [''])[0])
         else:
@@ -319,7 +400,9 @@ def post_route(handler, workspace, body):
     try:
         if not isinstance(body, dict):
             raise ValueError('요청 형식을 확인해 주세요')
-        if path == '/api/executions/project':
+        if path == '/api/executions/preset':
+            result = workspace.save_preset(body.get('name'), body.get('config'))
+        elif path == '/api/executions/project':
             result = workspace.create_project(body.get('name'))
         elif path == '/api/executions/rename':
             workspace.rename_project(body.get('id'), body.get('name'))

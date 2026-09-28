@@ -28,6 +28,97 @@ class ExecutionWorkspaceTests(unittest.TestCase):
         self.workspace = ExecutionWorkspace(ROOT,[self.projects],folder=self.base/'workspace',output=self.base/'output')
         self.config = self.workspace.template()
 
+    def test_saved_presets_do_not_change_sources_or_existing_executions(self):
+        before = self.hashes()
+        source = (ROOT/'tracer_transport/warehouse_porous_convergence.json').read_bytes()
+        result = self.workspace.save_preset('시험 설정', self.config)
+        changed = self.workspace.template(result['id'])
+        changed['numerics']['end_s'] = 600
+        self.assertEqual(self.workspace.template(result['id'])['numerics']['end_s'], 300)
+        self.assertEqual(self.hashes(), before)
+        self.assertEqual((ROOT/'tracer_transport/warehouse_porous_convergence.json').read_bytes(), source)
+        with self.assertRaises(FileExistsError): self.workspace.save_preset('시험 설정', changed)
+        with self.assertRaises(ValueError): self.workspace.template('config:../../secret')
+
+    def test_legacy_membership_and_live_settings_survive_running_state(self):
+        before = self.hashes()
+        self.workspace.snapshot()
+        target = self.workspace.create_project('이중액침')
+        self.workspace.attach_legacy(target['id'], '2')
+        self.workspace.live = lambda: {'rid':'2','running':True,'log':'live solver log'}
+        snapshot = self.workspace.snapshot()
+        self.assertTrue(snapshot['busy'])
+        self.assertEqual([r['id'] for r in snapshot['projects'][1]['runs']], ['legacy:2'])
+        detail = self.workspace.detail('legacy:2')
+        self.assertEqual(detail['log'], 'live solver log')
+        self.assertEqual(detail['config']['run']['end_time_s'], 2)
+        self.assertEqual(self.hashes(), before)
+        self.assertNotIn('config', snapshot['projects'][1])
+
+    def test_grouped_legacy_run_refuses_busy_solver_before_hardware_or_mutations(self):
+        import time
+        tree = ast.parse((ROOT/'cfd_studio/app.py').read_text())
+        cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'H')
+        method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == '_run_legacy')
+        env = {'EXECUTION_WORKSPACE':self.workspace, 'time':time, 'STATE':{},
+               'get_status':lambda:{'running':True}, '_active_rid':lambda:'2'}
+        import sys
+        from cfd_studio import execution_workspace
+        with patch.dict(sys.modules, {'execution_workspace':execution_workspace}):
+            exec(compile(ast.Module(body=[method],type_ignores=[]), '<legacy-run>', 'exec'), env)
+            handler = Mock()
+            config = read_json(ROOT/'cfd_studio/configs/immersion.json')
+            project = self.workspace.snapshot()['projects'][0]['id']
+            before = self.hashes()
+            env['_run_legacy'](handler, {'mode':'fresh','config':config,'execution_project_id':project,'execution_name':'new'})
+            self.assertEqual(handler._json.call_args.args[1], 409)
+            self.assertEqual(self.hashes(), before)
+
+    def test_grouped_legacy_launch_snapshots_settings_and_preserves_pending_draft(self):
+        import time, re, sys
+        from cfd_studio import execution_workspace
+        config = read_json(ROOT/'cfd_studio/configs/immersion.json')
+        config['run']['output_fields'] = ['flow', 'therm']
+        project = self.workspace.create_project('new group')['id']
+        frames = self.base/'frames';frames.mkdir()
+        pending = self.base/'pending.json';pending.write_text('{"name":"untouched"}')
+        def create(rid, name, meta):
+            folder = self.projects/rid;folder.mkdir()
+            atomic_json(folder/'meta.json', {**meta, 'run_id':rid})
+            return str(folder)
+        def active():
+            path = frames/'_runid.txt'
+            return path.read_text() if path.exists() else '2'
+        env = dict(EXECUTION_WORKSPACE=self.workspace, time=time, re=re, os=os, json=json,
+            STATE={}, PENDF=str(pending), FRAME_DIR=str(frames), WSL_CASE='/case',
+            get_status=lambda:{'running':False}, _active_rid=active,
+            _project_key=lambda v:v, project_config=lambda rid:{}, _extract_state=lambda rid:{},
+            _solver_mode=lambda:'cpu', _prepare_run_hardware=lambda:(True,''),
+            _normalize_output_fields=lambda v:v, _apply_board_floor_revision=lambda c:(c,False),
+            _persist_project_progress=Mock(), sync_case_files=lambda:(True,''),
+            _write_runtime_config=lambda c:'inline.json', _apply_config_file=lambda p:(True,'APPLIED'),
+            _create_run_project=create, get_config=lambda:config, meta_write=atomic_json,
+            wsl=lambda cmd:(True,''), _run_mpi_np=lambda m:1, _run_of_bash=lambda m:'source foam',
+            gpu_index=lambda:0, _case_kill_script=lambda p:'', _archive_current_progress_script=lambda *a:'',
+            _mode_public=lambda m:('cpu','CPU'), cpu_pct=lambda:50, open_console=Mock(return_value=True),
+            list_projects=lambda:[])
+        tree = ast.parse((ROOT/'cfd_studio/app.py').read_text())
+        cls = next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='H')
+        method = next(n for n in cls.body if isinstance(n,ast.FunctionDef) and n.name=='_run_legacy')
+        handler=Mock();before=self.hashes()
+        with patch.dict(sys.modules, {'execution_workspace':execution_workspace}):
+            exec(compile(ast.Module(body=[method],type_ignores=[]),'<legacy-run>','exec'),env)
+            env['_run_legacy'](handler, {'mode':'fresh','config':config,'config_ref':'inline',
+                'execution_project_id':project,'execution_name':'new execution'})
+        response=handler._json.call_args.args[0]
+        self.assertTrue(response['ok'], response)
+        self.assertEqual(env['open_console'].call_count,1)
+        self.assertEqual(read_json(self.projects/response['rid']/'case_config.json'),config)
+        group=next(p for p in self.workspace.snapshot()['projects'] if p['id']==project)
+        self.assertEqual([r['rid'] for r in group['runs']], [response['rid']])
+        self.assertEqual(pending.read_text(),'{"name":"untouched"}')
+        self.assertTrue(all(self.hashes()[p]==digest for p,digest in before.items()))
+
     def hashes(self):
         return {str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in self.projects.rglob('*') if p.is_file()}
 

@@ -13,7 +13,7 @@ sys.dont_write_bytecode = True                             # __pycache__ 생성 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v177"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v178"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 
@@ -65,7 +65,8 @@ WAREHOUSE_WORKSPACE = Workspace(os.path.join(HERE, "_runtime", "warehouse"), SCF
 from study_platform import http as study_http
 from execution_workspace import ExecutionWorkspace, get_route as execution_get, post_route as execution_post
 EXECUTION_WORKSPACE = ExecutionWorkspace(os.path.dirname(HERE), lambda: _project_search_roots(), settings=SCFG,
-    busy=lambda: bool(get_status().get("running")) or any(j.get("status") in ("queued", "running") for j in WAREHOUSE_WORKSPACE.jobs.values()))
+    busy=lambda: bool(get_status().get("running")) or time.time()-STATE.get("group_launch_t", 0)<60 or any(j.get("status") in ("queued", "running") for j in WAREHOUSE_WORKSPACE.jobs.values()),
+    live=lambda: {**(_STATUS_CACHE.get("data") or {}), "rid": _active_rid()})
 UISTF = os.path.join(RUNTIME_DIR, "uistate.json")          # 마지막 화면 상태 (재실행 시 복원)
 STUDIO_PIDF = os.path.join(RUNTIME_DIR, "studio.pid")      # 포트 없는 잔존 인스턴스까지 식별
 
@@ -2091,7 +2092,8 @@ def wsl(cmd, timeout=25):
     인자가 공백으로 합쳐지며 변수 대입이 증발하는 문제(진단 P=// 증상)를 원천 차단."""
     try:
         argv = _wsl_argv("bash", "-ls")
-        r = subprocess.run(argv, input=cmd.encode(), capture_output=True, timeout=timeout)
+        r = subprocess.run(argv, input=cmd.encode(), capture_output=True, timeout=timeout,
+                           creationflags=0x08000000 if os.name == "nt" else 0)
         # 종료코드와 stderr 를 반영한다 — 예전에는 wsl.exe 가 존재하기만 하면 ok=True 라서
         # 배포판이 망가져도 화면에 '연결됨'(초록불)이 떴다 (2026-08-15 감사)
         out = r.stdout.decode("utf-8", "replace")
@@ -2150,7 +2152,8 @@ def open_console(inner_bash):
     try:   # 1순위: 스크립트 내용을 WSL 안 고정 경로로 직접 전달 (명령줄에 한글·공백 경로가 없음)
         r = subprocess.run(_wsl_argv("bash", "-lc",
                             "tmp=/tmp/cfd_studio_run.sh; cat > \"$tmp\" && chmod +x \"$tmp\" && echo OK"),
-                           input=body.encode(), capture_output=True, timeout=20)
+                           input=body.encode(), capture_output=True, timeout=20,
+                           creationflags=0x08000000 if os.name == "nt" else 0)
         if b"OK" in r.stdout: run_path = "/tmp/cfd_studio_run.sh"
     except Exception:
         pass
@@ -2158,7 +2161,7 @@ def open_console(inner_bash):
         run_path = _shq(win2wsl(sh))
     wsl_cmd = subprocess.list2cmdline(_wsl_argv("bash", "-lc", f"bash {run_path}"))
     ok_check = subprocess.run(_wsl_argv("bash", "-lc", f"test -f {run_path} && echo OK"),
-                              capture_output=True, timeout=8)
+                              capture_output=True, timeout=8, creationflags=0x08000000 if os.name == "nt" else 0)
     if b"OK" not in (ok_check.stdout or b""):
         return False
     p = subprocess.Popen(f"start \"CFD 실행 - 닫으면 tail만 끊기고 계산은 계속됨\" cmd /k {wsl_cmd}", shell=True,
@@ -2365,7 +2368,8 @@ def _auto_resume_fire(r_end=None):
     body = "#!/bin/bash\n# CFD_STUDIO_AUTO_RESUME_MARKER=1\n" + build_resume_inner(r_end, tail=False, user_requested=False) + "\n"
     try:
         mk = subprocess.run(_wsl_argv("bash", "-lc", "tmp=$(mktemp /tmp/cfd_auto_resume.XXXXXX.sh); cat > \"$tmp\"; chmod +x \"$tmp\"; echo \"$tmp\""),
-                           input=body.encode(), capture_output=True, timeout=20)
+                           input=body.encode(), capture_output=True, timeout=20,
+                           creationflags=0x08000000 if os.name == "nt" else 0)
         if mk.returncode != 0:
             return False
         tmp = mk.stdout.decode("utf-8", "replace").strip().splitlines()[-1] if mk.stdout else ""
@@ -3685,7 +3689,7 @@ class H(BaseHTTPRequestHandler):
 
     def _do_GET(self):
         u = urlparse(self.path)
-        if (u.path.startswith("/api/executions") or u.path == "/execution_workspace.js") and execution_get(self, EXECUTION_WORKSPACE):
+        if (u.path.startswith("/api/executions") or u.path in ("/execution_workspace.js", "/config_editor.js", "/warehouse_viewer.js")) and execution_get(self, EXECUTION_WORKSPACE):
             return
         if u.path.startswith(('/studies', '/api/studies', '/api/attempts', '/api/study-packages', '/api/capabilities')):
             if study_http.get(self, study_http.service(HERE, SCFG, PROJECT_DIR)):
@@ -3809,6 +3813,325 @@ class H(BaseHTTPRequestHandler):
             try: self._json({"err": str(e)[:120]}, 500)
             except Exception: pass
 
+    def _run_legacy(self, body):
+        group_id = body.get("execution_project_id")
+        if group_id:
+            from execution_workspace import validate_settings, label
+            try:
+                if body.get("mode") != "fresh" or body.get("reset_rid"):
+                    raise ValueError("새 실행으로 시작해 주세요")
+                if validate_settings(body.get("config")) not in ("immersion", "grain_silo"):
+                    raise ValueError("실행 모델을 확인해 주세요")
+                execution_name = label(body.get("execution_name"))
+                snapshot = EXECUTION_WORKSPACE.snapshot()
+                if not any(p["id"] == group_id for p in snapshot["projects"]):
+                    raise ValueError("프로젝트를 찾을 수 없습니다")
+                if snapshot["busy"] or get_status().get("running") or _extract_state(_active_rid()).get("busy") or time.time()-STATE.get("group_launch_t", 0) < 60:
+                    self._json({"ok": False, "msg": "계산 또는 결과 보존 작업이 진행 중입니다. 완료 후 시작해 주세요"}, 409)
+                    return
+            except (ValueError, TypeError) as e:
+                self._json({"ok": False, "msg": str(e)}, 400)
+                return
+        mode = body.get("mode", "resume")
+        incoming_cfg = body.get("config")
+        selected_cfg = project_config(_project_key(body.get("selected_rid")) or _active_rid()) or {}
+        if ((incoming_cfg or {}).get("_해석유형") == "gas_transport" or
+                (mode != "fresh" and selected_cfg.get("_해석유형") == "gas_transport")):
+            self._json({"ok": False, "msg": "가스 수송 결과 프로젝트입니다. tracer_transport 실행기로 새 계산 또는 재개를 수행해 주세요."}, 409)
+            return
+        if isinstance(incoming_cfg, dict) and incoming_cfg.get("_해석유형") == "grain_silo":
+            ok_silo, incoming_cfg, msg_silo = _normalize_silo_config(incoming_cfg)
+            if not ok_silo:
+                self._json({"ok": False, "msg": msg_silo}, 400); return
+            body["config"] = incoming_cfg
+        run_mode = _solver_mode()
+        if mode in ("resume", "resume_archived"):
+            check_rid = (_project_key(body.get("selected_rid")) if mode == "resume_archived" else _active_rid())
+            mode_error = _resume_mode_error(check_rid, run_mode)
+            if mode_error:
+                self._json({"ok": False, "msg": mode_error}, 409); return
+        ok_hw, hw_msg = _prepare_run_hardware()
+        if not ok_hw:
+            self._json({"ok": False, "msg": "시작 전 하드웨어 점검 실패: " + hw_msg}, 503)
+            return
+        try: r_end = float(body.get("end"))
+        except Exception: r_end = None
+        cond_raw = str(body.get("condition") or "")
+        config_ref = str(body.get("config_ref") or "").strip()
+        config_name_raw = str(body.get("config_name") or "").strip()
+        config_name = cfg_safe(config_name_raw) if config_name_raw else ""
+        config_payload = body.get("config")
+        raw_outputs = body.get("output_fields")
+        if raw_outputs is None and isinstance(config_payload, dict):
+            raw_outputs = (config_payload.get("run") or {}).get("output_fields")
+        output_fields = _normalize_output_fields(raw_outputs)
+        if mode == "fresh" and not output_fields:
+            self._json({"ok": False, "msg": "출력 데이터를 1개 이상 선택해 주세요"}, 400)
+            return
+        if mode == "fresh" and isinstance(config_payload, dict):
+            config_payload = json.loads(json.dumps(config_payload))
+            config_payload.setdefault("run", {})["output_fields"] = output_fields
+            if config_name:
+                config_payload["_설정이름"] = config_name
+        # 구버전 화면에서 조건 선택기에 config가 섞여 들어오던 형식의 하위 호환.
+        if cond_raw.startswith("cfg:") and not config_ref:
+            config_ref = cond_raw
+            cond_raw = ""
+        cond = re.sub(r"[^A-Za-z0-9_]", "", cond_raw)
+        reset_rid = re.sub(r"[^0-9]", "", str(body.get("reset_rid") or ""))
+        selected_rid = re.sub(r"[^0-9]", "", str(body.get("selected_rid") or ""))
+        if mode == "fresh" and not reset_rid and isinstance(config_payload, dict):
+            config_payload, geometry_revised = _apply_board_floor_revision(config_payload)
+            if geometry_revised:
+                print("[CFD Studio] 새 프로젝트 형상 개정 적용: 보드·CPU 40 mm 하향")
+        if mode == "resume_archived":
+            if not selected_rid:
+                self._json({"ok": False, "msg": "재개할 보관 프로젝트를 선택하세요"}, 400)
+                return
+            ok_switch, switch_msg = _activate_archived_project(selected_rid)
+            if not ok_switch:
+                self._json({"ok": False, "msg": "보관 프로젝트 전환 실패: " + switch_msg}, 409)
+                return
+            mode = "resume"
+            print(f"[CFD Studio] 보관 프로젝트 {selected_rid} 활성화 · 앵커 {switch_msg}s")
+        if reset_rid and not isinstance(config_payload, dict):
+            config_ref = "proj:" + reset_rid       # 구버전 화면은 프로젝트 스냅샷으로 안전 폴백
+        if mode == "fresh" and not reset_rid:
+            # 새 프로젝트는 반드시 /api/proj-new가 만든 대기 카드에서만 시작한다.
+            # UI 갱신 경쟁이나 오래된 탭이 현재 프로젝트를 새 계산으로 오인하는 것을 서버에서도 차단.
+            try:
+                pending = {"name": execution_name} if group_id else _read_json_file(PENDF)
+            except Exception:
+                pending = None
+            if not pending or not pending.get("name"):
+                # 시작 중 실패해 대기 파일은 사라졌지만 프로젝트 카드만 남은 경우.
+                # 선택한 프로젝트에 보관 진행 데이터가 전혀 없을 때만 같은 ID로
+                # 재시작한다. 진행 데이터가 있으면 기존 안전 차단을 유지한다.
+                pd_sel = proj_dir(selected_rid) if selected_rid else ""
+                meta_sel = _read_json_file(os.path.join(pd_sel, "meta.json")) if pd_sel else None
+                inv_sel = project_inventory(pd_sel) if pd_sel and os.path.isdir(pd_sel) else {}
+                try:
+                    stored_sel = max(float((meta_sel or {}).get("last_time") or 0),
+                                     float((meta_sel or {}).get("tmax") or 0),
+                                     float(inv_sel.get("tmax") or 0))
+                except Exception:
+                    stored_sel = 0.0
+                has_saved = stored_sel > 0 or any(int(inv_sel.get(k) or 0) > 0
+                                                 for k in ("bubble", "flow", "therm", "phase"))
+                if selected_rid and pd_sel and os.path.isdir(pd_sel) and not has_saved:
+                    reset_rid = selected_rid
+                    config_ref = "proj:" + selected_rid
+                else:
+                    self._json({"ok": False, "msg": "실행할 프로젝트 준비 정보를 확인할 수 없습니다 — 프로젝트를 다시 선택해 주세요"}, 409)
+                    return
+            if _extract_state(_active_rid()).get("busy"):
+                self._json({"ok": False, "msg": "중단 프로젝트 결과를 보존하는 중입니다 — 완료 후 다시 실행해 주세요"}, 409)
+                return
+        ovin = body.get("overrides") or {}
+        OVMAP = {"end_time_s": ("run", "end_time_s"), "write_interval_s": ("run", "write_interval_s"),
+                 "viz_interval_s": ("run", "viz_interval_s"), "total_W": ("heater", "total_W"),
+                 "evap_C": ("phase_change", "evap_C"), "cond_C": ("phase_change", "cond_C"),
+                 "coil_h": ("coil", "h_W_m2K"), "flow_LPM": ("coil", "flow_LPM"),
+                 "coil_UA": ("coil", "UA_target_W_K"), "Ta_C": ("coil", "Ta_C"),
+                 "liquid_height_mm": ("tank", "liquid_height_mm"),
+                 "dielectric_mm": ("layers", "dielectric_mm"),
+                 "init_T_d": ("layers", "init_T_dielectric_C"),
+                 "init_T_w": ("layers", "init_T_water_C"), "dx_mm": ("mesh", "dx_mm")}
+        ovr = {}
+        for k in OVMAP:
+            try: ovr[k] = float(ovin[k])
+            except Exception: pass
+        previous_rid = _active_rid()
+        if mode == "fresh" and previous_rid:
+            try:
+                previous_status = get_status()
+                _persist_project_progress(previous_rid, previous_status.get("time"))
+            except Exception:
+                pass
+        STATE["eta"] = []
+        STATE["stop_t"] = 0                # 새 실행 — 중단 앵커 해제(정상 실행 감지 복원)
+        STATE["user_stopped"] = False; STATE["run_t"] = time.time()
+        if mode == "fresh":
+            ok_sync, sync_msg = sync_case_files()   # Windows 폴더의 설정·도구를 WSL 케이스에 자동 반영 (버튼 없이)
+            if not ok_sync:
+                self._json({"ok": False, "msg": "설정 동기화 실패: " + (sync_msg or "오류")})
+                return
+            # 화면에 이미 로딩된 config 전체를 우선 적용한다. 원본 파일을 이동·삭제했더라도
+            # 메인 화면의 빠른 수정값과 함께 실행할 수 있어야 한다.
+            selected_src = None
+            config_label = "config.json"
+            if reset_rid:
+                # 기존 프로젝트의 0초 재실행은 생성 당시 스냅샷만 사용한다.
+                # 브라우저에 남은 다른 프리셋/입력값이 원본을 덮지 않게 한다.
+                config_label = "프로젝트 " + reset_rid + " / case_config.json"
+                selected_src = os.path.join(proj_dir(reset_rid), "case_config.json")
+                if not os.path.isfile(selected_src):
+                    self._json({"ok": False, "msg": "이 프로젝트의 원본 case_config.json이 없어 0초 재실행을 차단했습니다"}, 409)
+                    return
+            elif isinstance(config_payload, dict):
+                config_label = "화면에 로딩된 설정"
+                # 유량은 CFD 방정식 입력이 아니라 T6 냉각회로 계산·출처 기록용이지만,
+                # 프로젝트 config 안에 함께 보존되도록 inline config에 키를 만든다.
+                if "flow_LPM" in ovr:
+                    config_payload = json.loads(json.dumps(config_payload))
+                    config_payload.setdefault("coil", {})["flow_LPM"] = ovr["flow_LPM"]
+                selected_src = _write_runtime_config(config_payload)
+            elif config_ref.startswith("cfg:"):
+                config_label = cfg_safe(config_ref[4:]) + ".json"
+                selected_src = os.path.join(CFGDIR, config_label)
+            elif config_ref.startswith("proj:"):
+                prid = _project_key(config_ref[5:])
+                config_label = "프로젝트 " + prid + " / config.json"
+                selected_src = os.path.join(proj_dir(prid), "case_config.json")
+                if prid and not os.path.isfile(selected_src):
+                    selected_src = os.path.join(proj_dir(prid), "config.json")
+            elif config_ref == "inline":
+                config_label = "선택한 config.json"
+                selected_src = _write_runtime_config(config_payload)
+            if config_ref or selected_src:
+                ok_p, out_p = _apply_config_file(selected_src)
+                if not ok_p or "APPLIED" not in out_p:
+                    self._json({"ok": False, "msg": config_label + " 적용 실패: " + (out_p or "파일 없음")[:100]})
+                    return
+                print(f"[CFD Studio] config 적용: {config_label}")
+            if reset_rid and os.path.isdir(proj_dir(reset_rid)):
+                # [리셋] — 같은 프로젝트를 저장된 설정 그대로 0초부터. 이전 시도의 프레임을
+                # /api/reset이 이미 Trash로 이동했다. 이 경로에서는 설정·이름·ID만 유지하고
+                # 파일을 다시 지우지 않음(외부 프로젝트 config.json 보존).
+                rid_new = reset_rid
+                pd_new = proj_dir(rid_new)
+                try:
+                    meta = {}
+                    try: meta = json.load(open(os.path.join(pd_new, "meta.json")))
+                    except Exception: pass
+                    st0 = meta.get("settings") or {}
+                    # 리셋은 저장된 프로젝트 설정의 재현이다. 화면의 오래된 입력은 무시한다.
+                    ovr = {}
+                    for k in OVMAP:
+                        if st0.get(k) is not None:
+                            try: ovr[k] = float(st0[k])
+                            except Exception: pass
+                    cond = re.sub(r"[^A-Za-z0-9_]", "", str(st0.get("condition") or ""))
+                    output_fields = _normalize_output_fields(st0.get("output_fields"))
+                    meta["settings"] = {**st0, **ovr, "condition": cond,
+                                        "output_fields": output_fields}
+                    meta["compute_mode"] = run_mode
+                    meta["end"] = float(ovr.get("end_time_s") or meta.get("end") or 30)
+                    meta.pop("reset_at", None)
+                    meta["end_locked"] = True; meta["heal2"] = True
+                    meta_write(os.path.join(pd_new, "meta.json"), meta)
+                    with open(os.path.join(FRAME_DIR, "_runid.txt"), "w") as run_file: run_file.write(rid_new)
+                    _flow_invalidate(pd_new)     # 셀 좌표 캐시 무효화 (C 재생성)
+                except Exception: pass
+            else:
+                # 프로젝트 ID를 지금 발급 — 격자 파일 시각을 지문으로 쓰던 방식은 Allrun이
+                # 격자 생성을 건너뛰면 이전 프로젝트와 ID가 겹쳐, 새 실행의 진행이 이전
+                # 프로젝트 위에 표시되던 문제(95% 프로젝트가 0%로 보임)의 원인이었음
+                rid_new = str(time.time_ns()) if group_id else str(int(time.time()))
+                try:                # 이 프로젝트의 폴더·이름·설정을 즉시 확정 (독립 운영)
+                    pj = {}
+                    try: pj = {"name": execution_name} if group_id else json.load(open(PENDF))
+                    except Exception: pass
+                    meta = {"name": pj.get("name") or time.strftime("실행 %m/%d %H:%M"),
+                            "settings": {**ovr, "condition": cond,
+                                         "output_fields": output_fields,
+                                         **({"config_ref": config_ref} if config_ref else {})},
+                            "compute_mode": run_mode,
+                            "end": float(ovr.get("end_time_s") or (get_config() or {}).get("run", {}).get("end_time_s") or 30),
+                            "end_locked": True, "heal2": True}
+                    pd_new = _create_run_project(rid_new, meta["name"], meta)
+                    if group_id:
+                        EXECUTION_WORKSPACE.attach_legacy(group_id, rid_new)
+                    with open(os.path.join(FRAME_DIR, "_runid.txt"), "w") as run_file: run_file.write(rid_new)
+                    if not group_id and os.path.exists(PENDF): os.remove(PENDF)
+                except Exception as e:
+                    if group_id:
+                        self._json({"ok": False, "msg": "실행 기록 생성 실패: " + str(e)}, 500)
+                        return
+            if previous_rid and previous_rid != rid_new:
+                _persist_project_progress(previous_rid, 0, f"ProjectRuns/{previous_rid}")
+            # 직접 입력값 → run_overrides.json (build_case가 config 위에 덮어 적용)
+            j = {}
+            for k, v in ovr.items():
+                g, kk = OVMAP[k]
+                j.setdefault(g, {})[kk] = v
+            if j:
+                ok_o, out_o = wsl(f"cd {WSL_CASE} && printf '%s' { _shq(json.dumps(j))} > run_overrides.json")
+                if not ok_o:
+                    print("[CFD Studio] run_overrides 반영 실패:", out_o[:120])
+                    self._json({"ok": False, "msg": "설정 반영 실패(입력값 저장)"})
+                    return
+            else:
+                wsl(f"cd {WSL_CASE} && rm -f run_overrides.json")
+
+            # 계산 시작 즉시 config+화면 입력값을 프로젝트에 고정. 이후 독립 설정으로 재사용 가능.
+            used_cfg = get_config() or {}
+            try:
+                used_cfg = json.loads(json.dumps(used_cfg))
+                for k, v in ovr.items():
+                    g, kk = OVMAP[k]
+                    used_cfg.setdefault(g, {})[kk] = v
+                used_cfg.setdefault("run", {})["output_fields"] = output_fields
+                # case_config.json은 해석 생성 시점의 불변 기록이다.
+                # 기존 프로젝트 리셋에서는 다시 쓰지 않는다.
+                if used_cfg and not reset_rid:
+                    meta_write(os.path.join(pd_new, "case_config.json"), used_cfg)
+                    # 실행용 config.json은 OpenFOAM 규약상 고정 이름으로 유지하고,
+                    # 프로젝트 안에는 사용자가 지정한 설정명으로 동일한 스냅샷을 보존한다.
+                    setting_name = config_name or str(used_cfg.get("_설정이름") or "").strip()
+                    if not setting_name and config_ref.startswith("cfg:"):
+                        setting_name = cfg_safe(config_ref[4:])
+                    if setting_name:
+                        meta_write(os.path.join(pd_new, cfg_safe(setting_name) + ".json"), used_cfg)
+            except Exception as e:
+                self._json({"ok": False, "msg": "프로젝트 config 스냅샷 저장 실패: " + str(e)[:80]})
+                return
+
+            run_np = _run_mpi_np(run_mode)
+            pre = f"CONDITION={cond} NP={run_np} " if cond else f"NP={run_np} "
+            inner = (f"{_run_of_bash(run_mode)}; export CUDA_VISIBLE_DEVICES={gpu_index()}; "
+                     f"export CFD_STUDIO_PRESSURE_SOLVER_MODE={run_mode}; export CFD_STUDIO_COMPUTE_MODE={run_mode}; "
+                     + ("export FOAM_MEMORY_POOL='managed; size=1024; incr=1024'; " if run_mode == "gpu_only" else "") +
+                     f"cd {WSL_CASE} || exit 1; touch .cfd_studio_user_stopped; "
+                     f"{_case_kill_script('icoReactingMultiphaseInterFoam|simpleFoam|pimpleFoam|Allrun|cfd_studio_solver_supervisor')}sleep 2; "
+                     f"rm -f .cfd_studio_user_stopped; "
+                     # 새 프로젝트는 이전 원본을 지우지 않고 실행 ID별 WSL 보관소로 이동한다.
+                     f"echo '[CFD Studio] preparing an independent project'; "
+                     f"{_archive_current_progress_script(rid_new, previous_rid)}"
+                     f"echo {rid_new} > .cfd_studio_runid; "
+                     f"foamDictionary -entry numberOfSubdomains -set {run_np} system/decomposeParDict >/dev/null 2>&1; "
+                     f"echo '[CFD Studio] 자동 성능 설정: {_mode_public(run_mode)[1]} · MPI {run_np}개 · CPU 상한 {cpu_pct()}% · GPU {gpu_index()}'; "
+                     f"{pre}nice -n 8 ./Allrun & RUNPID=$!; echo \"$RUNPID\" > .cfd_studio_allrun.pid; "
+                     f"sleep 25; APP=$(foamDictionary -entry application -value system/controlDict 2>/dev/null); "
+                     f"if [ -n \"$APP\" ] && [ -f \"log.$APP\" ]; then tail --pid=\"$RUNPID\" -f \"log.$APP\"; fi; "
+                     f"wait \"$RUNPID\"; RC=$?; rm -f .cfd_studio_allrun.pid; "
+                     f"echo \"[CFD Studio] 계산 작업 종료 (exit $RC)\"; exit \"$RC\"")
+        else:
+            # 이어서 실행 — 설정을 일절 바꾸지 않는 순수 재개 (입력값 적용은 [처음부터] 전용)
+            # 앵커 = p_rgh·T·U가 모두 있는 마지막 전체 상태 폴더. 앵커가 없으면 0초 재시작 대신 중단·안내.
+            inner = build_resume_inner(r_end, tail=True)
+        if not open_console(inner):
+            self._json({"ok": False, "msg": "콘솔 실행 실패 — WSL/파이썬 경로 확인 필요"})
+            return
+        if group_id:
+            STATE["group_launch_t"] = time.time()
+        if mode == "resume":
+            # 연장/재개가 시작됐는데 이전 완료 표식이 남으면 프로젝트 카드가
+            # 실행 중에도 완료로 보인다. 실행 상태로 되돌리고 새 상한을 함께 보존한다.
+            active = _active_rid()
+            if active:
+                mp = os.path.join(proj_dir(active), "meta.json")
+                meta = _read_json_file(mp) or {}
+                for key in ("completed", "completion_reason", "completed_at"):
+                    meta.pop(key, None)
+                if r_end is not None:
+                    meta["end"] = r_end
+                    meta.setdefault("settings", {})["end_time_s"] = r_end
+                meta_write(mp, meta)
+        STATE["user_stopped"] = False; STATE["run_t"] = time.time()
+        self._json({"ok": True, "msg": "명령 프롬프트 창에서 실행 시작됨",
+                    "rid": _active_rid(), "cur": _active_rid(), "projects": list_projects()})
+
     def _do_POST(self):
         n = int(self.headers.get("Content-Length") or 0)
         u = urlparse(self.path)
@@ -3908,298 +4231,8 @@ class H(BaseHTTPRequestHandler):
                 self._json({"ok": False, "msg": msg}, 400); return
             self._json({"ok": True, "msg": msg, "settings": _settings_public()})
         elif u.path == "/api/run":
-            mode = body.get("mode", "resume")
-            incoming_cfg = body.get("config")
-            selected_cfg = project_config(_project_key(body.get("selected_rid")) or _active_rid()) or {}
-            if ((incoming_cfg or {}).get("_해석유형") == "gas_transport" or
-                    (mode != "fresh" and selected_cfg.get("_해석유형") == "gas_transport")):
-                self._json({"ok": False, "msg": "가스 수송 결과 프로젝트입니다. tracer_transport 실행기로 새 계산 또는 재개를 수행해 주세요."}, 409)
-                return
-            if isinstance(incoming_cfg, dict) and incoming_cfg.get("_해석유형") == "grain_silo":
-                ok_silo, incoming_cfg, msg_silo = _normalize_silo_config(incoming_cfg)
-                if not ok_silo:
-                    self._json({"ok": False, "msg": msg_silo}, 400); return
-                body["config"] = incoming_cfg
-            run_mode = _solver_mode()
-            if mode in ("resume", "resume_archived"):
-                check_rid = (_project_key(body.get("selected_rid")) if mode == "resume_archived" else _active_rid())
-                mode_error = _resume_mode_error(check_rid, run_mode)
-                if mode_error:
-                    self._json({"ok": False, "msg": mode_error}, 409); return
-            ok_hw, hw_msg = _prepare_run_hardware()
-            if not ok_hw:
-                self._json({"ok": False, "msg": "시작 전 하드웨어 점검 실패: " + hw_msg}, 503)
-                return
-            try: r_end = float(body.get("end"))
-            except Exception: r_end = None
-            cond_raw = str(body.get("condition") or "")
-            config_ref = str(body.get("config_ref") or "").strip()
-            config_name_raw = str(body.get("config_name") or "").strip()
-            config_name = cfg_safe(config_name_raw) if config_name_raw else ""
-            config_payload = body.get("config")
-            raw_outputs = body.get("output_fields")
-            if raw_outputs is None and isinstance(config_payload, dict):
-                raw_outputs = (config_payload.get("run") or {}).get("output_fields")
-            output_fields = _normalize_output_fields(raw_outputs)
-            if mode == "fresh" and not output_fields:
-                self._json({"ok": False, "msg": "출력 데이터를 1개 이상 선택해 주세요"}, 400)
-                return
-            if mode == "fresh" and isinstance(config_payload, dict):
-                config_payload = json.loads(json.dumps(config_payload))
-                config_payload.setdefault("run", {})["output_fields"] = output_fields
-                if config_name:
-                    config_payload["_설정이름"] = config_name
-            # 구버전 화면에서 조건 선택기에 config가 섞여 들어오던 형식의 하위 호환.
-            if cond_raw.startswith("cfg:") and not config_ref:
-                config_ref = cond_raw
-                cond_raw = ""
-            cond = re.sub(r"[^A-Za-z0-9_]", "", cond_raw)
-            reset_rid = re.sub(r"[^0-9]", "", str(body.get("reset_rid") or ""))
-            selected_rid = re.sub(r"[^0-9]", "", str(body.get("selected_rid") or ""))
-            if mode == "fresh" and not reset_rid and isinstance(config_payload, dict):
-                config_payload, geometry_revised = _apply_board_floor_revision(config_payload)
-                if geometry_revised:
-                    print("[CFD Studio] 새 프로젝트 형상 개정 적용: 보드·CPU 40 mm 하향")
-            if mode == "resume_archived":
-                if not selected_rid:
-                    self._json({"ok": False, "msg": "재개할 보관 프로젝트를 선택하세요"}, 400)
-                    return
-                ok_switch, switch_msg = _activate_archived_project(selected_rid)
-                if not ok_switch:
-                    self._json({"ok": False, "msg": "보관 프로젝트 전환 실패: " + switch_msg}, 409)
-                    return
-                mode = "resume"
-                print(f"[CFD Studio] 보관 프로젝트 {selected_rid} 활성화 · 앵커 {switch_msg}s")
-            if reset_rid and not isinstance(config_payload, dict):
-                config_ref = "proj:" + reset_rid       # 구버전 화면은 프로젝트 스냅샷으로 안전 폴백
-            if mode == "fresh" and not reset_rid:
-                # 새 프로젝트는 반드시 /api/proj-new가 만든 대기 카드에서만 시작한다.
-                # UI 갱신 경쟁이나 오래된 탭이 현재 프로젝트를 새 계산으로 오인하는 것을 서버에서도 차단.
-                try:
-                    pending = _read_json_file(PENDF)
-                except Exception:
-                    pending = None
-                if not pending or not pending.get("name"):
-                    # 시작 중 실패해 대기 파일은 사라졌지만 프로젝트 카드만 남은 경우.
-                    # 선택한 프로젝트에 보관 진행 데이터가 전혀 없을 때만 같은 ID로
-                    # 재시작한다. 진행 데이터가 있으면 기존 안전 차단을 유지한다.
-                    pd_sel = proj_dir(selected_rid) if selected_rid else ""
-                    meta_sel = _read_json_file(os.path.join(pd_sel, "meta.json")) if pd_sel else None
-                    inv_sel = project_inventory(pd_sel) if pd_sel and os.path.isdir(pd_sel) else {}
-                    try:
-                        stored_sel = max(float((meta_sel or {}).get("last_time") or 0),
-                                         float((meta_sel or {}).get("tmax") or 0),
-                                         float(inv_sel.get("tmax") or 0))
-                    except Exception:
-                        stored_sel = 0.0
-                    has_saved = stored_sel > 0 or any(int(inv_sel.get(k) or 0) > 0
-                                                     for k in ("bubble", "flow", "therm", "phase"))
-                    if selected_rid and pd_sel and os.path.isdir(pd_sel) and not has_saved:
-                        reset_rid = selected_rid
-                        config_ref = "proj:" + selected_rid
-                    else:
-                        self._json({"ok": False, "msg": "실행할 프로젝트 준비 정보를 확인할 수 없습니다 — 프로젝트를 다시 선택해 주세요"}, 409)
-                        return
-                if _extract_state(_active_rid()).get("busy"):
-                    self._json({"ok": False, "msg": "중단 프로젝트 결과를 보존하는 중입니다 — 완료 후 다시 실행해 주세요"}, 409)
-                    return
-            ovin = body.get("overrides") or {}
-            OVMAP = {"end_time_s": ("run", "end_time_s"), "write_interval_s": ("run", "write_interval_s"),
-                     "viz_interval_s": ("run", "viz_interval_s"), "total_W": ("heater", "total_W"),
-                     "evap_C": ("phase_change", "evap_C"), "cond_C": ("phase_change", "cond_C"),
-                     "coil_h": ("coil", "h_W_m2K"), "flow_LPM": ("coil", "flow_LPM"),
-                     "coil_UA": ("coil", "UA_target_W_K"), "Ta_C": ("coil", "Ta_C"),
-                     "liquid_height_mm": ("tank", "liquid_height_mm"),
-                     "dielectric_mm": ("layers", "dielectric_mm"),
-                     "init_T_d": ("layers", "init_T_dielectric_C"),
-                     "init_T_w": ("layers", "init_T_water_C"), "dx_mm": ("mesh", "dx_mm")}
-            ovr = {}
-            for k in OVMAP:
-                try: ovr[k] = float(ovin[k])
-                except Exception: pass
-            previous_rid = _active_rid()
-            if mode == "fresh" and previous_rid:
-                try:
-                    previous_status = get_status()
-                    _persist_project_progress(previous_rid, previous_status.get("time"))
-                except Exception:
-                    pass
-            STATE["eta"] = []
-            STATE["stop_t"] = 0                # 새 실행 — 중단 앵커 해제(정상 실행 감지 복원)
-            STATE["user_stopped"] = False; STATE["run_t"] = time.time()
-            if mode == "fresh":
-                ok_sync, sync_msg = sync_case_files()   # Windows 폴더의 설정·도구를 WSL 케이스에 자동 반영 (버튼 없이)
-                if not ok_sync:
-                    self._json({"ok": False, "msg": "설정 동기화 실패: " + (sync_msg or "오류")})
-                    return
-                # 화면에 이미 로딩된 config 전체를 우선 적용한다. 원본 파일을 이동·삭제했더라도
-                # 메인 화면의 빠른 수정값과 함께 실행할 수 있어야 한다.
-                selected_src = None
-                config_label = "config.json"
-                if reset_rid:
-                    # 기존 프로젝트의 0초 재실행은 생성 당시 스냅샷만 사용한다.
-                    # 브라우저에 남은 다른 프리셋/입력값이 원본을 덮지 않게 한다.
-                    config_label = "프로젝트 " + reset_rid + " / case_config.json"
-                    selected_src = os.path.join(proj_dir(reset_rid), "case_config.json")
-                    if not os.path.isfile(selected_src):
-                        self._json({"ok": False, "msg": "이 프로젝트의 원본 case_config.json이 없어 0초 재실행을 차단했습니다"}, 409)
-                        return
-                elif isinstance(config_payload, dict):
-                    config_label = "화면에 로딩된 설정"
-                    # 유량은 CFD 방정식 입력이 아니라 T6 냉각회로 계산·출처 기록용이지만,
-                    # 프로젝트 config 안에 함께 보존되도록 inline config에 키를 만든다.
-                    if "flow_LPM" in ovr:
-                        config_payload = json.loads(json.dumps(config_payload))
-                        config_payload.setdefault("coil", {})["flow_LPM"] = ovr["flow_LPM"]
-                    selected_src = _write_runtime_config(config_payload)
-                elif config_ref.startswith("cfg:"):
-                    config_label = cfg_safe(config_ref[4:]) + ".json"
-                    selected_src = os.path.join(CFGDIR, config_label)
-                elif config_ref.startswith("proj:"):
-                    prid = _project_key(config_ref[5:])
-                    config_label = "프로젝트 " + prid + " / config.json"
-                    selected_src = os.path.join(proj_dir(prid), "case_config.json")
-                    if prid and not os.path.isfile(selected_src):
-                        selected_src = os.path.join(proj_dir(prid), "config.json")
-                elif config_ref == "inline":
-                    config_label = "선택한 config.json"
-                    selected_src = _write_runtime_config(config_payload)
-                if config_ref or selected_src:
-                    ok_p, out_p = _apply_config_file(selected_src)
-                    if not ok_p or "APPLIED" not in out_p:
-                        self._json({"ok": False, "msg": config_label + " 적용 실패: " + (out_p or "파일 없음")[:100]})
-                        return
-                    print(f"[CFD Studio] config 적용: {config_label}")
-                if reset_rid and os.path.isdir(proj_dir(reset_rid)):
-                    # [리셋] — 같은 프로젝트를 저장된 설정 그대로 0초부터. 이전 시도의 프레임을
-                    # /api/reset이 이미 Trash로 이동했다. 이 경로에서는 설정·이름·ID만 유지하고
-                    # 파일을 다시 지우지 않음(외부 프로젝트 config.json 보존).
-                    rid_new = reset_rid
-                    pd_new = proj_dir(rid_new)
-                    try:
-                        meta = {}
-                        try: meta = json.load(open(os.path.join(pd_new, "meta.json")))
-                        except Exception: pass
-                        st0 = meta.get("settings") or {}
-                        # 리셋은 저장된 프로젝트 설정의 재현이다. 화면의 오래된 입력은 무시한다.
-                        ovr = {}
-                        for k in OVMAP:
-                            if st0.get(k) is not None:
-                                try: ovr[k] = float(st0[k])
-                                except Exception: pass
-                        cond = re.sub(r"[^A-Za-z0-9_]", "", str(st0.get("condition") or ""))
-                        output_fields = _normalize_output_fields(st0.get("output_fields"))
-                        meta["settings"] = {**st0, **ovr, "condition": cond,
-                                            "output_fields": output_fields}
-                        meta["compute_mode"] = run_mode
-                        meta["end"] = float(ovr.get("end_time_s") or meta.get("end") or 30)
-                        meta.pop("reset_at", None)
-                        meta["end_locked"] = True; meta["heal2"] = True
-                        meta_write(os.path.join(pd_new, "meta.json"), meta)
-                        open(os.path.join(FRAME_DIR, "_runid.txt"), "w").write(rid_new)
-                        _flow_invalidate(pd_new)     # 셀 좌표 캐시 무효화 (C 재생성)
-                    except Exception: pass
-                else:
-                    # 프로젝트 ID를 지금 발급 — 격자 파일 시각을 지문으로 쓰던 방식은 Allrun이
-                    # 격자 생성을 건너뛰면 이전 프로젝트와 ID가 겹쳐, 새 실행의 진행이 이전
-                    # 프로젝트 위에 표시되던 문제(95% 프로젝트가 0%로 보임)의 원인이었음
-                    rid_new = str(int(time.time()))
-                    try:                # 이 프로젝트의 폴더·이름·설정을 즉시 확정 (독립 운영)
-                        pj = {}
-                        try: pj = json.load(open(PENDF))
-                        except Exception: pass
-                        meta = {"name": pj.get("name") or time.strftime("실행 %m/%d %H:%M"),
-                                "settings": {**ovr, "condition": cond,
-                                             "output_fields": output_fields,
-                                             **({"config_ref": config_ref} if config_ref else {})},
-                                "compute_mode": run_mode,
-                                "end": float(ovr.get("end_time_s") or (get_config() or {}).get("run", {}).get("end_time_s") or 30),
-                                "end_locked": True, "heal2": True}
-                        pd_new = _create_run_project(rid_new, meta["name"], meta)
-                        open(os.path.join(FRAME_DIR, "_runid.txt"), "w").write(rid_new)
-                        if os.path.exists(PENDF): os.remove(PENDF)
-                    except Exception: pass
-                if previous_rid and previous_rid != rid_new:
-                    _persist_project_progress(previous_rid, 0, f"ProjectRuns/{previous_rid}")
-                # 직접 입력값 → run_overrides.json (build_case가 config 위에 덮어 적용)
-                j = {}
-                for k, v in ovr.items():
-                    g, kk = OVMAP[k]
-                    j.setdefault(g, {})[kk] = v
-                if j:
-                    ok_o, out_o = wsl(f"cd {WSL_CASE} && printf '%s' { _shq(json.dumps(j))} > run_overrides.json")
-                    if not ok_o:
-                        print("[CFD Studio] run_overrides 반영 실패:", out_o[:120])
-                        self._json({"ok": False, "msg": "설정 반영 실패(입력값 저장)"})
-                        return
-                else:
-                    wsl(f"cd {WSL_CASE} && rm -f run_overrides.json")
-
-                # 계산 시작 즉시 config+화면 입력값을 프로젝트에 고정. 이후 독립 설정으로 재사용 가능.
-                used_cfg = get_config() or {}
-                try:
-                    used_cfg = json.loads(json.dumps(used_cfg))
-                    for k, v in ovr.items():
-                        g, kk = OVMAP[k]
-                        used_cfg.setdefault(g, {})[kk] = v
-                    used_cfg.setdefault("run", {})["output_fields"] = output_fields
-                    # case_config.json은 해석 생성 시점의 불변 기록이다.
-                    # 기존 프로젝트 리셋에서는 다시 쓰지 않는다.
-                    if used_cfg and not reset_rid:
-                        meta_write(os.path.join(pd_new, "case_config.json"), used_cfg)
-                        # 실행용 config.json은 OpenFOAM 규약상 고정 이름으로 유지하고,
-                        # 프로젝트 안에는 사용자가 지정한 설정명으로 동일한 스냅샷을 보존한다.
-                        setting_name = config_name or str(used_cfg.get("_설정이름") or "").strip()
-                        if not setting_name and config_ref.startswith("cfg:"):
-                            setting_name = cfg_safe(config_ref[4:])
-                        if setting_name:
-                            meta_write(os.path.join(pd_new, cfg_safe(setting_name) + ".json"), used_cfg)
-                except Exception as e:
-                    self._json({"ok": False, "msg": "프로젝트 config 스냅샷 저장 실패: " + str(e)[:80]})
-                    return
-
-                run_np = _run_mpi_np(run_mode)
-                pre = f"CONDITION={cond} NP={run_np} " if cond else f"NP={run_np} "
-                inner = (f"{_run_of_bash(run_mode)}; export CUDA_VISIBLE_DEVICES={gpu_index()}; "
-                         f"export CFD_STUDIO_PRESSURE_SOLVER_MODE={run_mode}; export CFD_STUDIO_COMPUTE_MODE={run_mode}; "
-                         + ("export FOAM_MEMORY_POOL='managed; size=1024; incr=1024'; " if run_mode == "gpu_only" else "") +
-                         f"cd {WSL_CASE} || exit 1; touch .cfd_studio_user_stopped; "
-                         f"{_case_kill_script('icoReactingMultiphaseInterFoam|simpleFoam|pimpleFoam|Allrun|cfd_studio_solver_supervisor')}sleep 2; "
-                         f"rm -f .cfd_studio_user_stopped; "
-                         # 새 프로젝트는 이전 원본을 지우지 않고 실행 ID별 WSL 보관소로 이동한다.
-                         f"echo '[CFD Studio] preparing an independent project'; "
-                         f"{_archive_current_progress_script(rid_new, previous_rid)}"
-                         f"echo {rid_new} > .cfd_studio_runid; "
-                         f"foamDictionary -entry numberOfSubdomains -set {run_np} system/decomposeParDict >/dev/null 2>&1; "
-                         f"echo '[CFD Studio] 자동 성능 설정: {_mode_public(run_mode)[1]} · MPI {run_np}개 · CPU 상한 {cpu_pct()}% · GPU {gpu_index()}'; "
-                         f"{pre}nice -n 8 ./Allrun & RUNPID=$!; echo \"$RUNPID\" > .cfd_studio_allrun.pid; "
-                         f"sleep 25; APP=$(foamDictionary -entry application -value system/controlDict 2>/dev/null); "
-                         f"if [ -n \"$APP\" ] && [ -f \"log.$APP\" ]; then tail --pid=\"$RUNPID\" -f \"log.$APP\"; fi; "
-                         f"wait \"$RUNPID\"; RC=$?; rm -f .cfd_studio_allrun.pid; "
-                         f"echo \"[CFD Studio] 계산 작업 종료 (exit $RC)\"; exit \"$RC\"")
-            else:
-                # 이어서 실행 — 설정을 일절 바꾸지 않는 순수 재개 (입력값 적용은 [처음부터] 전용)
-                # 앵커 = p_rgh·T·U가 모두 있는 마지막 전체 상태 폴더. 앵커가 없으면 0초 재시작 대신 중단·안내.
-                inner = build_resume_inner(r_end, tail=True)
-            if not open_console(inner):
-                self._json({"ok": False, "msg": "콘솔 실행 실패 — WSL/파이썬 경로 확인 필요"})
-                return
-            if mode == "resume":
-                # 연장/재개가 시작됐는데 이전 완료 표식이 남으면 프로젝트 카드가
-                # 실행 중에도 완료로 보인다. 실행 상태로 되돌리고 새 상한을 함께 보존한다.
-                active = _active_rid()
-                if active:
-                    mp = os.path.join(proj_dir(active), "meta.json")
-                    meta = _read_json_file(mp) or {}
-                    for key in ("completed", "completion_reason", "completed_at"):
-                        meta.pop(key, None)
-                    if r_end is not None:
-                        meta["end"] = r_end
-                        meta.setdefault("settings", {})["end_time_s"] = r_end
-                    meta_write(mp, meta)
-            STATE["user_stopped"] = False; STATE["run_t"] = time.time()
-            self._json({"ok": True, "msg": "명령 프롬프트 창에서 실행 시작됨",
-                        "rid": _active_rid(), "cur": _active_rid(), "projects": list_projects()})
+            with EXECUTION_WORKSPACE.lock:
+                self._run_legacy(body)
         elif u.path == "/api/stop":
             # 솔버 + (격자 생성 단계였다면) Allrun 체인까지 정지 — 안 죽이면 뒤늦게 솔버가 켜짐
             active = _active_rid()
@@ -5319,10 +5352,15 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <h4 style="margin-top:0">CFD 실행</h4>
    <ul>
     <li>왼쪽 <b>식량창고</b> 프로젝트 선택</li>
-    <li><b>새 CFD 실행</b> 선택 후 실행 이름·계산 시간·격자·초기 온도 입력</li>
+    <li><b>새 CFD 실행</b> → 기본값·저장된 설정 선택 → <b>불러오기</b></li>
+    <li>항목별 설정·검색·전체 JSON으로 입력 확인, <b>설정 저장</b> 또는 <b>JSON 내보내기</b>로 보관</li>
     <li><b>계산 시작</b> 선택 후 실행 목록에서 진행 상태·솔버 로그 확인</li>
     <li>완료된 실행 선택 → <b>결과 보기</b> → 시간·농도·온도·유속 조회</li>
    </ul>
+   <h4>설정 보기</h4>
+   <ul><li>실행 목록 또는 Viewer의 <b>설정 보기</b>: 실행에 사용한 원본 입력 조회</li><li><b>이 설정으로 새 실행</b>: 기존 입력을 가져와 수정, 앞선 실행 보존</li><li>설정 창을 닫으면 보고 있던 결과 유지</li></ul>
+   <h4>결과 보기</h4>
+   <ul><li>왼쪽 실행 선택: 같은 Viewer에서 결과 전환</li><li>아래 시간 막대·이전·다음·재생: 저장 프레임 탐색</li><li>오른쪽 물리량·표시 영역: 농도·온도·유속과 단면 선택</li><li>드래그: 회전, Shift+드래그: 이동, 휠: 확대·축소</li><li>위치·시간 조회, 원본 파일, 모델·검증 상태 확인</li><li>화면 저장·CSV 저장·영상 저장: 현재 결과 내보내기</li></ul>
    <h4>프로젝트와 실행</h4>
    <ul><li>프로젝트: 실행 이력을 묶는 공간</li><li>설정: 새 CFD 실행 시 입력, 실행별 원본 보관</li><li>실행 목록: 선택한 실행의 설정·로그·결과 표시</li><li>저장고 기록: 식량창고 프로젝트의 실행 이력으로 보존</li><li>이중액침: 별도 프로젝트에서 3mm_Test 결과 조회</li><li>동시 계산: 한 번에 한 실행, 완료 후 추가 실행</li></ul>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>사용법</b></a></p>
@@ -5632,7 +5670,7 @@ async function refreshSrvInfo(){
   renderProjects(i); if(!NEWMODE)PROJ=i.rid||requested||'';
   const rp=LASTPROJS.find(p=>p.rid===(PROJ||i.rid||i.cur));
   if(rp&&rp.reset_ready&&!projectHasProgress(rp)){RESETREADY=true;NEWMODE=true;}
-  srvFromInfo(i); updateSlots();}catch(_){}
+  if(MODE!=="viz"||vzrid()===requested){srvFromInfo(i);updateSlots();}}catch(_){}
 }
 let LASTPROJS=[];
 function renderProjects(info){
@@ -7429,6 +7467,7 @@ function setMode(m){
 async function refreshVizInfo(){
  try{
   const r=vzrid(),i=await (await fetch('/api/info'+(r?('?rid='+encodeURIComponent(r)):''))).json();
+  if(r!==vzrid()||MODE!=='viz'||document.body.classList.contains('warehouse-viewer'))return;
   srvFromInfo(i);renderProjects(i);updateSlots();
  }catch(_){}
 }
@@ -7447,7 +7486,7 @@ function playbackDuration(c,p){
 }
 function fmtPlaybackSeconds(v){return Number(v).toLocaleString(undefined,{maximumFractionDigits:2});}
 function applyAnalysisTypeUI(){
- if(document.body.classList.contains('grouped')&&MODE==='cfd')return;
+ if(document.body.classList.contains('grouped')&&(MODE==='cfd'||document.body.classList.contains('warehouse-viewer')))return;
  const active=MODE==='viz'?(VIZCFG||CFG):CFG;
  if(isTracerConfig(active)){
   document.getElementById('appContext').textContent='가스 수송 CFD · 정규화 추적자';
@@ -8635,6 +8674,7 @@ __TRACER_VIEWER__
  }catch(_){}
 })();
 </script>
+<script src="/config_editor.js"></script>
 <script src="/execution_workspace.js"></script>
 </body></html>
 '''
@@ -9270,7 +9310,7 @@ def autosync_loop():
 def _kill_previous():
     """포트를 잡고 있는 이전 CFD Studio 프로세스 종료 (업데이트 후 옛 화면이 계속 뜨는 문제 방지)"""
     try:
-        out = subprocess.run(["netstat", "-ano"], capture_output=True, text=True, timeout=10).stdout
+        out = subprocess.run(["netstat", "-ano"], capture_output=True, text=True, timeout=10, creationflags=0x08000000 if os.name == "nt" else 0).stdout
     except Exception:
         return
     me = str(os.getpid())
@@ -9459,7 +9499,7 @@ def _repair_identity():
                 "end": float(st.get("end_time_s") or (get_config() or {}).get("run", {}).get("end_time_s") or 30),
                 "end_locked": True, "heal2": True}
         _create_run_project(rid_new, meta["name"], meta)
-        open(os.path.join(FRAME_DIR, "_runid.txt"), "w").write(rid_new)
+        with open(os.path.join(FRAME_DIR, "_runid.txt"), "w") as run_file: run_file.write(rid_new)
         os.remove(PENDF)
     except Exception:
         pass
