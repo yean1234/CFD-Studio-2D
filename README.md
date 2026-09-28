@@ -2,7 +2,13 @@
 
 Windows에서 OpenFOAM 계산과 프로젝트별 데이터 보관, 브라우저 3D 시각화를 운영하는 연구용 소프트웨어입니다. 포대식 쌀 저장고의 유속·온도·ClO₂ 농도 연결 계산과 별도 결과 화면을 제공하며, 기존 액침냉각·단상 저장고 기능도 포함합니다.
 
-**처음 사용한다면 [빠른 사용 안내](docs/quickstart-ko.md)를 확인하세요.** 포대식 쌀 저장고의 계산·조회·검증 상태는 [별도 저장고 사용·검증 안내](docs/CFD-STUDIO-USER-GUIDE.md)에 정리했습니다.
+## 먼저 볼 문서
+
+| 화면을 따라 하고 싶다면 | 계산의 의미가 궁금하다면 |
+|---|---|
+| **[사용법 — 스크린샷으로 따라 하기](docs/CFD-STUDIO-USER-GUIDE.md)** | **[설명서 — 모델·단위·검증 상태](docs/CFD-STUDIO-MANUAL.md)** |
+
+처음 설치할 때는 [설치·운영 안내](cfd_studio/README.md)를 확인하세요.
 
 **현재 모델 범위:** 누출 없는 밀폐 저장고에서 포대 곡물 적재 영역을 균질 다공성으로 계산합니다. [곡물 모델·세 격자 비교 결과](docs/warehouse-porous-grid-review-20260928.md)를 확인하세요.
 
@@ -85,7 +91,8 @@ v174 기반 코드를 보존하고 연구 작업 경로를 v177에 추가했습�
 ## 문서와 라이선스
 
 - [빠른 사용 안내](docs/quickstart-ko.md)
-- [포대식 저장고 수송 사용·검증 안내](docs/CFD-STUDIO-USER-GUIDE.md)
+- [저장고 사용법 · 스크린샷](docs/CFD-STUDIO-USER-GUIDE.md)
+- [저장고 설명서 · 모델과 검증](docs/CFD-STUDIO-MANUAL.md)
 - [상세계획서 기반 첫 ClO₂ 농도장 결과](docs/warehouse-plan-scenario-20260928.md)
 - [앱 사용법](cfd_studio/README.md)
 - [배포 및 검증 범위](docs/distribution.md)

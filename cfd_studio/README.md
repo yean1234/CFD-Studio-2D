@@ -1,6 +1,6 @@
 # CFD Studio 사용법
 
-Git 배포본 기준입니다. 처음에는 [빠른 사용 안내](../docs/quickstart-ko.md)를, 포대식 저장고 수송은 [저장고 사용·검증 안내](../docs/CFD-STUDIO-USER-GUIDE.md)를, 연구 변수·후보·비교 작업은 [실험 묶음 사용법](../docs/research-studies.md)을 확인하세요. 이 문서는 기존 프로젝트의 설치·실행·보관을 자세히 설명합니다. [검증 범위](../docs/ux-review-20260926.md)도 함께 제공합니다.
+Git 배포본 기준입니다. 처음에는 [빠른 사용 안내](../docs/quickstart-ko.md)를, 포대식 저장고 수송은 [스크린샷 사용법](../docs/CFD-STUDIO-USER-GUIDE.md)과 [모델 설명서](../docs/CFD-STUDIO-MANUAL.md)를, 연구 변수·후보·비교 작업은 [실험 묶음 사용법](../docs/research-studies.md)을 확인하세요. 이 문서는 기존 프로젝트의 설치·실행·보관을 자세히 설명합니다. [검증 범위](../docs/ux-review-20260926.md)도 함께 제공합니다.
 
 ## 1. 설치
 

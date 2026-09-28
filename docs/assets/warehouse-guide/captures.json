@@ -1,0 +1,44 @@
+{
+  "help": {
+    "file": "help.png",
+    "sha256": "5bda44c75b63c7244d381f735979b752e98fc4f089bb755211b828d5e7cf8914",
+    "capture": "unmodified Playwright element screenshot",
+    "source": "read-only help preview",
+    "time_s": null
+  },
+  "selection": {
+    "file": "selection.png",
+    "sha256": "191a25311ed87ded342c8c25526ada2835b220c17d7cc1be266ee08fbc4b03ca",
+    "capture": "unmodified Playwright element screenshot",
+    "source": "warehouse_transport_porous_r4_20260928_01",
+    "time_s": 300
+  },
+  "concentration": {
+    "file": "concentration.png",
+    "sha256": "681b79260e9e4059746ec9203da18bb0e2e0798c221273afdeab5bbfb92af91c",
+    "capture": "unmodified Playwright element screenshot",
+    "source": "warehouse_transport_porous_r4_20260928_01",
+    "time_s": 300
+  },
+  "temperature": {
+    "file": "temperature.png",
+    "sha256": "c495262f0fabb486faa822eef04cc905172be50f9a6509d852fdfb05dd5c4028",
+    "capture": "unmodified Playwright element screenshot",
+    "source": "warehouse_transport_porous_r4_20260928_01",
+    "time_s": 300
+  },
+  "velocity": {
+    "file": "velocity.png",
+    "sha256": "0f6c25f63ff78c6b310464acd6729b08f509b8cc7256cfca5e8dbdba4158468d",
+    "capture": "unmodified Playwright element screenshot",
+    "source": "warehouse_transport_porous_r4_20260928_01",
+    "time_s": 300
+  },
+  "query": {
+    "file": "query.png",
+    "sha256": "d800316749d04c91e1682cd55c202ff782bca1deadf43526168a6a7ccbc1d0d8",
+    "capture": "unmodified Playwright element screenshot",
+    "source": "warehouse_transport_porous_r4_20260928_01",
+    "time_s": 270
+  }
+}

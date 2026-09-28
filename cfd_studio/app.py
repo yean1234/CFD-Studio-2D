@@ -5281,12 +5281,13 @@ INDEX_HTML = r'''<!DOCTYPE html>
   <h3>CFD Studio <span class="badge" id="ifVer">__APP_VER__</span>
       <button class="mini x" onclick="closeInfo()">닫기 ✕</button></h3>
   <div class="tabs">
-   <button id="ifT0" class="on" onclick="infoTab(0)">이 소프트웨어</button>
+   <button id="ifT0" class="on" onclick="infoTab(0)">설명서</button>
    <button id="ifT1" onclick="infoTab(1)">사용법</button>
    <button id="ifT2" onclick="infoTab(2)">성능</button>
    <button id="ifT3" onclick="infoTab(3)">제작자</button>
   </div>
   <div class="ibx" id="ifB0">
+   <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-MANUAL.md" target="_blank" rel="noopener noreferrer"><b>설명서 열기 — 모델·단위·검증 상태</b></a></p>
    <p style="margin:0 0 10px">CFD Studio는 액침냉각, 단상 저장고, 포대식 저장고 연구를 위한 계산·결과 관리 화면입니다. 각 결과의 연구 대상과 계산 모델을 확인한 뒤 해석하세요.</p>
    <div class="kv">
     <table>
@@ -5298,6 +5299,16 @@ INDEX_HTML = r'''<!DOCTYPE html>
    </div>
   </div>
   <div class="ibx" id="ifB1" style="display:none">
+   <h4 style="margin-top:0">포대식 쌀 저장고 · 결과 보기</h4>
+   <ol>
+    <li><a href="/warehouse/results"><b>저장고 수송 결과</b></a>를 엽니다.</li>
+    <li><b>완료된 결과</b>에서 <code>warehouse_transport_porous_r4_20260928_01</code>을 선택합니다.</li>
+    <li><b>저장 프레임</b>으로 시간을 고르고, <b>표시할 물리량</b>에서 농도·온도·유속을 선택합니다.</li>
+    <li><b>위치·시간 조회</b>에 좌표와 시간을 입력하고 <b>조회</b>를 누릅니다.</li>
+   </ol>
+   <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>스크린샷 사용법 열기 — 화면 따라 하기</b></a></p>
+   <p class="mhint">이 사례는 300초까지 계산했습니다. 누출 제외·다공성 곡물 모델이며 격자·시간간격 수렴 기준은 아직 미달입니다. 새 CFD 실행은 명령줄에서 진행하며 Study 실행 버튼과 연결되지 않았습니다. 모델·단위 설명은 <b>설명서</b> 탭을 확인하세요.</p>
+   <details><summary>기존 액침냉각·단상 저장고 사용법</summary>
    <h4>액침냉각·단상 저장고 계산</h4>
    <div class="kv"><table>
     <tr><td>1. 설정</td><td>목록에서 기존 설정을 고릅니다. 상세값을 바꾸려면 카드 오른쪽 <b>＋</b>로 새 설정을 만듭니다.</td></tr>
@@ -5306,16 +5317,6 @@ INDEX_HTML = r'''<!DOCTYPE html>
     <tr><td>4. 계산</td><td><b>실행</b>을 누릅니다. 검은 콘솔은 계산 로그이며, CFD Studio 창은 켜 둡니다.</td></tr>
     <tr><td>5. 결과</td><td>위쪽 <b>Viewer</b> → 프로젝트 클릭 → <b>생성</b> → 하단 재생. 새 스냅샷만 더 받을 때는 <b>업데이트</b>를 누릅니다.</td></tr>
    </table></div>
-   <h4>포대식 저장고 수치시험</h4>
-   <ol>
-    <li><a href="/warehouse">저장고 설정·격자</a>에서 공칭 형상을 확인하고 새 설정으로 저장한 뒤 격자 검사를 실행합니다.</li>
-    <li><a href="/warehouse/results">저장고 수송 결과</a>에서 완료된 시험을 선택합니다. 프레임 색 점은 셀 중심 표본이며 실제 체적 렌더링이 아닙니다.</li>
-    <li>곡물 경계 정렬 격자의 최신 결과는 <code>warehouse_transport_porous_r4_20260928_01</code>(119,040셀·300초·6프레임)입니다. 곡물/공극 부피, 누출 제외, 격자 수렴 미완료 표시를 확인합니다. <a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/warehouse-porous-grid-review-20260928.md" target="_blank" rel="noopener noreferrer">다공성 곡물·격자 검사 설명</a>을 참고하세요.</li>
-    <li>이전 연결 계산은 <code>warehouse_transport_coupled_1h_20260928_01</code>을 선택합니다. 1시간·5분 간격의 13프레임입니다. <b>표시할 물리량</b>에서 농도·온도·유속을 바꾸고 중앙 통로 단면을 선택할 수 있습니다. 유속 화살표는 방향과 상대 크기를 나타냅니다.</li>
-    <li>좌표·시간 조회에서 농도(mg/m³), 온도(°C), 유속 벡터(m/s), 셀 대표점 거리와 C·T·U 원본 파일을 확인합니다. 연결 계산 온도는 열방정식 결과입니다. 이전 <code>warehouse_transport_plan_20260928_01</code>의 7일 결과는 정지 공기 확산·공간 균일 기온 입력입니다.</li>
-    <li>수송 계산과 격자·시간 세분화 재현 명령은 저장소의 <a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer">별도 사용·검증 문서</a>를 참고하세요. 이 계산은 현재 Studio의 Study 실행 버튼과 연결되지 않았습니다. 격자 비교에서 농도·유속 차이가 확인되어 수렴 완료로 판정하지 않았습니다.</li>
-   </ol>
-   <p class="mhint">연구 변수·3D 후보 화면의 적재 배치와 공급 위치는 설계 미리보기입니다. 실측 검증에 근거한 공급량 최적화 결과로 해석하지 마세요.</p>
    <h4>버튼이 헷갈릴 때</h4>
    <ul>
     <li><b>실행</b> — 진행 자료가 없을 때 0초부터 새 계산</li>
@@ -5332,7 +5333,8 @@ INDEX_HTML = r'''<!DOCTYPE html>
    </ul>
    <h4>새 컴퓨터에서 처음 한 번만</h4>
    <p style="margin:0"><b>Setup\Python312</b>의 고정 Python 3.12.10 런타임이 자동 사용됩니다. 별도 Python 설치 없이 <b>설치.bat</b>을 실행하고, WSL이 처음 설치되면 재부팅 후 한 번 더 실행합니다.</p>
-   <p class="mhint" style="margin-top:12px">자세한 내용은 케이스 폴더의 <b>CFD_Studio_사용법 PDF</b> 와 <b>README.md</b> 에 있습니다.</p>
+   <p class="mhint" style="margin-top:12px">기존 프로젝트의 상세 절차는 <a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/cfd_studio/README.md" target="_blank" rel="noopener noreferrer">앱 설치·운영 안내</a>를 참고하세요.</p>
+   </details>
   </div>
   <div class="ibx" id="ifB2" style="display:none">
    <h4 style="margin-top:0">저장고 연결 계산 실행 기록</h4>
