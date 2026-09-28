@@ -1,7 +1,7 @@
 {
   "help": {
     "file": "help.png",
-    "sha256": "5bda44c75b63c7244d381f735979b752e98fc4f089bb755211b828d5e7cf8914",
+    "sha256": "2b808882b2318b1c49f301308f86fd43ff170ddd08ac500025e330e1cdf06145",
     "capture": "unmodified Playwright element screenshot",
     "source": "read-only help preview",
     "time_s": null

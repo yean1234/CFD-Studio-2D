@@ -5287,27 +5287,27 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <button id="ifT3" onclick="infoTab(3)">제작자</button>
   </div>
   <div class="ibx" id="ifB0">
-   <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-MANUAL.md" target="_blank" rel="noopener noreferrer"><b>설명서 열기 — 모델·단위·검증 상태</b></a></p>
-   <p style="margin:0 0 10px">CFD Studio는 액침냉각, 단상 저장고, 포대식 저장고 연구를 위한 계산·결과 관리 화면입니다. 각 결과의 연구 대상과 계산 모델을 확인한 뒤 해석하세요.</p>
+   <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-MANUAL.md" target="_blank" rel="noopener noreferrer"><b>설명서</b></a></p>
+   <p style="margin:0 0 10px">대상: 액침냉각·단상 저장고·포대식 저장고<br>기능: 계산·결과 관리<br>확인 항목: 연구 대상·계산 모델·단위·검증 상태</p>
    <div class="kv">
     <table>
      <tr><td>액침냉각</td><td>이중 액침냉각 수조 · OpenFOAM v2312의 3상 VOF·상변화 계산. T1~T6 가상 프로브와 결과 Viewer가 있습니다.</td></tr>
      <tr><td>단상 저장고</td><td>설정별 OpenFOAM 솔버·단위를 확인하세요. 저장된 원본장과 별도 실험 검증 여부는 각각 확인해야 합니다.</td></tr>
-     <tr><td>포대식 쌀 저장고</td><td>78 m 저장동의 포대 곡물 적재 영역을 균질 다공성으로 정의하고 유속·온도·ClO₂ 농도를 연결해 계산합니다. 누출은 이번 범위에서 제외합니다. 외기온으로 인한 부력, 적재 저항과 열저장을 포함한 가정 시나리오이며 기존 확산·정규화 시험과 구분합니다. 1시간 구간을 실제 실행했으며 7일 연결 계산은 아직 실행하지 않았습니다.</td></tr>
+     <tr><td>포대식 쌀 저장고</td><td>78 m 저장동, 균질 다공성 곡물<br>유속·온도·ClO₂ 농도 연결 계산<br>누출 제외, 물성·경계조건은 가정값<br>최신 다공성 사례 300초, 이전 연결 사례 1시간<br>7일 전체 연결 계산 미완료</td></tr>
      <tr><td>검증 경계</td><td>파일 무결성·수치시험 통과와 실제 저장고의 물리적 정확도·실험 검증은 별개입니다. 실내 치수, 적재, 개구, 유동 및 독립 실측은 아직 확정되지 않았습니다.</td></tr>
     </table>
    </div>
   </div>
   <div class="ibx" id="ifB1" style="display:none">
-   <h4 style="margin-top:0">포대식 쌀 저장고 · 결과 보기</h4>
+   <h4 style="margin-top:0">결과 조회</h4>
    <ol>
-    <li><a href="/warehouse/results"><b>저장고 수송 결과</b></a>를 엽니다.</li>
-    <li><b>완료된 결과</b>에서 <code>warehouse_transport_porous_r4_20260928_01</code>을 선택합니다.</li>
-    <li><b>저장 프레임</b>으로 시간을 고르고, <b>표시할 물리량</b>에서 농도·온도·유속을 선택합니다.</li>
-    <li><b>위치·시간 조회</b>에 좌표와 시간을 입력하고 <b>조회</b>를 누릅니다.</li>
+    <li><a href="/warehouse/results"><b>저장고 수송 결과</b></a> 선택</li>
+    <li><b>완료된 결과</b>: <code>warehouse_transport_porous_r4_20260928_01</code> 선택</li>
+    <li><b>저장 프레임</b>: 시간 선택 · <b>표시할 물리량</b>: 농도·온도·유속 선택</li>
+    <li><b>위치·시간 조회</b>: 좌표·시간 입력 후 <b>조회</b> 선택</li>
    </ol>
-   <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>스크린샷 사용법 열기 — 화면 따라 하기</b></a></p>
-   <p class="mhint">이 사례는 300초까지 계산했습니다. 누출 제외·다공성 곡물 모델이며 격자·시간간격 수렴 기준은 아직 미달입니다. 새 CFD 실행은 명령줄에서 진행하며 Study 실행 버튼과 연결되지 않았습니다. 모델·단위 설명은 <b>설명서</b> 탭을 확인하세요.</p>
+   <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>사용법</b></a></p>
+   <ul class="mhint"><li>계산 범위: 300초, 누출 제외, 다공성 곡물</li><li>격자·시간간격 수렴: 기준 미달</li><li>새 CFD 실행: 명령줄 사용, Study 실행 버튼 미연결</li><li>모델·단위: <b>설명서</b> 탭 참고</li></ul>
    <details><summary>기존 액침냉각·단상 저장고 사용법</summary>
    <h4>액침냉각·단상 저장고 계산</h4>
    <div class="kv"><table>

@@ -1,6 +1,9 @@
-# 설명서 스크린샷
+# 스크린샷
 
-2026-09-28, 실제 Studio HTML을 별도 읽기 전용 브라우저에서 촬영했다. 기존 사용자 Chrome과 CFD 실행에는 손대지 않았다.
+- 촬영일: 2026-09-28
+- 촬영 대상: 실제 Studio HTML
+- 촬영 환경: 별도 읽기 전용 브라우저
+- 기존 Chrome·CFD 실행: 변경 없음
 
 | 이미지 | 화면·입력 |
 |---|---|
@@ -11,5 +14,8 @@
 | velocity.png | 유속·방향, 300 s, 중앙 통로 단면 |
 | query.png | 좌표 (39, 12.5, 3) m, 270 s, 최대 거리 3 m 조회 |
 
-결과 출처: `output/warehouse_transport_porous_r4_20260928_01`.
-화면 요소 단위로 직접 캡처한 원본 PNG이며 숫자·상태·이미지 내용을 수정하지 않았다. 파일 해시는 [captures.json](captures.json)에 기록했다. 계산 원본은 로컬 보존 대상으로 GitHub에는 포함하지 않는다.
+- 결과 출처: `output/warehouse_transport_porous_r4_20260928_01`
+- 파일 형식: 화면 요소 단위로 직접 캡처한 원본 PNG
+- 이미지 내용: 숫자·상태 변경 없음
+- 파일 해시: [captures.json](captures.json)
+- 계산 원본: 로컬 보존, GitHub 제외
