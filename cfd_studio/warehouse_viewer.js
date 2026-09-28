@@ -9,16 +9,17 @@ function warehouseField(){return LY('lyTvol')?'temperature':'concentration';}
 function warehouseValues(f,field){return field==='temperature'?f.temperature_field_C:f.concentration;}
 function warehouseRange(a,b,field){const x=field==='temperature'?a.temperature_range_C:[a.minimum,a.maximum],y=field==='temperature'?b.temperature_range_C:[b.minimum,b.maximum];return [Math.min(x[0],y[0]),Math.max(x[1],y[1])];}
 function warehouseCamera(){if(!WH)return;const g=WH.meta.geometry;tgt=[g.length_m*500,g.width_m*500,(g.eaves_m+g.roof_rise_m)*420];rad=Math.max(g.length_m,g.width_m,g.eaves_m+g.roof_rise_m)*2500;th=-.25;ph=.35;}
-function rememberWarehouse(){if(!WH||!warehouseActive())return;WHSAVED.set(WH.id,{clock,th,ph,rad,tgt:[...tgt],layers:Object.fromEntries(WHLAYERS.map(id=>[id,!!document.getElementById(id).checked]))});}
+function rememberWarehouse(){if(!WH||!warehouseActive())return;WHSAVED.set(WH.id,{clock,th,ph,rad,tgt:[...tgt],flowDensity:document.getElementById('whFlowDensity')?.value||'6000',layers:Object.fromEntries(WHLAYERS.map(id=>[id,!!document.getElementById(id).checked]))});}
 function suspendWarehouseViewer(){rememberWarehouse();WHGEN++;for(const r of WHREQUESTS)r.abort();WHREQUESTS.clear();setPlay(false,true);PLAYBUFSEQ++;PLAYBUFFERING=false;}
 function cancelViewerLoad(){VLOADGEN++;VFRAMEGEN++;VPREFETCHTOKEN++;PLAYBUFSEQ++;PLAYBUFFERING=false;loadFrames.busy=false;loadFrames.pending=false;if(REC)stopVideo();setPlay(false,true);}
 async function warehouseAPI(path){const abort=new AbortController();WHREQUESTS.add(abort);try{const r=await fetch('/api/warehouse/results/'+path,{signal:abort.signal});const d=await r.json();if(!r.ok)throw Error(d.error||d.msg||'결과 읽기 실패');return d;}finally{WHREQUESTS.delete(abort);}}
 function warehouseLabel(id,text,show=true){const input=document.getElementById(id),row=input.closest('label'),sw=row.querySelector('.sw');row.style.display=show?'':'none';row.title=text;while(sw?.nextSibling)sw.nextSibling.remove();if(sw)row.append(document.createTextNode(text));}
-function saveWarehouseUI(){if(WHBASE)return;WHBASE={gradient:document.querySelector('#tcbar .grad').style.background,mode:configureViewerFields.mode,labels:{},titles:GDEF.map(d=>d.title),hrow:document.querySelector('#hud .hrow').innerHTML,graph:document.getElementById('exGraph').innerHTML};
+function saveWarehouseUI(){if(WHBASE)return;WHBASE={flowGradient:document.getElementById('vbarRange').previousElementSibling.style.background,gradient:document.querySelector('#tcbar .grad').style.background,mode:configureViewerFields.mode,labels:{},titles:GDEF.map(d=>d.title),hrow:document.querySelector('#hud .hrow').innerHTML,graph:document.getElementById('exGraph').innerHTML};
  for(const id of WHLAYERS){const input=document.getElementById(id),row=input.closest('label'),sw=row.querySelector('.sw'),nodes=[];for(let n=sw?.nextSibling;n;n=n.nextSibling)nodes.push(n.cloneNode(true));WHBASE.labels[id]={nodes,display:row.style.display,title:row.title,checked:input.checked,disabled:input.disabled};}}
 function restoreWarehouseUI(){if(!WHBASE)return;lastTbarShow=null;lastVbarShow=null;for(const [id,v] of Object.entries(WHBASE.labels)){const input=document.getElementById(id),row=input.closest('label'),sw=row.querySelector('.sw');while(sw?.nextSibling)sw.nextSibling.remove();for(const n of v.nodes)row.append(n.cloneNode(true));row.style.display=v.display;row.title=v.title;input.checked=v.checked;input.disabled=v.disabled;}
+ document.getElementById('vbarRange').previousElementSibling.style.background=WHBASE.flowGradient;
  document.querySelector('#tcbar .grad').style.background=WHBASE.gradient;configureViewerFields.mode=WHBASE.mode;GDEF.forEach((d,i)=>d.title=WHBASE.titles[i]);document.querySelector('#hud .hrow').innerHTML=WHBASE.hrow;document.getElementById('exGraph').innerHTML=WHBASE.graph;WHBASE=null;
- document.getElementById('warehouseDetails')?.remove();document.getElementById('warehouseCSV')?.remove();document.getElementById('autoSync').closest('label').style.display='';document.getElementById('saveShot').title='현재 3D 화면 저장';document.getElementById('gcol')._keys='';
+ document.getElementById('whFlowControls')?.remove();document.getElementById('warehouseDetails')?.remove();document.getElementById('warehouseCSV')?.remove();document.getElementById('autoSync').closest('label').style.display='';document.getElementById('saveShot').title='현재 3D 화면 저장';document.getElementById('gcol')._keys='';
  document.querySelector('#tcbar>div').textContent='온도 °C';document.getElementById('tcSat').style.display='';document.getElementById('tcSatL').style.display='';
  const old=document.getElementById('tracerStats');if(old)old.style.display='none';}
 function configureWarehouseUI(){if(!WH)return;saveWarehouseUI();document.body.classList.remove('tracerView');
@@ -26,6 +27,16 @@ function configureWarehouseUI(){if(!WH)return;saveWarehouseUI();document.body.cl
  configureViewerFields.mode='warehouse';const available=WH.meta.available_fields||['concentration'];
  for(const [id,text,show] of [['lyBub','농도장',true],['lyPhase','상분율',false],['lySlice','속도장 · 흐름 마커',available.includes('velocity')],['lyTvol','온도장',available.includes('temperature')],['lyGeo','다공성 곡물',!!WH.meta.loading?.blocks?.length],['lyTank','저장고 외곽',true],['lyCoil','코일',false],['lyBound','중앙 통로 단면',true],['lyProbe','측정점',false],['lyInfo','시간·원본 정보',true],['gcT','온도 범위',available.includes('temperature')],['gcV','농도 범위',true],['gcB','최대 유속',available.includes('velocity')],['gcL','층별 평균',false]])warehouseLabel(id,text,show);
  for(const id of ['lyBub','lySlice','lyTvol']){const input=document.getElementById(id);input.disabled=!available.includes(id==='lyBub'?'concentration':id==='lySlice'?'velocity':'temperature');input.closest('label').classList.toggle('off2',input.disabled);}
+ if(!document.getElementById('whFlowControls')){
+  const row=document.createElement('div');row.id='whFlowControls';row.style.cssText='display:flex;align-items:center;gap:8px;margin:8px 0 12px;font-size:11px;color:var(--muted)';
+  const label=document.createElement('label');label.htmlFor='whFlowDensity';label.textContent='표시 밀도';
+  const select=document.createElement('select');select.id='whFlowDensity';select.setAttribute('aria-label','속도장 표시 밀도');select.style.cssText='flex:1;min-width:0;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:var(--surface2);color:var(--ink);font:inherit';
+  for(const [value,text] of [['1500','표준'],['6000','세밀'],['18000','매우 세밀']])select.append(new Option(text,value));select.value=WHSAVED.get(WH.id)?.flowDensity||'6000';
+  select.onchange=()=>{WH.flowDrawKey='';rememberWarehouse();};row.append(label,select);document.getElementById('lySlice').closest('label').after(row);
+ }
+ document.getElementById('vbarRange').previousElementSibling.style.background='linear-gradient(90deg,#0b4b6b,#5b9268,#ffe03d)';
+ document.getElementById('whFlowDensity').value=WHSAVED.get(WH.id)?.flowDensity||'6000';
+ document.getElementById('whFlowControls').hidden=!available.includes('velocity');
  GDEF[0].title='온도 범위 (°C)';GDEF[1].title='농도 범위 ('+WH.unit+')';GDEF[2].title='최대 유속 (m/s)';
  for(const d of GDEF){const option=document.querySelector('#exGraph option[value="'+d.id+'"]');if(option){option.textContent=d.title;option.disabled=d.id==='gcL'||d.id==='gcT'&&!available.includes('temperature')||d.id==='gcB'&&!available.includes('velocity');}}
  if(document.querySelector('#exGraph option:checked')?.disabled)document.getElementById('exGraph').value='gcV';
@@ -64,7 +75,7 @@ async function loadWarehouseResult(id,name){rememberWarehouse();suspendWarehouse
 }
 function warehouseFrameReady(i){return !!(WH&&FRAMES[i]&&WH.cache.has(i));}
 async function ensureWarehouseFrame(i){const w=WH,gen=WHGEN;if(!w||!FRAMES[i])return false;if(w.cache.has(i))return true;if(w.pending.has(i))return w.pending.get(i);
- const promise=(async()=>{try{const f=await warehouseAPI('frame?id='+encodeURIComponent(w.id)+'&index='+i);if(gen!==WHGEN||WH!==w)return false;const first=w.cache.values().next().value;if(first&&!warehouseCompatible(first,f))throw Error('프레임 간 셀 좌표 또는 표본 순서가 다릅니다');w.cache.set(i,f);while(w.cache.size>8){const keys=[...w.cache.keys()].sort((a,b)=>Math.abs(b-idx)-Math.abs(a-idx));w.cache.delete(keys[0]);}w.stats.set(i,{t:f.time_s,c:[f.minimum,f.maximum],T:f.temperature_range_C,U:f.speed_range_m_s});FRAMES[i].ready=true;FRAMES[i].statsReady=true;document.getElementById('gcol')._keys='';return true;
+ const promise=(async()=>{try{const f=await warehouseAPI('frame?id='+encodeURIComponent(w.id)+'&index='+i+'&maximum_points=125000');if(gen!==WHGEN||WH!==w)return false;const first=w.cache.values().next().value;if(first&&!warehouseCompatible(first,f))throw Error('프레임 간 셀 좌표 또는 표본 순서가 다릅니다');w.cache.set(i,f);while(w.cache.size>Math.max(2,Math.min(8,Math.floor(400000/f.displayed_cells)))){const keys=[...w.cache.keys()].sort((a,b)=>Math.abs(b-idx)-Math.abs(a-idx));w.cache.delete(keys[0]);}w.stats.set(i,{t:f.time_s,c:[f.minimum,f.maximum],T:f.temperature_range_C,U:f.speed_range_m_s});FRAMES[i].ready=true;FRAMES[i].statsReady=true;document.getElementById('gcol')._keys='';return true;
  }catch(e){if(gen===WHGEN&&e.name!=='AbortError'){VSTREAMERR.add('frame-load');setPlay(false,true);toast('결과 읽기 실패: '+e.message,true);}return false;}finally{w.pending.delete(i);}})();w.pending.set(i,promise);return promise;
 }
 function warehouseGPU(){if(WHGPU)return WHGPU;const shader=prog(`attribute vec3 aP;attribute float aA;attribute float aB;uniform mat4 uM;uniform float uMix;uniform vec2 uRange;uniform float uSize;uniform float uK;varying float vValue;varying float vY;void main(){gl_Position=uM*vec4(aP,1.);gl_PointSize=clamp(uSize*uK/max(gl_Position.w,1.),2.,46.);vValue=clamp((mix(aA,aB,uMix)-uRange.x)/max(uRange.y-uRange.x,0.000000001),0.,1.);vY=aP.y;}`,
@@ -76,10 +87,51 @@ function warehouseDrawCloud(M,a,b,u,field){if(!warehouseValues(a,field)||!wareho
  const geo=WH.meta.geometry;const size=Math.cbrt(geo.length_m*geo.width_m*geo.eaves_m/WH.count)*2300;gl.uniform1f(gl.getUniformLocation(p,'uSize'),size);gl.uniform1f(gl.getUniformLocation(p,'uSlice'),LY('lyBound')?1:0);gl.uniform1f(gl.getUniformLocation(p,'uMid'),geo.width_m*500);gl.uniform1f(gl.getUniformLocation(p,'uTemp'),field==='temperature'?1:0);
  for(const [name,buffer,n] of [['aP',g.pos,3],['aA',g.a,1],['aB',g.b,1]]){const loc=gl.getAttribLocation(p,name);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,0,0);}gl.drawArrays(gl.POINTS,0,WH.count);
  for(const name of ['aP','aA','aB'])gl.disableVertexAttribArray(gl.getAttribLocation(p,name));}
-function warehouseDrawFlow(M,a,b,u){if(!a.velocity_m_s||!b.velocity_m_s)return;const stride=Math.max(1,Math.ceil(a.cell_centres_m.length/350)),arrows=[],dots=[],max=Math.max(a.speed_range_m_s[1],b.speed_range_m_s[1],1e-10),scale=Math.max(WH.meta.geometry.width_m,WH.meta.geometry.eaves_m)*1000;
- for(let k=0;k<a.cell_centres_m.length;k+=stride){const xyz=a.cell_centres_m[k];if(LY('lyBound')&&Math.abs(xyz[1]-WH.meta.geometry.width_m/2)>.65)continue;const velocity=a.velocity_m_s[k].map((x,d)=>warehouseBlend(x,b.velocity_m_s[k][d],u)),speed=Math.hypot(...velocity);if(speed<max*.025)continue;const r=Math.min(1,speed/max),length=scale*(.018+.065*r),v=velocity.map(x=>x/speed),start=xyz.map(x=>x*1000),end=start.map((x,d)=>x+v[d]*length);const perp=Math.hypot(v[0],v[1])>1e-5?[-v[1],v[0],0]:[1,0,0];const norm=Math.hypot(...perp);for(const sign of [-1,1]){const tip=end.map((x,d)=>x-v[d]*length*.23+sign*perp[d]/norm*length*.1);arrows.push(...end,r,...tip,r);}arrows.push(...start,r,...end,r);const q=(k*.6180339+clock*(.32+.55*r))%1;dots.push(...start.map((x,d)=>x+v[d]*length*q),r);}
- for(const [program,buffer,vertices,mode] of [[arrowP,WHGPU.arrows,arrows,gl.LINES],[flowDotP,WHGPU.dots,dots,gl.POINTS]]){gl.useProgram(program);gl.uniformMatrix4fv(gl.getUniformLocation(program,'uM'),false,new Float32Array(M));if(program===arrowP){gl.uniform1f(gl.getUniformLocation(program,'uSilo'),1);gl.uniform1f(gl.getUniformLocation(program,'uIf'),0);}gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(vertices),gl.DYNAMIC_DRAW);for(const [name,n,offset] of [['aP',3,0],['aS',1,12]]){const loc=gl.getAttribLocation(program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,16,offset);}gl.drawArrays(mode,0,vertices.length/4);for(const name of ['aP','aS'])gl.disableVertexAttribArray(gl.getAttribLocation(program,name));}
- document.getElementById('vbarTitle').textContent='유속 m/s · 방향 표시 마커';document.getElementById('vbarRange').textContent='0 ~ '+max.toPrecision(3);}
+// Select existing cell centres in spatial bins; never invent finer CFD values.
+function warehouseFlowSamples(points,budget,mid=null){
+ const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];
+ let nearest=Infinity;for(const p of points){for(let d=0;d<3;d++){lo[d]=Math.min(lo[d],p[d]);hi[d]=Math.max(hi[d],p[d]);}if(mid!==null)nearest=Math.min(nearest,Math.abs(p[1]-mid));}
+ const band=Math.max(.65,nearest+1e-7),candidates=[];
+ for(let i=0;i<points.length;i++)if(mid===null||Math.abs(points[i][1]-mid)<=band)candidates.push(i);
+ if(!candidates.length)return {indices:[],spacing:1};
+ const axes=mid===null?[0,1,2]:[0,2],volume=axes.reduce((v,d)=>v*Math.max(hi[d]-lo[d],.01),1);
+ let spacing=Math.pow(volume/Math.min(budget,candidates.length),1/axes.length);
+ if(candidates.length<=budget)return {indices:candidates,spacing};
+ let bins;
+ for(let attempt=0;attempt<40;attempt++){
+  bins=new Map();
+  for(const i of candidates){const p=points[i],q=axes.map(d=>Math.floor((p[d]-lo[d])/spacing)),key=q.join(',');let distance=0;axes.forEach((d,k)=>{distance+=(p[d]-lo[d]-(q[k]+.5)*spacing)**2;});if(mid!==null)distance+=(p[1]-mid)**2;
+   const previous=bins.get(key);if(!previous||distance<previous.distance)bins.set(key,{index:i,distance});
+  }
+  if(bins.size<=budget)break;spacing*=1.15;
+ }
+ return {indices:[...bins.values()].map(v=>v.index),spacing};
+}
+function warehouseFlowVector(a,b,u){const velocity=a.map((v,d)=>warehouseBlend(v,b[d],u));return {velocity,speed:Math.hypot(...velocity)};}
+function warehouseDrawFlow(M,a,b,u){
+ if(!a.velocity_m_s||!b.velocity_m_s)return;
+ const budget=Number(document.getElementById('whFlowDensity')?.value)||6000,slice=LY('lyBound'),sampleKey=budget+':'+slice;
+ WH.flowSamples??=new Map();if(!WH.flowSamples.has(sampleKey))WH.flowSamples.set(sampleKey,warehouseFlowSamples(a.cell_centres_m,budget,slice?WH.meta.geometry.width_m/2:null));
+ const sample=WH.flowSamples.get(sampleKey),max=Math.max(a.speed_range_m_s[1],b.speed_range_m_s[1],1e-10),key=[a.index,b.index,u,clock,sampleKey].join(':');
+ if(WH.flowDrawKey!==key){
+  const arrows=[],dots=[];
+  for(const k of sample.indices){const {velocity,speed}=warehouseFlowVector(a.velocity_m_s[k],b.velocity_m_s[k],u);if(speed<=1e-12)continue;
+   const r=Math.min(1,speed/max),length=sample.spacing*1000*(.35+.55*Math.sqrt(r)),v=velocity.map(x=>x/speed),start=a.cell_centres_m[k].map(x=>x*1000),end=start.map((x,d)=>x+v[d]*length);
+   const perp=Math.hypot(v[0],v[1])>1e-5?[-v[1],v[0],0]:[1,0,0],norm=Math.hypot(...perp);
+   for(const sign of [-1,1])arrows.push(...end,r,...end.map((x,d)=>x-v[d]*length*.23+sign*perp[d]/norm*length*.13),r);
+   arrows.push(...start,r,...end,r);const q=(k*.6180339+clock*(.32+.55*r))%1;dots.push(...start.map((x,d)=>x+v[d]*length*q),r);
+  }
+  WH.flowCounts=[arrows.length/4,dots.length/4];WH.flowDrawKey=key;
+  for(const [buffer,vertices] of [[WHGPU.arrows,arrows],[WHGPU.dots,dots]]){gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(vertices),gl.DYNAMIC_DRAW);}
+ }
+ // Small markers keep dense vectors readable, independent of the legacy tank renderer.
+ if(!WHGPU.flowDotShader)WHGPU.flowDotShader=prog(`attribute vec3 aP;attribute float aS;uniform mat4 uM;varying float vS;void main(){gl_Position=uM*vec4(aP,1.);gl_PointSize=2.+1.5*aS;vS=aS;}`,`precision mediump float;varying float vS;void main(){vec2 q=gl_PointCoord*2.-1.;float d=dot(q,q);if(d>1.)discard;gl_FragColor=vec4(mix(vec3(.16,.78,1.),vec3(1.,.91,.32),vS),smoothstep(1.,.15,d)*.65);}`);
+ for(const [program,buffer,count,mode] of [[arrowP,WHGPU.arrows,WH.flowCounts[0],gl.LINES],[WHGPU.flowDotShader,WHGPU.dots,WH.flowCounts[1],gl.POINTS]]){
+  gl.useProgram(program);gl.uniformMatrix4fv(gl.getUniformLocation(program,'uM'),false,new Float32Array(M));if(program===arrowP){gl.uniform1f(gl.getUniformLocation(program,'uSilo'),1);gl.uniform1f(gl.getUniformLocation(program,'uIf'),0);}
+  gl.bindBuffer(gl.ARRAY_BUFFER,buffer);for(const [name,n,offset] of [['aP',3,0],['aS',1,12]]){const loc=gl.getAttribLocation(program,name);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,16,offset);}gl.drawArrays(mode,0,count);for(const name of ['aP','aS'])gl.disableVertexAttribArray(gl.getAttribLocation(program,name));
+ }
+ document.getElementById('vbarTitle').textContent='유속 m/s · 벡터 '+WH.flowCounts[1].toLocaleString()+'개';document.getElementById('vbarRange').textContent='0 ~ '+max.toPrecision(3);
+}
 function frameWarehouse(now,dt){gl.clearColor(.051,.051,.051,1);gl.enable(gl.DEPTH_TEST);gl.depthMask(true);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);if(!WH||!FRAMES.length)return;
  const times=WH.meta.times_s;if(playing){const next=Math.min(times.at(-1),clock+Math.min(dt,.1)*(+document.getElementById('speed').value||1)),p=warehouseBracket(times,next);if(warehouseFrameReady(p.i)&&warehouseFrameReady(p.j)){clock=next;idx=p.i;if(clock>=times.at(-1))setPlaybackEnded();}else{ensureWarehouseFrame(p.i);ensureWarehouseFrame(p.j);}}
  const {i,j,u}=warehouseBracket(times,clock),a=WH.cache.get(i),b=WH.cache.get(j);if(!a||!b){ensureWarehouseFrame(i);ensureWarehouseFrame(j);return;}idx=i;const field=warehouseField();warehousePreparePair(a,b,i,j,field);
@@ -88,7 +140,7 @@ function frameWarehouse(now,dt){gl.clearColor(.051,.051,.051,1);gl.enable(gl.DEP
  if(LY('lyBub')||LY('lyTvol'))warehouseDrawCloud(M,a,b,u,field);
  for(const part of WH.geometry){if(part.type==='outline'&&LY('lyTank'))dL(part.mesh,[.8,.84,.92,.5],M);if(part.type==='grainEdge'&&LY('lyGeo'))dL(part.mesh,[.45,.72,.3,.27],M);}
  if(LY('lySlice'))warehouseDrawFlow(M,a,b,u);gl.depthMask(true);
- document.getElementById('tbar').value=idx;document.getElementById('tlab').textContent='t = '+clock.toFixed(2)+' s';document.getElementById('hT').textContent=clock.toFixed(2);document.getElementById('hC').textContent=a.displayed_cells.toLocaleString();
+ document.getElementById('tbar').value=idx;document.getElementById('tlab').textContent='t = '+clock.toFixed(2)+' s';document.getElementById('hT').textContent=clock.toFixed(2);document.getElementById('hC').textContent=a.displayed_cells.toLocaleString()+' / '+a.total_cells.toLocaleString();document.getElementById('whFlowControls').hidden=!LY('lySlice');
  const show=LY('lyBub')||LY('lyTvol');document.getElementById('tcbar').style.display=show?'flex':'none';document.getElementById('vbar').style.display=LY('lySlice')?'':'none';document.querySelector('#tcbar>div').textContent=field==='temperature'?'온도 °C':'농도 '+WH.unit;document.getElementById('tcHi').textContent=WH.range[1].toPrecision(4);document.getElementById('tcLo').textContent=WH.range[0].toPrecision(4);document.getElementById('tcSat').style.display='none';document.getElementById('tcSatL').style.display='none';document.querySelector('#tcbar .grad').style.background='linear-gradient(to top,#144dd9,#26e6ba,#ff4a17)';document.querySelector('#hud .hrow').style.display=LY('lyInfo')?'':'none';
  if(now-WH.lastHud>150){WH.lastHud=now;let max=-Infinity;for(let k=0;k<a.concentration.length;k++)max=Math.max(max,warehouseBlend(a.concentration[k],b.concentration[k],u));document.getElementById('hV').textContent=max.toPrecision(3);renderGCol();}
  if(REC)recTick();
@@ -96,4 +148,4 @@ function frameWarehouse(now,dt){gl.clearColor(.051,.051,.051,1);gl.enable(gl.DEP
 function warehouseSeries(id){if(!WH)return [];const rows=[...WH.stats.values()].sort((a,b)=>a.t-b.t);const field=id==='gcT'?'T':id==='gcV'?'c':id==='gcB'?'U':null;if(!field)return [];const values=rows.filter(r=>r[field]);return (id==='gcB'?[1]:[0,1]).map((k,i)=>({name:k?'최댓값':'최솟값',color:i?'#e08a3a':'#3987e5',pts:values.map(r=>[r.t,r[field][k]])}));}
 function drawWarehouseOverlay(ctx,d){if(!WH)return;ctx.save();ctx.font=12*d+'px Segoe UI';const text=WH.name+' · t = '+clock.toFixed(2)+' s · '+(warehouseField()==='temperature'?'온도 °C':'농도 '+WH.unit);ctx.fillStyle='rgba(18,18,18,.8)';ctx.fillRect(10*d,10*d,Math.min(ctx.canvas.width-20*d,ctx.measureText(text).width+20*d),34*d);ctx.fillStyle='#eee';ctx.fillText(text,20*d,32*d);ctx.restore();}
 async function exportWarehouseCSV(){if(!WH)return;const w=WH,index=idx;await ensureWarehouseFrame(index);if(WH!==w)return;const f=w.cache.get(index);if(!f)return;const rows=[['time_s','cell_index','x_m','y_m','z_m','concentration_'+f.concentration_unit,'temperature_C','Ux_m_s','Uy_m_s','Uz_m_s']];f.cell_centres_m.forEach((xyz,k)=>rows.push([f.time_s,k*f.sampling_stride,...xyz,f.concentration[k],f.temperature_field_C?.[k]??'',...(f.velocity_m_s?.[k]||['','',''])]));exportDownload(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}),w.id+'_'+f.time_s+'s_sampled.csv');}
-if(typeof module!=='undefined')module.exports={warehouseBlend,warehouseBracket,warehouseCompatible,warehouseRange};
+if(typeof module!=='undefined')module.exports={warehouseBlend,warehouseBracket,warehouseCompatible,warehouseRange,warehouseFlowSamples,warehouseFlowVector};

@@ -41,3 +41,20 @@ class WorkspaceTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ResultResolutionRouteTests(unittest.TestCase):
+    def test_display_request_is_bounded_before_result_read(self):
+        from unittest.mock import Mock, patch
+        from cfd_studio.warehouse_workspace import get_route
+        workspace = Mock()
+        with patch('cfd_studio.warehouse_workspace.WarehouseResults') as reader:
+            handler = Mock(path='/api/warehouse/results/frame?id=example&index=1&maximum_points=125000')
+            get_route(handler, '/api/warehouse/results/frame', workspace)
+            reader.return_value.frame.assert_called_once_with('example', 1, maximum_points=125000)
+            reader.return_value.frame.reset_mock()
+            for value in ('0', '-1', '125001', 'wrong'):
+                handler = Mock(path='/api/warehouse/results/frame?id=example&index=1&maximum_points='+value)
+                get_route(handler, '/api/warehouse/results/frame', workspace)
+                self.assertEqual(handler._json.call_args.args[1], 400)
+            reader.return_value.frame.assert_not_called()

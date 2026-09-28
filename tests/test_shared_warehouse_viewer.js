@@ -76,3 +76,23 @@ test('horizontal and vertical drags have the same projected direction for Y-up a
   const a=projected(false,dx,dy),b=projected(true,dx,dy);assert.ok(Math.abs(a[0]-b[0])<1e-10);assert.ok(Math.abs(a[1]-b[1])<1e-10);
  }
 });
+
+const {warehouseFlowSamples,warehouseFlowVector}=require('../cfd_studio/warehouse_viewer.js');
+test('dense warehouse vectors cover space using original cell centres and a bounded count',()=>{
+ const points=[];for(let z=0;z<12;z++)for(let y=0;y<20;y++)for(let x=0;x<78;x++)points.push([x+.5,y+.5,z+.5]);
+ const before=JSON.stringify(points),sample=warehouseFlowSamples(points,6000);
+ assert.ok(sample.indices.length>350);assert.ok(sample.indices.length<=6000);assert.equal(new Set(sample.indices).size,sample.indices.length);
+ const selected=sample.indices.map(i=>points[i]);for(let d=0;d<3;d++){assert.ok(Math.min(...selected.map(p=>p[d]))<2);assert.ok(Math.max(...selected.map(p=>p[d]))>[75,17,9][d]);}
+ assert.equal(JSON.stringify(points),before);
+});
+test('warehouse section is selected before density reduction and retains every available small-section cell',()=>{
+ const points=[];for(let z=0;z<8;z++)for(let y=0;y<25;y++)for(let x=0;x<40;x++)points.push([x+.5,y+.5,z+.5]);
+ const sample=warehouseFlowSamples(points,6000,12.5);
+ assert.equal(sample.indices.length,320);assert.ok(sample.indices.every(i=>points[i][1]===12.5));
+});
+test('warehouse density levels include all available cells at the highest setting without creating new values',()=>{
+ const points=Array.from({length:14880},(_,i)=>[i%124,Math.floor(i/124)%20,Math.floor(i/2480)]);
+ const detailed=warehouseFlowSamples(points,18000);assert.equal(detailed.indices.length,14880);
+ const low=[.000001,0,0],high=[0,.000001,0];const v=warehouseFlowVector(low,high,.5);
+ assert.deepEqual(v.velocity,[.0000005,.0000005,0]);assert.ok(v.speed>0);assert.deepEqual(warehouseFlowVector([0,0,0],[0,0,0],0),{velocity:[0,0,0],speed:0});
+});

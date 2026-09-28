@@ -69,6 +69,16 @@ class WarehouseResultTests(unittest.TestCase):
         self.assertEqual(Path(frame['raw_file']), destination/'0/C')
         with self.assertRaises(ValueError): reader.frame('../outside', 0)
 
+    def test_display_resolution_preserves_original_values_and_indices(self):
+        coarse = self.reader.frame(self.case.name, 0, maximum_points=1)
+        detailed = self.reader.frame(self.case.name, 0, maximum_points=125000)
+        self.assertEqual(coarse['concentration'], [1.])
+        self.assertEqual(coarse['sampling_stride'], 2)
+        self.assertEqual(detailed['concentration'], [1., 2.])
+        self.assertEqual(detailed['sampling_stride'], 1)
+        for invalid in (0, -1, True, 1.5):
+            with self.assertRaises(ValueError): self.reader.frame(self.case.name, 0, maximum_points=invalid)
+
     def test_corrupt_archive_is_not_offered_as_completed_result(self):
         (self.case/'concentration.npz').write_bytes(b'not-an-array')
         self.assertEqual(self.reader.list(), [])

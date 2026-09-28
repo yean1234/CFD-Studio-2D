@@ -140,7 +140,10 @@ def get_route(handler, path, workspace):
             elif path == '/api/warehouse/results/meta':
                 payload = results.metadata(query.get('id', [''])[0])
             elif path == '/api/warehouse/results/frame':
-                payload = results.frame(query.get('id', [''])[0], int(query.get('index', [''])[0]))
+                maximum = int(query.get('maximum_points', ['25000'])[0])
+                if not 1 <= maximum <= 125000:
+                    raise ValueError('표시 셀 수는 1~125000 범위여야 합니다')
+                payload = results.frame(query.get('id', [''])[0], int(query.get('index', [''])[0]), maximum_points=maximum)
             elif path == '/api/warehouse/results/sample':
                 payload = results.sample(query.get('id', [''])[0],
                                          [float(query.get(k, [''])[0]) for k in ('x', 'y', 'z')],

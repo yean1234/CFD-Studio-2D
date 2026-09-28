@@ -209,6 +209,8 @@ class WarehouseResults:
         return temperatures, velocities, sources
 
     def frame(self, name, index, maximum_points=25000):
+        if type(maximum_points) is not int or maximum_points < 1:
+            raise ValueError('표시 셀 수는 양의 정수여야 합니다')
         case, model, checks, config, times, fields, centres, unit = self._load(name)
         if type(index) is not int or index < 0 or index >= len(times):
             raise ValueError('저장된 프레임 범위를 벗어났습니다')
