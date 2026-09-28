@@ -34,7 +34,7 @@ def validate_numerics(config):
     end_key, write_key = ('max_iterations', 'write_interval_iterations') if steady else ('end_time_s', 'write_interval_s')
     end = finite_number(run.get(end_key), '계산 종료값', integer=steady)
     write = finite_number(run.get(write_key), '저장 간격', integer=steady)
-    if end <= 0 or not 0 < write <= end:
+    if end <= 0 or write <= 0 or (write > end and not (kind == 'immersion' and 'viz_interval_s' in run)):
         raise ValueError('계산 종료값은 양수이고 저장 간격은 0보다 크며 종료값 이하여야 합니다')
     if 'viz_interval_s' in run:
         viz = finite_number(run['viz_interval_s'], '시각화 저장 간격', integer=steady)

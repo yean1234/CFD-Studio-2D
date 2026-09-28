@@ -143,7 +143,7 @@ class ConfigPresetTests(unittest.TestCase):
         for section, key, value in (
             ('run', 'max_dt_s', 0), ('run', 'max_dt_s', True),
             ('run', 'maxCo', -1), ('run', 'write_interval_s', 0),
-            ('run', 'write_interval_s', 1000), ('run', 'viz_interval_s', float('nan')),
+            ('run', 'viz_interval_s', 1000), ('run', 'viz_interval_s', float('nan')),
             ('run', 'time_step_mode', 'unknown'), ('mesh', 'dx_mm', -2),
         ):
             with self.subTest(section=section, key=key, value=value):

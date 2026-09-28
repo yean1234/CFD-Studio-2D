@@ -25,7 +25,7 @@
     if(!n)throw Error('계산 설정이 없습니다');
     const steady=kind(c)==='grain_silo'&&c.openfoam_mapping?.solver==='simpleFoam';
     const end=n.end_s??(steady?n.max_iterations:n.end_time_s),write=steady?n.write_interval_iterations:n.write_interval_s;
-    positive(end,'종료값');positive(write,'저장 간격');if(write>end)throw Error('저장 간격은 종료값 이하여야 합니다');
+    positive(end,'종료값');positive(write,'저장 간격');const output=kind(c)==='immersion'?(n.viz_interval_s??write):write;positive(output,'결과 프레임 저장 간격');if(output>end)throw Error('결과 프레임 저장 간격은 종료값 이하여야 합니다');
     if(!steady)positive(n.dt_s??n.time_step_s??n.max_dt_s,'계산 간격');
     if(kind(c)==='warehouse'){
       if(n.dt_s>write)throw Error('계산 간격은 저장 간격 이하여야 합니다');
@@ -50,11 +50,36 @@
     n[k==='warehouse'?'end_s':steady?'max_iterations':'end_time_s']=value;if(k!=='warehouse')n.stop_mode='fixed';
     c._studio.termination=stop.mode==='time'?{mode:'time',time_s:stop.time_s}:{mode:'frames',frames:stop.frames,include_initial:!!stop.include_initial};return c;
   }
-  function fieldInfo(path){const key=path.at(-1), full=path.join('.');let title=names[key]||String(key),unit='';
+  function fieldInfo(path,config){const key=path.at(-1), full=path.join('.');let title=names[key]||String(key),unit='';
     if(typeof CBDEF!=='undefined')for(const [group,,,fields] of CBDEF)for(const [k,label,u] of fields)if(full===group+'.'+k){title=label;unit=u||'';}
     if(!unit){for(const [suffix,u] of [['_mg_m3','mg/m³'],['_kg_m3','kg/m³'],['_J_kg_K','J/(kg·K)'],['_J_kgK','J/(kg·K)'],['_J_m3_K','J/(m³·K)'],['_W_m2_K','W/(m²·K)'],['_W_m_K','W/(m·K)'],['_m2_s3','m²/s³'],['_m2_s2','m²/s²'],['_m2_s','m²/s'],['_m2','m²'],['_mm','mm'],['_m','m'],['_C','°C'],['_s','s']])if(String(key).endsWith(suffix)){unit=u;break;}}
     if(['x0','x1','y0','y1','z0','z1'].includes(key)){title=key[0].toUpperCase()+(key[1]==='0'?' 최소':' 최대');unit='mm';}
+    if(kind(config)==='immersion'&&key==='write_interval_s')title='복구 데이터 저장 간격';
+    if(key==='viz_interval_s')title='결과 프레임 저장 간격';
     return {title,unit};
+  }
+  const normalizeSearch = value => String(value).normalize('NFKC').toLowerCase().replace(/\s+/g,'');
+  function matchesSearch(query,...terms){const text=normalizeSearch(terms.join(' '));return text.includes(normalizeSearch(query))||String(query).trim().split(/\s+/).every(word=>text.includes(normalizeSearch(word)));}
+  function searchFields(config,query,{managed=false,readonly=false}={}){
+    const found=[];
+    const visit=(value,path)=>{
+      if(path.some(k=>isReferenceKey(k)||String(k).startsWith('_'))||path[0]==='schema')return;
+      const key=path.at(-1),output=key==='output_fields'&&Array.isArray(value);
+      if(!output&&value!==null&&typeof value==='object'){
+        for(const [k,v] of Object.entries(value))visit(v,[...path,Array.isArray(value)?Number(k):k]);return;
+      }
+      if(managed&&!readonly&&['end_s','end_time_s','max_iterations','stop_mode'].includes(key))return;
+      const info=fieldInfo(path,config),parents=path.map((_,i)=>fieldInfo(path.slice(0,i+1),config).title);
+      const labels=(enums[key]||[]).map(v=>choices[v]||v);
+      if(matchesSearch(query,path.join('.'),...parents,info.unit,...labels,choices[value]||'',JSON.stringify(value)))found.push({path,value});
+    };
+    visit(config,[]);return found;
+  }
+  function searchTermination(config,query){
+    const stop=config._studio?.termination,steady=kind(config)==='grain_silo'&&config.openfoam_mapping?.solver==='simpleFoam';
+    const mode=stop?.mode||(steady?'frames':'time');
+    return matchesSearch(query,'종료 조건 목표 종료 방식 수렴 기준 특정 물리시간 저장 프레임 수 목표값 비교 목적',config._studio?.goals||'',
+      mode==='frames'?'목표 저장 프레임 수 0초 초기 프레임 포함 frames include_initial':'목표 물리시간 종료시간 time_s end_s end_time_s');
   }
   function summary(c){if(!c)return '';const k=kind(c);return k==='warehouse'?`저장고 연결 · ${c.numerics.end_s} s · 초기 ${c.coupled.initial_temperature_C} °C`:k==='immersion'?`이중액침 · ${c.run?.end_time_s??'—'} s · 발열 ${c.heater?.total_W??'—'} W`:k==='grain_silo'?'단상 저장고 설정':'보관된 실행 설정';}
   function download(config,name){const url=URL.createObjectURL(new Blob([JSON.stringify(config,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=(name||'실행 설정')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
@@ -87,9 +112,9 @@
       const start=button(options.submitLabel||'계산 시작',async()=>{const c=current();validate(c);if(!name.value.trim())throw Error('실행 이름을 입력하세요');if(savePreset.checked&&!presetName.value.trim())throw Error('새 프리셋 이름을 입력하세요');busy(true);try{await options.onRun(name.value,clone(c),{preset_name:savePreset.checked?presetName.value.trim():null});dialog.close();}finally{busy(false);}});start.id='settingsStart';start.classList.add('pri');footer.append(start);
     }else if(options.onClone){footer.append(button('이 설정으로 새 실행',()=>{const c=current();if(kind(c)==='unsupported')throw Error('이 모델은 보관 설정 조회만 지원합니다');close();options.onClone(c);}));}
     footer.append(button(readonly?'닫기':'취소',close));dialog.append(footer);dialog.oncancel=e=>{if(locked)e.preventDefault();else version++;};
-    function renderNav(){navList.replaceChildren();if(options.managed||config._studio?.termination){const b=button('종료 조건·목표',()=>{if(section==='json'&&!readonly){config=current();jsonText=null;}section='termination';search.value='';renderNav();render();});b.setAttribute('aria-current',String(section==='termination'));navList.append(b);}const keys=Object.keys(config).filter(k=>!k.startsWith('_')&&k!=='schema'&&!isReferenceKey(k));keys.sort((a,b)=>(['run','numerics'].includes(a)?-1:0)-(['run','numerics'].includes(b)?-1:0));for(const key of keys){const b=button(names[key]||key,()=>{if(section==='json'&&!readonly){config=current();jsonText=null;}section=key;search.value='';renderNav();render();});b.setAttribute('aria-current',String(section===key));navList.append(b);}const json=button('전체 JSON',()=>{section='json';renderNav();render();});json.setAttribute('aria-current',String(section==='json'));navList.append(json);if(references(config).length){const ref=button('출처',()=>{if(section==='json'&&!readonly){config=current();jsonText=null;}section='references';search.value='';renderNav();render();});ref.setAttribute('aria-current',String(section==='references'));ref.style.marginTop='18px';navList.append(ref);}}
+    function renderNav(){navList.replaceChildren();if(options.managed||config._studio?.termination){const b=button('종료 조건·목표',()=>{if(section==='json'&&!readonly){config=current();jsonText=null;}section='termination';search.value='';renderNav();render();});b.setAttribute('aria-current',String(section==='termination'));navList.append(b);}const keys=Object.keys(config).filter(k=>!k.startsWith('_')&&k!=='schema'&&!isReferenceKey(k));keys.sort((a,b)=>(['run','numerics'].includes(a)?-1:0)-(['run','numerics'].includes(b)?-1:0));for(const key of keys){const b=button(names[key]||key,()=>{if(section==='json'&&!readonly){config=current();jsonText=null;}section=key;search.value='';renderNav();render();});b.setAttribute('aria-current',String(section===key));navList.append(b);}const json=button('전체 JSON',()=>{section='json';search.value='';renderNav();render();});json.setAttribute('aria-current',String(section==='json'));navList.append(json);if(references(config).length){const ref=button('출처',()=>{if(section==='json'&&!readonly){config=current();jsonText=null;}section='references';search.value='';renderNav();render();});ref.setAttribute('aria-current',String(section==='references'));ref.style.marginTop='18px';navList.append(ref);}}
     function set(path,value){let obj=config;for(const k of path.slice(0,-1))obj=obj[k];obj[path.at(-1)]=value;subtitle.textContent=(readonly?'보존된 원본 설정 · ':'이번 실행 설정 · ')+summary(config);}
-    function draw(value,path,host){if(section!=='references'&&path.some(isReferenceKey))return;const key=path.at(-1),info=fieldInfo(path);if(kind(config)==='immersion'&&key==='write_interval_s')info.title='복구 데이터 저장 간격';if(key==='viz_interval_s')info.title='결과 프레임 저장 간격';
+    function draw(value,path,host){if(section!=='references'&&path.some(isReferenceKey))return;const key=path.at(-1),info=fieldInfo(path,config);
       if(key==='output_fields'&&Array.isArray(value)){const box=el('div');box.className='settings-output';for(const field of enums.output_fields){const l=el('label'),input=el('input');input.type='checkbox';input.checked=value.includes(field);input.disabled=readonly;input.onchange=()=>{const selected=enums.output_fields.filter((_,i)=>box.querySelectorAll('input')[i].checked);set(path,selected);};l.append(input,el('span',choices[field]));box.append(l);}host.append(box);return;}
       if(value!==null&&typeof value==='object'){
         const box=el('fieldset');box.append(el('legend',info.title));host.append(box);
@@ -129,20 +154,30 @@
       main.append(el('p','솔버 시간간격: 계산 단계 · 결과 저장 간격: 파일 출력 주기 · 재생 속도: Viewer 표시 배속'));
     }
     function render(){main.replaceChildren();subtitle.textContent=(readonly?'보존된 원본 설정 · ':'이번 실행 설정 · ')+summary(config);
+      const query=search.value.trim();
+      if(query){
+        if((options.managed||config._studio?.termination)&&searchTermination(config,query))renderTermination();
+        const groups=new Map();
+        for(const {path,value} of searchFields(config,query,{managed:options.managed,readonly})){
+          const parent=path.slice(0,-1).map((_,i)=>fieldInfo(path.slice(0,i+1),config).title).join(' · ')||'설정';
+          if(!groups.has(parent)){const box=el('fieldset');box.append(el('legend',parent));main.append(box);groups.set(parent,box);}
+          draw(value,path,groups.get(parent));
+        }
+        if(!main.children.length)main.append(el('p','검색 결과가 없습니다.'));
+        return;
+      }
       if(section==='termination'){renderTermination();return;}
       if(section==='references'){main.append(el('h3','출처'));for(const ref of references(config)){const group=el('fieldset'),parent=ref.path.slice(0,-1).map(k=>names[k]||k).join(' · ');group.append(el('legend',parent||'설정'));draw(ref.value,ref.path,group);main.append(group);}return;}
 
       if(section==='json'){const area=el('textarea');area.id='settingsJson';area.setAttribute('aria-label','전체 JSON');area.readOnly=readonly;area.value=jsonText??JSON.stringify(config,null,2);area.oninput=()=>{jsonText=area.value;};main.append(area);return;}
-      const query=search.value.trim().toLowerCase();
-      if(query){const visit=(v,path)=>{if(v!==null&&typeof v==='object'){for(const [k,x] of Object.entries(v))visit(x,[...path,Array.isArray(v)?Number(k):k]);}else if((path.join('.')+' '+fieldInfo(path).title+' '+String(v)).toLowerCase().includes(query))draw(v,path,main);};visit(config,[]);return;}
       main.append(el('h3',names[section]||section));
       if(!readonly&&['water','dielectric_fluid'].includes(section)&&typeof fluidRef==='function'){
         const bar=el('div');bar.className='settings-fluid';bar.append(button('대표 물성 입력',()=>{const q=fluidRef(section==='water'?'upper':'lower',config);config[section].manual_properties={model:'linear_density',T_ref_C:q.T,rho_kg_m3:q.rho,cp_J_kgK:q.cp,mu_Pa_s:q.mu,kappa_W_mK:q.k,beta_1_K:q.beta};render();}),button('원래 물성표 사용',()=>{delete config[section].manual_properties;render();}));main.append(bar);
       }
       const v=config[section];if(v&&typeof v==='object'&&!Array.isArray(v))for(const [k,x] of Object.entries(v)){if(k.startsWith('_')){if(isReferenceKey(k))continue;const note=el('div',String(x));note.className='settings-note';main.append(note);}else draw(x,[section,k],main);}else draw(v,[section],main);
     }
-    search.oninput=()=>{if(section==='json'){config=current();jsonText=null;section=Object.keys(config)[0];renderNav();}render();};renderNav();render();dialog.showModal();return {close,current};
+    search.oninput=()=>act(()=>{if(section==='json'){config=jsonText!==null?parse(jsonText):config;jsonText=null;section=config.numerics?'numerics':config.run?'run':Object.keys(config)[0];renderNav();}render();});renderNav();render();dialog.showModal();return {close,current};
   }
-  globalThis.CFDSettings={open,kind,parse,validate,fieldInfo,summary,applyTermination,references};
+  globalThis.CFDSettings={open,kind,parse,validate,fieldInfo,summary,applyTermination,references,searchFields,searchTermination};
   if(typeof module!=='undefined')module.exports=globalThis.CFDSettings;
 })();

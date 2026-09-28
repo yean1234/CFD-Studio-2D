@@ -94,7 +94,7 @@
     $('ewGoals').textContent=value.goals||'';$('ewDifferenceCount').textContent=value.differences?.length?value.differences.length+'개 변경':'변경 없음';
   }
   async function selectRun(id){
-    const token=++generation;runId=id;selectedRuns.set(projectId,id);detail=null;DataSheetViewer.begin(null);renderRuns();suspendWarehouseViewer();setPlay(false,true);
+    const token=++generation;runId=id;selectedRuns.set(projectId,id);detail=null;DataSheetViewer.begin(null);cancelViewerLoad();renderRuns();suspendWarehouseViewer();setPlay(false,true);
     clearDetail();$('ewRunTitle').textContent='불러오는 중';
     try{const value=await api('/detail?id='+encodeURIComponent(id));if(token!==generation)return;showDetail(value);message('');if(viewMode==='viewer')await viewResult();}
     catch(e){if(token===generation){clearDetail();message(e.message);}}
@@ -259,7 +259,7 @@ body.grouped #warehouseDetails details{margin-top:8px}body.grouped #warehouseDet
     for(const [id,key] of [['ewRename','settings'],['ewSettings','settings'],['ewFolder','folder'],['ewQueueStart','play']]){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('width','14');svg.setAttribute('height','14');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.6');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');svg.setAttribute('aria-hidden','true');const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',icons[key]);svg.append(path);$(id).prepend(svg);}
     $('ewNewRun').onclick=()=>openRun();$('ewRename').onclick=renameProject;$('ewView').onclick=viewResult;$('ewSearch').oninput=renderRuns;$('ewSettings').onclick=inspectSettings;
     $('ewEnqueue').onclick=()=>queueAction('enqueue',{ids:[runId]});$('ewQueueStart').onclick=()=>queueAction('resume');$('ewQueuePause').onclick=()=>queueAction('pause');$('ewRetry').onclick=()=>queueAction('retry',{id:data.queue.failure});$('ewSkip').onclick=()=>queueAction('skip',{id:data.queue.failure});$('ewStop').onclick=()=>queueAction('stop',{id:runId});$('ewFolder').onclick=async()=>{try{await api('/folder',{id:runId});}catch(e){message(e.message);}};
-    $('mCFD').onclick=showList;$('mViz').onclick=viewResult;
+    $('mCFD').onclick=showList;$('mViz').onclick=viewResult;$('btnRun').onclick=viewResult;
     document.body.classList.add('grouped');showList();
   }
   mount();refresh();setInterval(refresh,4000);

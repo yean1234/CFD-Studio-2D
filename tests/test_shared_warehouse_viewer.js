@@ -41,3 +41,13 @@ test('legacy selection waits for frame reading before signaling ready',async()=>
  vm.createContext(ctx);vm.runInContext(source,ctx);let done=false;const selecting=ctx.selVz('result').then(()=>done=true);
  await Promise.resolve();assert.equal(done,false);finish();await selecting;assert.equal(done,true);
 });
+
+test('playback keys do not hijack CFD, buttons or settings',()=>{
+ const app=fs.readFileSync(path.join(__dirname,'../cfd_studio/app.py'),'utf8');
+ const start=app.indexOf("addEventListener('keydown',e=>{\n if(MODE"),source=app.slice(start,app.indexOf('\n});',start)+4);
+ let handler,plays=0,seeks=0;const ctx={MODE:'cfd',FRAMES:[{},{}],idx:0,addEventListener:(_,f)=>handler=f,togglePlay:()=>plays++,scrub:()=>seeks++};
+ vm.createContext(ctx);vm.runInContext(source,ctx);
+ const event=(tag,code='Space')=>({target:{tagName:tag,closest:()=>null},code,key:code,preventDefault(){}});
+ handler(event('DIV'));ctx.MODE='viz';for(const tag of ['BUTTON','SUMMARY','INPUT','TEXTAREA','SELECT','A'])handler(event(tag));
+ assert.equal(plays,0);handler(event('DIV'));assert.equal(plays,1);handler(event('DIV','ArrowRight'));assert.equal(seeks,1);
+});

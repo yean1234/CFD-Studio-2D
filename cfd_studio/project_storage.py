@@ -315,28 +315,63 @@ class ProjectStorage:
                     return existing
                 if (project_path(existing['storage_path'])/'project.cfdproj').is_file():
                     raise ValueError('같은 프로젝트가 다른 경로에 연결되어 있습니다. 프로젝트 설정에서 위치를 변경하세요.')
+            for other in self.stored_projects():
+                if other['id'] == p['id']:
+                    continue
+                other_root = project_path(other['storage_path'])
+                if root == other_root or root in other_root.parents or other_root in root.parents:
+                    raise ValueError('다른 프로젝트와 겹치지 않는 폴더를 지정하세요')
             local = read(root/'ProjectSettings/executions.json', {'cases': {}, 'order': []})
-            for case in local['cases'].values():
-                if case.get('project_id') != p['id']:
+            if not isinstance(local.get('cases'), dict) or not isinstance(local.get('order', []), list):
+                raise ValueError('프로젝트 실행 목록 형식을 확인하세요')
+            for key, case in local['cases'].items():
+                if not isinstance(case, dict) or case.get('project_id') != p['id'] or case.get('id') != key:
                     raise ValueError('다른 프로젝트의 실행 설정이 포함되어 있습니다')
                 if case.get('status') == 'running':
                     raise ValueError('실행 중인 프로젝트는 원래 Studio에서 완료 후 여세요')
-            old = p.get('storage_path', str(root))
-            for file in [*root.glob('ProjectSettings/*.json'), *root.glob('Cases/*/Attempts/*/job.json'), *root.glob('Results/*/meta.json'), *root.glob('Cases/*/Attempts/*/Results/*/meta.json')]:
-                value = read(file)
-                updated = remap(value, [(old, root)])
-                if updated != value:
-                    write(file, updated)
-            p['storage_path'] = str(root)
+            order = local.get('order', [])
+            if any(key not in local['cases'] for key in order) or len(order) != len(set(order)):
+                raise ValueError('프로젝트 대기열 형식을 확인하세요')
             data = self._catalog(self.discover())
             q = self.queue_data()
-            data['projects'] = [p if item['id'] == p['id'] else item for item in data['projects']] if existing else data['projects']+[p]
-            self.persist_catalog(data)
-            q['cases'].update(remap(local.get('cases', {}), [(old, root)]))
-            q['order'] += [k for k in local.get('order', []) if k not in q['order']]
-            q['paused'] = True
-            q.pop('service_error', None)
-            self.save_queue(q)
+            if any(key in q['cases'] and q['cases'][key]['project_id'] != p['id'] for key in local['cases']):
+                raise ValueError('다른 프로젝트와 실행 ID가 겹칩니다')
+            old = p.get('storage_path', str(root))
+            files = [*root.glob('ProjectSettings/*.json'), *root.glob('Cases/*/Attempts/*/job.json'),
+                     *root.glob('Results/*/meta.json'), *root.glob('Cases/*/Attempts/*/Results/*/meta.json')]
+            # Preserve exact bytes before publishing any imported paths or queue entries.
+            protected = set(files) | {root/'project.cfdproj', root/'ProjectSettings/executions.json',
+                                      self.folder/'projects.json', self.folder/'queue.json'}
+            for item in data['projects']:
+                base = project_path(item['storage_path'])
+                protected.update((base/'project.cfdproj', base/'ProjectSettings/executions.json'))
+            backups = {file: file.read_bytes() if file.is_file() else None for file in protected}
+            try:
+                for file in files:
+                    value = read(file)
+                    updated = remap(value, [(old, root)])
+                    if updated != value:
+                        write(file, updated)
+                p['storage_path'] = str(root)
+                data['projects'] = [p if item['id'] == p['id'] else item for item in data['projects']] if existing else data['projects']+[p]
+                self.persist_catalog(data)
+                q['cases'].update(remap(local['cases'], [(old, root)]))
+                q['order'] += [k for k in order if k not in q['order']]
+                q['paused'] = True
+                q.pop('service_error', None)
+                self.save_queue(q)
+            except Exception:
+                for file, raw in backups.items():
+                    if raw is None:
+                        file.unlink(missing_ok=True)
+                    elif not file.is_file() or file.read_bytes() != raw:
+                        temp = file.with_name(file.name+'.'+uuid.uuid4().hex+'.tmp')
+                        try:
+                            temp.write_bytes(raw)
+                            os.replace(temp, file)
+                        finally:
+                            temp.unlink(missing_ok=True)
+                raise
             return p
 
     def pick_project_folder(self, start=''):

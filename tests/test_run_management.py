@@ -117,6 +117,16 @@ class QueueTests(unittest.TestCase):
             c=copy.deepcopy(before);c['_studio']['termination']=policy
             with self.assertRaises(ValueError):termination(c)
 
+    def test_short_frame_target_does_not_repurpose_checkpoint_interval(self):
+        config = self.w.template('config:immersion')
+        original = copy.deepcopy(config)
+        config['_studio'] = {'termination': {'mode':'frames', 'frames':3, 'include_initial':False}}
+        saved, policy, end = termination(config)
+        self.assertEqual(end, .03)
+        self.assertEqual(saved['run']['write_interval_s'], original['run']['write_interval_s'])
+        self.assertEqual(saved['run']['viz_interval_s'], .01)
+        self.assertEqual(config['run']['end_time_s'], original['run']['end_time_s'])
+
     def test_preset_rename_updates_project_reference_without_touching_runs(self):
         p=self.w.save_preset('old',self.config);self.w.edit_project(self.p['id'],'comparison','',p['id']);key=self.case()
         before=self.w.detail(key)['config'];new=self.w.rename_preset(p['id'],'new')

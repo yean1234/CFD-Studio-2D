@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v182"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v183"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 
@@ -7634,8 +7634,9 @@ async function showCfg(){
 
 // 키보드: Space 재생/정지 · ←→ 프레임 이동
 addEventListener('keydown',e=>{
+ if(MODE!=='viz')return;
  const tag=(e.target.tagName||'').toUpperCase();
- if(tag==='SELECT'||tag==='INPUT'||tag==='TEXTAREA'||e.target.closest?.('dialog[open]'))return;
+ if(['SELECT','INPUT','TEXTAREA','BUTTON','SUMMARY','A'].includes(tag)||e.target.isContentEditable||e.target.closest?.('dialog[open],button,summary,a,[contenteditable=true]'))return;
  if(e.code==='Space'){e.preventDefault();if(FRAMES.length)togglePlay();}
  else if(e.key==='ArrowRight'&&FRAMES.length){e.preventDefault();scrub(Math.min(FRAMES.length-1,idx+1));}
  else if(e.key==='ArrowLeft'&&FRAMES.length){e.preventDefault();scrub(Math.max(0,idx-1));}
@@ -8253,7 +8254,7 @@ async function saveCBInput(){
  if(!(rr.viz_interval_s>0&&rr.end_time_s>0)){toast('총 계산 시간과 데이터 추출 간격은 0보다 커야 합니다',true);return;}
  if(!(rr.max_dt_s>0)){toast('시간 간격은 0보다 커야 합니다',true);return;}
  if(rr.viz_interval_s>rr.end_time_s){toast('데이터 추출 간격은 총 계산 시간보다 클 수 없습니다',true);return;}
- if(!(rr.write_interval_s>0&&rr.write_interval_s<=rr.end_time_s)){toast('전체 상태 저장 간격은 0보다 크며 총 계산 시간 이하여야 합니다',true);return;}
+ if(!(rr.write_interval_s>0)){toast('복구 데이터 저장 간격은 0보다 커야 합니다',true);return;}
  if(out.layers.init_T_dielectric_C>=out.dielectric_fluid.Tsat_C){
   toast('유전체 초기 온도가 기화점 이상입니다 — 시작과 동시에 전 영역이 비등합니다',true);return;}
  if(!(out.layers.dielectric_mm>0&&out.layers.dielectric_mm<out.tank.liquid_height_mm)){

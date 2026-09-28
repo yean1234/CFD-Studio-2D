@@ -24,3 +24,36 @@ test('reference metadata is collected separately without changing solver inputs'
  assert.equal(JSON.stringify(config),before);
  assert.equal(config.coupled.rho_kg_m3,1.2);
 });
+
+test('short frame target separates checkpoint interval from result interval',()=>{
+ const original=immersion();original._studio={termination:{mode:'frames',frames:3,include_initial:false}};
+ const c=editor.applyTermination(original);editor.validate(c);assert.equal(c.run.end_time_s,.03);assert.equal(c.run.write_interval_s,.5);
+ c.run.viz_interval_s=1;assert.throws(()=>editor.validate(c),/결과 프레임/);
+});
+
+test('search uses displayed names, group names, spacing and raw keys',()=>{
+ const c=immersion();
+ for(const q of ['결과 프레임 저장 간격','결과프레임저장간격','VIZ_INTERVAL_S'])assert.ok(editor.searchFields(c,q).some(x=>x.path.join('.')==='run.viz_interval_s'),q);
+ assert.ok(editor.searchFields(c,'복구 데이터 저장 간격').some(x=>x.path.join('.')==='run.write_interval_s'));
+ assert.ok(editor.searchFields(c,'냉각 코일').some(x=>x.path[0]==='coil'));
+ assert.ok(editor.searchFields(c,'냉각 코일 온도').some(x=>x.path.join('.')==='coil.Ta_C'));
+ assert.ok(editor.searchFields(c,'발열').some(x=>x.path.join('.')==='heater.total_W'));
+ assert.deepEqual(editor.searchFields(c,'없는검색어'),[]);
+});
+test('search keeps output selection as checkboxes including unselected choices',()=>{
+ const c=immersion();c.run.output_fields=['therm'];
+ for(const q of ['출력 항목','유속','압력'])assert.ok(editor.searchFields(c,q).some(x=>x.path.join('.')==='run.output_fields'&&Array.isArray(x.value)));
+});
+test('search excludes reference and internal metadata and preserves input',()=>{
+ const c=immersion();c.provenance={source:'secretref'};c._studio={termination:{mode:'time',time_s:2},goals:'비교'};
+ const before=JSON.stringify(c);
+ assert.equal(editor.searchFields(c,'secretref').length,0);
+ assert.equal(editor.searchFields(c,'end_time_s',{managed:true}).length,0);
+ assert.ok(editor.searchFields(c,'end_time_s',{managed:true,readonly:true}).length);
+ assert.ok(editor.searchTermination(c,'종료시간'));assert.ok(editor.searchTermination(c,'목표값'));
+ assert.equal(JSON.stringify(c),before);
+});
+test('search matches labels supplied by the existing UI definitions',()=>{
+ global.CBDEF=[['heater','','',[['total_W','히터 전력','W']]]];
+ try{assert.ok(editor.searchFields(immersion(),'히터 전력').some(x=>x.path.join('.')==='heater.total_W'));}finally{delete global.CBDEF;}
+});

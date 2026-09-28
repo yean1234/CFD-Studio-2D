@@ -191,5 +191,25 @@ class ProjectStorageTests(unittest.TestCase):
         self.assertEqual((target/'Results/old result/flow_1.bin').read_bytes(), b'original frame')
         self.assertEqual(self.w.detail('legacy:fixture')['path'], str(target/'Results/old result'))
 
+    def test_open_project_failure_restores_catalog_and_imported_files(self):
+        donor = ExecutionWorkspace(ROOT, [], folder=self.root/'donor-registry', output=self.root/'donor-output')
+        imported = donor.create_project('imported', storage_path=str(self.root/'imported'))
+        donor.save_case(imported['id'], 'Case', donor.template())
+        donor.snapshot()
+        before = {f:f.read_bytes() for base in (self.w.folder, Path(imported['storage_path'])) for f in base.rglob('*.json')}
+        manifest = Path(imported['storage_path'])/'project.cfdproj'
+        before[manifest] = manifest.read_bytes()
+        with patch.object(self.w, 'save_queue', side_effect=OSError('disk full')):
+            with self.assertRaises(OSError): self.w.open_project(imported['storage_path'])
+        self.assertEqual([p['id'] for p in self.w.stored_projects()], [self.p['id']])
+        for f, raw in before.items(): self.assertEqual(f.read_bytes(), raw, str(f))
+
+    def test_open_rejects_a_project_nested_inside_another_project(self):
+        donor = ExecutionWorkspace(ROOT, [], folder=self.root/'donor-registry', output=self.root/'donor-output')
+        imported = donor.create_project('nested', storage_path=str(Path(self.p['storage_path'])/'nested'))
+        with self.assertRaisesRegex(ValueError, '겹치지'):
+            self.w.open_project(imported['storage_path'])
+        self.assertEqual(len(self.w.stored_projects()), 1)
+
 
 if __name__ == '__main__': unittest.main()
