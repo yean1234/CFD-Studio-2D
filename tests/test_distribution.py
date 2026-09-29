@@ -10,7 +10,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location('setup_bridge', ROOT/'cfd_studio/setup_bridge.py')
+spec = importlib.util.spec_from_file_location('setup_bridge', ROOT/'cfd_studio/internal/setup_bridge.py')
 bridge = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bridge)
 
@@ -19,7 +19,7 @@ class DistributionTests(unittest.TestCase):
         for name in ['python.exe', 'python312.dll', 'python312.zip', '_socket.pyd', '_ssl.pyd', '_ctypes.pyd', 'LICENSE.txt']:
             self.assertTrue((ROOT/'cfd_studio/Setup/Python312'/name).is_file())
         launcher = (ROOT/'cfd_studio/설치.bat').read_text()
-        self.assertIn('%~dp0setup_bridge.py', launcher)
+        self.assertIn('%~dp0internal\\setup_bridge.py', launcher)
         self.assertNotIn('_runtime\\setup_bridge.py', launcher)
 
     def test_python_syntax(self):
@@ -67,7 +67,7 @@ class DistributionTests(unittest.TestCase):
                 bridge.setup_script('C:\\CFD Studio',case)
         script=bridge.setup_script("C:\\Users\\한글\\Studio's folder", '~/new_case')
         self.assertIn('wslpath -u',script)
-        self.assertIn('"$PARENT/cfd_studio/setup.sh"',script)
+        self.assertIn('"$PARENT/cfd_studio/internal/setup.sh"',script)
         if shutil.which('bash'):
             subprocess.run(['bash','-n'],input=script,text=True,check=True)
 
@@ -76,7 +76,7 @@ class DistributionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             sentinel=Path(tmp)/'config.json'
             sentinel.write_text('{"preserve":true}')
-            r=subprocess.run(['bash',str(ROOT/'cfd_studio/setup.sh'),str(ROOT),tmp],capture_output=True)
+            r=subprocess.run(['bash',str(ROOT/'cfd_studio/internal/setup.sh'),str(ROOT),tmp],capture_output=True)
             self.assertNotEqual(r.returncode,0)
             self.assertEqual(sentinel.read_text(),'{"preserve":true}')
 

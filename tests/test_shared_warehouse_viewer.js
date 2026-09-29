@@ -1,12 +1,12 @@
 const test=require('node:test'),assert=require('node:assert/strict');
-const {warehouseBlend,warehouseBracket,warehouseCompatible,warehouseRange}=require('../cfd_studio/warehouse_viewer.js');
+const {warehouseBlend,warehouseBracket,warehouseCompatible,warehouseRange}=require('../cfd_studio/internal/warehouse_viewer.js');
 test('animation uses physical time between saved frames without extrapolation',()=>{assert.deepEqual(warehouseBracket([0,60,300],30),{i:0,j:1,u:.5});assert.deepEqual(warehouseBracket([0,60,300],120),{i:1,j:2,u:.25});assert.deepEqual(warehouseBracket([0,60,300],400),{i:2,j:2,u:0});assert.equal(warehouseBlend(2,8,.25),3.5);assert.equal(warehouseBlend(2,8,-1),2);assert.equal(warehouseBlend(2,8,2),8);});
 test('animation does not mutate saved fields or confuse scalar ranges',()=>{const a={minimum:0,maximum:2,temperature_range_C:[20,24]},b={minimum:1,maximum:5,temperature_range_C:[19,25]};const source=JSON.stringify([a,b]);assert.deepEqual(warehouseRange(a,b,'concentration'),[0,5]);assert.deepEqual(warehouseRange(a,b,'temperature'),[19,25]);assert.equal(JSON.stringify([a,b]),source);});
 test('interpolation refuses different coordinates or sampling',()=>{const a={total_cells:4,sampling_stride:2,cell_centres_m:[[0,0,0],[1,1,1]]};assert.ok(warehouseCompatible(a,structuredClone(a)));assert.ok(!warehouseCompatible(a,{...a,sampling_stride:1}));assert.ok(!warehouseCompatible(a,{...a,cell_centres_m:[[1,1,1],[0,0,0]]}));});
 
 // Exercise the production transition with rendering delayed until after metadata arrives.
 const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const workspace=fs.readFileSync(path.join(__dirname,'../cfd_studio/execution_workspace.js'),'utf8');
+const workspace=fs.readFileSync(path.join(__dirname,'../cfd_studio/internal/execution_workspace.js'),'utf8');
 const transition=workspace.slice(workspace.indexOf('  async function viewResult(){'),workspace.indexOf('  function inspectSettings(){'));
 function transitionContext(detail){
  const calls=[];
@@ -77,7 +77,7 @@ test('horizontal and vertical drags have the same projected direction for Y-up a
  }
 });
 
-const {warehouseFlowSamples,warehouseFlowVector}=require('../cfd_studio/warehouse_viewer.js');
+const {warehouseFlowSamples,warehouseFlowVector}=require('../cfd_studio/internal/warehouse_viewer.js');
 test('dense warehouse vectors cover space using original cell centres and a bounded count',()=>{
  const points=[];for(let z=0;z<12;z++)for(let y=0;y<20;y++)for(let x=0;x<78;x++)points.push([x+.5,y+.5,z+.5]);
  const before=JSON.stringify(points),sample=warehouseFlowSamples(points,6000);

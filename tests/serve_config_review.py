@@ -22,7 +22,7 @@ def serve(folder, port):
     html = next(ast.literal_eval(n.value) for n in TREE.body
                 if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'INDEX_HTML' for t in n.targets))
     html = html.replace('__APP_VER__', '설정 검토용 · 실행 없음').replace(
-        '__TRACER_VIEWER__', (ROOT/'cfd_studio/tracer_viewer.js').read_text(encoding='utf-8'))
+        '__TRACER_VIEWER__', (ROOT/'cfd_studio/internal/tracer_viewer.js').read_text(encoding='utf-8'))
     silo = preset('grain_silo')
 
     class Handler(namespace['H']):

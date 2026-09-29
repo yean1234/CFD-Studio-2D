@@ -13,7 +13,7 @@ def studio_html():
     html = next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign)
                 and any(isinstance(t,ast.Name) and t.id=='INDEX_HTML' for t in n.targets)
                 and isinstance(n.value,ast.Constant))
-    return html.replace('__APP_VER__','QA read-only').replace('__TRACER_VIEWER__',(root/'tracer_viewer.js').read_text())
+    return html.replace('__APP_VER__','QA read-only').replace('__TRACER_VIEWER__',(root/'internal/tracer_viewer.js').read_text())
 
 
 def serve(project, port):

@@ -14,11 +14,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v188"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v189"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
-for module_root in (HERE, os.path.dirname(HERE)):
+for module_root in (os.path.join(HERE, "internal"), HERE, os.path.dirname(HERE)):
     if module_root not in sys.path:
         sys.path.insert(0, module_root)
 
@@ -3242,7 +3242,7 @@ def _extract_worker_inner(requested_rid, S):
     prtmp = os.path.join(PDIR, "_P_tmp"); ktmp = os.path.join(PDIR, "_K_tmp")
     etmp = os.path.join(PDIR, "_E_tmp")
     atmp = os.path.join(PDIR, "_A_tmp"); wtmp = os.path.join(PDIR, "_W_tmp")
-    fast_helper = win2wsl(os.path.join(HERE, "wsl_frame_compress.py"))
+    fast_helper = win2wsl(os.path.join(HERE, "internal", "wsl_frame_compress.py"))
     fast_cache = win2wsl(os.path.join(PDIR, "Cache", "Visualization"))
     def bpath(t): return os.path.join(PDIR, f"bub_{t}.bin")
     done = processed = 0
@@ -8686,7 +8686,7 @@ __TRACER_VIEWER__
 </body></html>
 '''
 INDEX_HTML = INDEX_HTML.replace("__APP_VER__", APP_VER)
-with open(os.path.join(HERE, "tracer_viewer.js"), encoding="utf-8") as _tracer_js:
+with open(os.path.join(HERE, "internal", "tracer_viewer.js"), encoding="utf-8") as _tracer_js:
     INDEX_HTML = INDEX_HTML.replace("__TRACER_VIEWER__", _tracer_js.read())
 
 def _merge_conditions():

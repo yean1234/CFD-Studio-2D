@@ -24,8 +24,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         from urllib.parse import parse_qs, urlparse
         url = urlparse(self.path)
-        files = {'/warehouse/results': ROOT/'cfd_studio/warehouse_results.html',
-                 '/warehouse/results.js': ROOT/'cfd_studio/warehouse_results.js',
+        files = {'/warehouse/results': ROOT/'cfd_studio/internal/warehouse_results.html',
+                 '/warehouse/results.js': ROOT/'cfd_studio/internal/warehouse_results.js',
                  '/studies/three.module.js': ROOT/'study_platform/vendor/three.module.js'}
         if url.path in files:
             kind = 'text/html' if url.path.endswith('results') else 'text/javascript'

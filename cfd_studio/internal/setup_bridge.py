@@ -6,7 +6,7 @@ import shlex
 import subprocess
 import sys
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parents[1]
 
 def setup_script(parent, case):
     if not (case.startswith('~/') or case.startswith('/')) or case in ('/', '~/'):
@@ -15,7 +15,7 @@ def setup_script(parent, case):
         raise ValueError('Invalid case path')
     return ('set -e\n'
             'PARENT=$(wslpath -u ' + shlex.quote(str(parent)) + ')\n'
-            'bash "$PARENT/cfd_studio/setup.sh" "$PARENT" ' + shlex.quote(case) + '\n')
+            'bash "$PARENT/cfd_studio/internal/setup.sh" "$PARENT" ' + shlex.quote(case) + '\n')
 
 def main():
     cfg_path = HERE / 'studio_config.json'

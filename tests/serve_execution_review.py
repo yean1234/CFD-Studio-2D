@@ -19,7 +19,7 @@ def serve(folder,output,port,allow_run,allow_write=False):
         workspace.start_queue_service()
     tree=ast.parse((ROOT/'cfd_studio/app.py').read_text())
     html=next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='INDEX_HTML' for t in n.targets))
-    html=html.replace('__APP_VER__','대기열 검토').replace('__TRACER_VIEWER__',(ROOT/'cfd_studio/tracer_viewer.js').read_text())
+    html=html.replace('__APP_VER__','대기열 검토').replace('__TRACER_VIEWER__',(ROOT/'cfd_studio/internal/tracer_viewer.js').read_text())
     config=json.loads((ROOT/'cfd_studio/configs/immersion.json').read_text())
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*a):pass
@@ -29,7 +29,7 @@ def serve(folder,output,port,allow_run,allow_write=False):
         def do_GET(self):
             if get_route(self,workspace):return
             u=urlparse(self.path);q=parse_qs(u.query)
-            files={'/warehouse/results':'cfd_studio/warehouse_results.html','/warehouse/results.js':'cfd_studio/warehouse_results.js','/studies/three.module.js':'study_platform/vendor/three.module.js'}
+            files={'/warehouse/results':'cfd_studio/internal/warehouse_results.html','/warehouse/results.js':'cfd_studio/internal/warehouse_results.js','/studies/three.module.js':'study_platform/vendor/three.module.js'}
             if u.path=='/':self._send(200,html.encode(),'text/html; charset=utf-8')
             elif u.path in files:self._send(200,(ROOT/files[u.path]).read_bytes(),'text/javascript' if u.path.endswith('.js') else 'text/html; charset=utf-8')
             elif u.path.startswith('/api/warehouse/results'):

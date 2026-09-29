@@ -22,7 +22,7 @@ if not defined CFD_STUDIO_WSL_EXE if exist "%SystemRoot%\System32\wsl.exe" set "
 if not defined CFD_STUDIO_WSL_EXE if exist "%SystemRoot%\Sysnative\wsl.exe" set "CFD_STUDIO_WSL_EXE=%SystemRoot%\Sysnative\wsl.exe"
 if not defined CFD_STUDIO_WSL_EXE set "CFD_STUDIO_WSL_EXE=wsl.exe"
 
-"%CFD_PYTHON%" "%~dp0setup_bridge.py"
+"%CFD_PYTHON%" "%~dp0internal\setup_bridge.py"
 if errorlevel 1 (
   echo.
   echo [error] Setup did not finish. Review the message above and run this file again.

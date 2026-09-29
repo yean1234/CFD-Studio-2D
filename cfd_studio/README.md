@@ -7,6 +7,20 @@
 - [실험 묶음](../docs/research-studies.md)
 - [검증 범위](../docs/ux-review-20260926.md)
 
+## 폴더 구성
+
+- `실행.bat`: 프로그램 실행
+- `설치.bat`: 최초 설치
+- `internal`: 내부 코드·화면·설치 보조 파일
+- `Setup`: 포함 Python 실행 환경
+- `configs`: 기본 Config
+- `Projects`: 기본 프로젝트 저장 위치
+- `Studies`: 기존 실험 자료
+- `_runtime`: 앱 상태·캐시
+- `app.py`, `__init__.py`: 실행·모듈 연결 파일
+- `studio_config.json`: 개인 환경 설정
+- 내부 파일은 개별 실행하거나 삭제하지 않음
+
 ## 1. 설치
 
 1. 저장소 전체를 다운로드하고 압축을 풉니다. `cfd_studio`, `tmc49_full_tank`, `silo_reproduction`의 상대 위치를 유지합니다.

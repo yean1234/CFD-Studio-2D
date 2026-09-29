@@ -12,7 +12,7 @@ import time
 import uuid
 from zipfile import BadZipFile
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from tracer_transport.warehouse_geometry import validate

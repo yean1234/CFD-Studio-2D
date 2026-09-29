@@ -8,8 +8,8 @@ const {test} = require('node:test');
 
 const root = path.resolve(__dirname, '..');
 const app = fs.readFileSync(path.join(root, 'cfd_studio/app.py'), 'utf8');
-const tracer = fs.readFileSync(path.join(root, 'cfd_studio/tracer_viewer.js'), 'utf8');
-const warehouse = fs.readFileSync(path.join(root, 'cfd_studio/warehouse_workspace.html'), 'utf8');
+const tracer = fs.readFileSync(path.join(root, 'cfd_studio/internal/tracer_viewer.js'), 'utf8');
+const warehouse = fs.readFileSync(path.join(root, 'cfd_studio/internal/warehouse_workspace.html'), 'utf8');
 
 // 실제 프로젝트 없이 새 설정창의 저장·초안 상태만 검증한다.
 function configEditor() {
