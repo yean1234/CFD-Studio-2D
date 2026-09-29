@@ -1,4 +1,5 @@
 import copy
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -27,6 +28,23 @@ class FormSchemaTests(unittest.TestCase):
             edited=copy.deepcopy(schema);edited['fields'][0]['fields'][0]['value']=15
             fresh.save_form('User domain','solver_definition','simpleFoam',config_from_schema(edited),saved['id'],1,config_schema=edited)
             self.assertEqual(saved['config']['domain']['length'],12.5)
+
+    def test_common_template_route_returns_editable_json_without_mutating_saved_form(self):
+        from cfd_studio.execution_workspace import get_route
+        class Handler:
+            path='/api/executions/config-template'
+            def _json(self,value,*args):self.value=value
+        handler=Handler()
+        self.assertTrue(get_route(handler,None))
+        config=handler.value['config']
+        self.assertEqual(config,json.loads((ROOT/'cfd_studio/templates/cfd-config-template.json').read_text()))
+        self.assertEqual(len(config),9)
+        self.assertIsNone(config['numerics']['time_step'])
+        self.assertEqual(config['geometry']['regions'],[])
+        # Loading the starter file is read-only and returns independent data.
+        config['geometry']['regions'].append({'name':'user_region'})
+        second=Handler();get_route(second,None)
+        self.assertEqual(second.value['config']['geometry']['regions'],[])
 
     def test_blank_definition_does_not_inject_geometry(self):
         self.assertEqual(config_from_schema({'version':1,'fields':[]}),{})

@@ -32,13 +32,13 @@
   }
   function newField(fields){let n=1;while(fields.some(f=>f.key==='field_'+n))n++;return {key:'field_'+n,type:'number',unit:'',value:0};}
   function open({config={},schema=null,onSave,title='Config'}){
-    let draft=schema?clone(schema):fromConfig(config),mode='fields';toConfig(draft);
+    let draft=schema?clone(schema):fromConfig(config),mode='fields';toConfig(draft);const expanded=new WeakSet();
     const el=(tag,text,cls)=>{const x=document.createElement(tag);if(text!=null)x.textContent=text;if(cls)x.className=cls;return x;};
     const button=(text,fn)=>{const x=el('button',text,'btn');x.type='button';x.onclick=fn;return x;};
     if(!document.getElementById('formConfigStyle')){const style=el('style');style.id='formConfigStyle';style.textContent=`
       .fc-dialog{width:min(1000px,94vw);max-width:1000px;max-height:90vh;padding:24px;border:1px solid var(--line);border-radius:14px;background:var(--card,var(--page));color:var(--text);box-sizing:border-box}.fc-dialog::backdrop{background:#000a}
       .fc-header,.fc-actions,.fc-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px}.fc-header h2{font-size:18px;margin:0}.fc-toolbar{justify-content:flex-start;flex-wrap:wrap;margin:18px 0}.fc-body{max-height:60vh;overflow:auto;padding-right:6px}.fc-empty{padding:40px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}.fc-field{border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0;background:var(--page)}
-      .fc-row{display:grid;grid-template-columns:minmax(120px,1.4fr) 125px minmax(70px,.6fr) minmax(120px,1.4fr) auto;gap:10px;align-items:start}.fc-field label{display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--muted)}.fc-field input,.fc-field select,.fc-field textarea,.fc-json{box-sizing:border-box;width:100%;background:var(--card,var(--page));color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px;font:12px Consolas,monospace;min-height:34px}.fc-field .btn{margin-top:19px}.fc-children{padding-left:16px;border-left:2px solid var(--line);margin-top:12px}.fc-children>.btn{margin-top:6px}.fc-json{min-height:360px;resize:vertical}.fc-error{color:var(--red,#ef8989);font-size:12px;min-height:18px;white-space:pre-wrap}.fc-actions{justify-content:flex-end;margin-top:14px}.fc-toolbar [aria-pressed=true]{border-color:var(--accent,#579eff)}
+      .fc-row{display:grid;grid-template-columns:minmax(120px,1.4fr) 125px minmax(70px,.6fr) minmax(120px,1.4fr) auto;gap:10px;align-items:start}.fc-field label{display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--muted)}.fc-field input,.fc-field select,.fc-field textarea,.fc-json{box-sizing:border-box;width:100%;background:var(--card,var(--page));color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px;font:12px Consolas,monospace;min-height:34px}.fc-field .btn{margin-top:19px}.fc-children{padding-left:16px;border-left:2px solid var(--line);margin-top:12px}.fc-children>.btn{margin-top:6px}.fc-group{border:1px solid var(--line);border-radius:10px;margin:10px 0;background:var(--page)}.fc-group>summary{display:flex;align-items:center;gap:12px;cursor:pointer;padding:14px;list-style:none;font-size:13px}.fc-group>summary::-webkit-details-marker{display:none}.fc-group>summary small{margin-left:auto;color:var(--muted);font-size:11px}.fc-group>summary::after{content:'⌄';font-size:18px;color:var(--muted);transition:transform .15s}.fc-group[open]>summary::after{transform:rotate(180deg)}.fc-group>.fc-field{border:0;margin:0;border-top:1px solid var(--line);border-radius:0 0 10px 10px}.fc-json{min-height:360px;resize:vertical}.fc-error{color:var(--red,#ef8989);font-size:12px;min-height:18px;white-space:pre-wrap}.fc-actions{justify-content:flex-end;margin-top:14px}.fc-toolbar [aria-pressed=true]{border-color:var(--accent,#579eff)}
       @media(max-width:700px){.fc-row{grid-template-columns:1fr 1fr}.fc-row>.btn{grid-column:2}.fc-children{padding-left:6px}}
     `;document.head.append(style);}
     const dialog=el('dialog',null,'fc-dialog'),header=el('div',null,'fc-header');header.append(el('h2',title));dialog.append(header);
@@ -49,12 +49,17 @@
     const add=button('+ Field',()=>guarded(()=>{commitJSON();draft.fields.push(newField(draft.fields));mode='fields';render();}));
     const upload=el('input');upload.type='file';upload.accept='.json,application/json';upload.hidden=true;
     upload.onchange=async()=>{const file=upload.files[0];if(!file)return;try{if(file.size>1000000)throw Error('JSON file must be under 1 MB');const next=fromConfig(JSON.parse(await file.text()),draft);draft=next;mode='fields';error.textContent='';render();}catch(e){error.textContent=e.message;}upload.value='';};
-    toolbar.append(fieldButton,jsonButton,add,button('Import JSON',()=>upload.click()),button('Export JSON',()=>guarded(()=>{commitJSON();const a=el('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(toConfig(draft),null,2)],{type:'application/json'}));a.download='config.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);})),upload);dialog.append(toolbar,body,error,actions);
+    toolbar.append(fieldButton,jsonButton,add,button('Import JSON',()=>upload.click()),button('Download JSON',()=>guarded(()=>{commitJSON();const a=el('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(toConfig(draft),null,2)],{type:'application/json'}));a.download='cfd-config.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);})),upload);dialog.append(toolbar,body,error,actions);
     function renderFields(fields,host,path=''){
       for(const [index,field] of fields.entries()){
-        const box=el('div',null,'fc-field'),row=el('div',null,'fc-row'),label=path+field.key;host.append(box);box.append(row);
+        const box=el('div',null,'fc-field'),row=el('div',null,'fc-row'),label=path+field.key;
+        let heading;
+        if(!path&&field.type==='object'){
+          const section=el('details',null,'fc-group'),summary=el('summary');heading=el('span',field.key);summary.append(heading,el('small',field.fields.length+' fields'));section.append(summary,box);section.open=expanded.has(field);section.ontoggle=()=>{if(section.open)expanded.add(field);else expanded.delete(field);};host.append(section);
+        }else host.append(box);
+        box.append(row);
         const input=(caption,node)=>{const l=el('label',caption);node.setAttribute('aria-label',label+' '+caption);l.append(node);row.append(l);return node;};
-        const key=input('Key',el('input'));key.value=field.key;key.maxLength=80;key.oninput=()=>field.key=key.value;
+        const key=input('Key',el('input'));key.value=field.key;key.maxLength=80;key.oninput=()=>{field.key=key.value;if(heading)heading.textContent=key.value;};
         const type=input('Type',el('select'));for(const t of types)type.append(new Option(t,t));type.value=field.type;
         const unit=input('Unit',el('input'));unit.value=field.unit||'';unit.maxLength=64;unit.placeholder='—';unit.oninput=()=>field.unit=unit.value;
         type.onchange=()=>{field.type=type.value;delete field.fields;delete field.value;if(field.type==='object')field.fields=[];else field.value={string:'',number:0,integer:0,boolean:false,array:[],null:null}[field.type];render();};

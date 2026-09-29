@@ -6,7 +6,7 @@
 2. FORM 이름 입력 후 **솔버** 선택.
 3. 해석 기능·정상/비정상·주요 결과·연결 양식 확인.
 4. **설치 확인**으로 설정된 CPU OpenFOAM 환경의 실행 파일 확인.
-5. 기본값 **Blank Config**에서 **Config 편집**으로 Key·Type·Unit·Value 입력.
+5. 기본값 **General CFD Config**에서 **Config 편집**으로 Key·Type·Unit·Value 입력.
 6. **Apply → FORM 초안 저장**. 기존 연결 양식은 **Config Template**에서 선택 후 **FORM 저장**.
 
 - 기존 FORM은 이름·설명·입력 양식 편집 가능. 사용 중인 솔버는 변경 불가.

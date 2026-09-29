@@ -1,0 +1,38 @@
+{
+  "geometry": {
+    "source": null,
+    "regions": []
+  },
+  "mesh": {
+    "source": null,
+    "generator": null,
+    "controls": {}
+  },
+  "materials": {
+    "definitions": [],
+    "assignments": []
+  },
+  "physics": {
+    "models": []
+  },
+  "initial_conditions": {
+    "fields": {}
+  },
+  "boundary_conditions": {
+    "patches": []
+  },
+  "numerics": {
+    "schemes": {},
+    "solvers": {},
+    "time_step": null
+  },
+  "termination": {
+    "mode": null,
+    "criteria": {}
+  },
+  "outputs": {
+    "fields": [],
+    "write_interval": null,
+    "probes": []
+  }
+}

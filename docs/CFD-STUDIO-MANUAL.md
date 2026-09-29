@@ -270,7 +270,7 @@
 
 ## 사용자 정의 Config
 
-- 새 FORM: 특정 형상 없이 빈 Config로 시작
+- 새 FORM: Geometry·Mesh·Materials 등 공통 구조로 시작
 - 항목: Key·Type·Unit·Value, 중첩 Object·Array 지원
 - 필드 이름: 사용자 입력 그대로 보존. 한글 이름 자동 변환 없음
 - Type·Unit: FORM 스키마로 저장. Unit은 자동 단위 변환 기능이 아닌 메타데이터

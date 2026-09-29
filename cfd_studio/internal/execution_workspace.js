@@ -154,7 +154,7 @@
   }
   async function formEditor(id=null){
     try{
-      const [reply,catalogReply]=await Promise.all([api('/forms'),api('/solvers')]);
+      const [reply,catalogReply,templateReply]=await Promise.all([api('/forms'),api('/solvers'),api('/config-template')]);
       const existing=reply.forms.find(f=>f.id===id),engines=reply.forms.filter(x=>['immersion','grain_silo','warehouse'].includes(x.id));
       let solvers=catalogReply.solvers,installation=catalogReply.installation;
       const d=node('dialog');d.className='ew-dialog ew-form-dialog';
@@ -190,7 +190,7 @@
       };
       const rememberConfig=()=>{if(activeConfigKey)configDrafts.set(activeConfigKey,{config:structuredClone(config),schema:structuredClone(configSchema),sections:{...sections}});};
       const setTemplates=(initial=false)=>{
-        f.elements.model.replaceChildren(new Option('Blank Config','solver_definition'));
+        f.elements.model.replaceChildren(new Option('General CFD Config','solver_definition'));
         for(const model of selectedSolver().models){const engine=engines.find(x=>x.model===model);f.elements.model.append(new Option(engine.name,model));}
         f.elements.model.value=initial&&existing?existing.model:'solver_definition';f.elements.model.disabled=!!existing;
       };
@@ -200,7 +200,7 @@
         if(initial&&existing){config=structuredClone(existing.config);configSchema=existing.config_schema?structuredClone(existing.config_schema):null;
           if(existing.definition_only&&!configSchema&&config._해석유형==='solver_definition')config=structuredClone(config.requirements||{});
         }else if(saved){config=structuredClone(saved.config);configSchema=structuredClone(saved.schema);sections={...saved.sections};}
-        else{config=structuredClone(isDraft()?{}:engines.find(x=>x.model===f.elements.model.value).config);configSchema=null;sections={};
+        else{config=structuredClone(isDraft()?templateReply.config:engines.find(x=>x.model===f.elements.model.value).config);configSchema=null;sections={};
           if(f.elements.model.value==='grain_silo'){const steady=solver.id==='simpleFoam';config.openfoam_mapping.solver=solver.id;config.openfoam_mapping.pressure_velocity_coupling=steady?'SIMPLE':'PIMPLE';config.run.time_basis=steady?'iterations':'physical_time';delete config._studio;}}
         if(f.elements.model.value==='immersion')config.run.output_fields??=['bubble','phase','flow','therm'];
         configSchema=CFDFormConfig.fromConfig(config,configSchema);drawSections();

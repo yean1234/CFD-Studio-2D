@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v190"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v191"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -5337,7 +5337,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <h4 style="margin-top:0">CFD 실행</h4>
    <ul><li><b>새 프로젝트</b>: 이름·프로젝트 폴더·설명·CFD FORM·프리셋 선택</li><li><b>+CFD Case</b>: 개별 Config·종료 조건·목표 입력 → <b>실행 저장</b></li><li>실행 선택 → <b>대기열에 추가</b> → <b>대기열 시작</b></li><li>실행 목록: 설정 차이·종료 조건·실행 상태·마지막 저장·수치 검사·시각화 확인</li><li>결과 버튼: <b>생성 / 업데이트 / 열기</b></li></ul>
    <h4>CFD FORM</h4>
-   <ul><li>왼쪽 <b>CFD FORM 리스트</b>: 이중액침냉각·옥수수 사일로·식량 저장고 훈증 시스템</li><li><b>새로 만들기</b>: 범용 솔버 10개·기존 전용 솔버 선택, 기능·주요 결과·연결 양식 확인</li><li><b>설치 확인</b>: 실행 파일 확인과 Studio 연결 상태를 별도로 표시. <b>Blank Config → Config 편집</b>에서 Key·Type·Unit·Value 직접 입력. <b>+ Field</b>로 항목 추가, Object·Array·JSON 지원. <b>Apply → FORM 초안 저장</b>. 사용자 정의 Config는 실행 연결 전까지 프로젝트·Case 실행에 사용할 수 없음</li><li><b>Config Template</b>: 기존 연결 양식 필요 시 직접 선택. FORM 오른쪽 <b>수정</b>: 이름·입력 양식 변경, 연결된 FORM에서 <b>새 프리셋</b> 저장</li><li>프로젝트 생성 시 FORM 필수. 프리셋은 해당 FORM 안에서 별도 선택</li><li><b>프리셋에 저장</b>: 기본 해제, 체크하면 새 이름으로 별도 저장</li><li>프로젝트 기본 프리셋 변경: 이후 추가하는 실행에만 적용</li></ul>
+   <ul><li>왼쪽 <b>CFD FORM 리스트</b>: 이중액침냉각·옥수수 사일로·식량 저장고 훈증 시스템</li><li><b>새로 만들기</b>: 범용 솔버 10개·기존 전용 솔버 선택, 기능·주요 결과·연결 양식 확인</li><li><b>설치 확인</b>: 실행 파일 확인과 Studio 연결 상태를 별도로 표시. <b>General CFD Config → Config 편집</b>에서 Geometry·Mesh·Materials 등 공통 구조 제공. <b>Download JSON</b>으로 내려받아 세부 작성 후 <b>Import JSON</b>으로 적용. Key·Type·Unit·Value 직접 편집 가능. <b>+ Field</b>로 항목 추가, Object·Array·JSON 지원. <b>Apply → FORM 초안 저장</b>. 사용자 정의 Config는 실행 연결 전까지 프로젝트·Case 실행에 사용할 수 없음</li><li><b>Config Template</b>: 기존 연결 양식 필요 시 직접 선택. FORM 오른쪽 <b>수정</b>: 이름·입력 양식 변경, 연결된 FORM에서 <b>새 프리셋</b> 저장</li><li>프로젝트 생성 시 FORM 필수. 프리셋은 해당 FORM 안에서 별도 선택</li><li><b>프리셋에 저장</b>: 기본 해제, 체크하면 새 이름으로 별도 저장</li><li>프로젝트 기본 프리셋 변경: 이후 추가하는 실행에만 적용</li></ul>
    <h4>대기열</h4>
    <ul><li>시작 전 실행: 편집·순서 변경·제외 가능</li><li><b>다음 실행부터 일시정지</b>: 현재 실행 유지</li><li>실패: 대기열 정지 → <b>재시도 / 건너뛰기</b> → <b>대기열 시작</b></li><li>앱 재시작: 기록·결과·대기열 복원, 다음 실행은 일시정지 상태</li></ul>
    <h4>종료 조건</h4>

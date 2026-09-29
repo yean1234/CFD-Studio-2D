@@ -471,6 +471,8 @@ def get_route(handler, workspace):
             result = workspace.series.page(q.get('id', [''])[0], q.get('metric', [''])[0], int(q.get('offset', ['0'])[0]), int(q.get('limit', ['16'])[0]))
         elif url.path == '/api/executions/forms':
             result = {'forms': workspace.forms()}
+        elif url.path == '/api/executions/config-template':
+            result = {'config': json.loads((Path(__file__).resolve().parents[1]/'templates/cfd-config-template.json').read_text(encoding='utf-8'))}
         elif url.path == '/api/executions/solvers':
             result = workspace.solver_catalog()
         elif url.path == '/api/executions/presets':

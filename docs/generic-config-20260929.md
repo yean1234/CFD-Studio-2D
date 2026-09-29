@@ -4,12 +4,37 @@
 
 1. **CFD FORM 리스트 → 새로 만들기**
 2. FORM 이름과 솔버 선택
-3. **Blank Config → Config 편집**
-4. **+ Field**로 항목 추가
-5. **Key · Type · Unit · Value** 입력
-6. **Apply → FORM 초안 저장**
+3. **General CFD Config → Config 편집**
+4. 공통 파트를 펼쳐 기본 항목 확인
+5. **Download JSON**으로 파일 저장
+6. JSON 파일에 세부 항목 작성 후 **Import JSON**
+7. **Apply → FORM 초안 저장**
+
+- 화면의 Fields·JSON 편집도 지원
+- [기본 JSON 파일](../cfd_studio/templates/cfd-config-template.json)
 
 ![Config 편집](assets/generic-config-20260929/editor.png)
+
+## 기본 구조
+
+| 파트 | 입력 내용 |
+|---|---|
+| geometry | 형상 원본, 해석 영역 |
+| mesh | 격자 원본, 생성 도구, 격자 제어 |
+| materials | 물성 정의, 영역별 재료 배정 |
+| physics | 사용할 물리 모델 |
+| initial_conditions | 초기장 |
+| boundary_conditions | 경계별 조건 |
+| numerics | 수치 기법, 선형 솔버, 계산 시간간격 |
+| termination | 종료 방식, 기준 |
+| outputs | 저장할 장, 결과 저장 간격, 조회 지점 |
+
+- `null`: 미입력. 0이나 기본 물성으로 간주하지 않음
+- `{}`·`[]`: 세부 항목을 채울 자리
+- 특정 대상·치수·물성·모델·시간간격 자동 지정 없음
+- 이름·하위 구조·추가 항목 자유 편집
+- 새 FORM에만 기본 구조 제공. 기존 FORM 자동 재구성 없음
+- 경로와 모델명은 정의 데이터. JSON을 저장해도 형상 가져오기나 솔버 입력 파일 생성이 자동 실행되지 않음
 
 ## 기능
 
@@ -19,7 +44,7 @@
 - Array: JSON 배열 직접 입력
 - Unit: 사용자 지정 단위 보존. 수치 변환 기능 없음
 - JSON: 전체 값 구조 편집
-- Import JSON / Export JSON: 값만 가져오기·내보내기. 단위·자료형 스키마는 FORM 저장에 포함
+- Import JSON / Download JSON: 값만 가져오기·내보내기. 단위·자료형 스키마는 FORM 저장에 포함
 - Cancel: 편집 취소
 - 중복 Key·자료형 불일치·잘못된 JSON: 저장 차단
 - 기존 양식: Config Template에서 명시적으로 선택
@@ -36,22 +61,22 @@
 
 ## 확인
 
-- 실제 브라우저: 빈 Config, 항목 추가, JSON 편집, 중첩 구조, 단위 입력
-- 저장·새로고침 후 값 12.5와 단위 m 복원 확인
-- JSON 버튼 재선택 시 미저장 입력 유지 확인
-- 솔버·템플릿 전환 후 자유 Config 입력 유지 확인
+- Python 관련 검사 19개 통과
+- JavaScript Config 검사 7개 통과
+- 실제 화면: 공통 파트 9개, JSON 다운로드 확인
+- 내려받은 JSON과 제공 템플릿 값 일치 확인
+- 파일 수정·Import JSON·FORM 저장·새로고침 후 동일 값 복원 확인
 - 임시 저장소에서 UI 확인. CFD 계산 미실행
-- Python 전체 검사: 186개 실행, 184개 통과·2개 제외. 보류 중인 격자 관련 로컬 검사 포함
-- JavaScript: 67개 통과
-- 적용 버전: v190
-- 앱 재시작 후 프로젝트 2개·실행 28개·대기열 상태 일치 확인
+- 적용 버전: v191
+- 재시작 후 기존 프로젝트 2개·실행 28개·대기열 상태 일치 확인
 
 ## 변경 파일
 
-- `cfd_studio/internal/form_config_editor.js`: 범용 Config 편집기
+- `cfd_studio/templates/cfd-config-template.json`: 공통 양식 파일
+- `cfd_studio/internal/form_config_editor.js`: 파트별 펼치기·JSON 다운로드
 - `cfd_studio/internal/form_schema.py`: 스키마·값 검사
 - `cfd_studio/internal/cfd_forms.py`: FORM 스키마 저장
-- `cfd_studio/internal/execution_workspace.js`: 빈 Config·선택 템플릿 연결
+- `cfd_studio/internal/execution_workspace.js`: 공통 Config·선택 템플릿 연결
 - `cfd_studio/internal/execution_workspace.py`: Config 스키마 API 전달
 - `cfd_studio/app.py`: 편집기 로딩·도움말
 - `tests/test_form_config_editor.js`, `tests/test_form_schema.py`: 데이터 검사·복원 검사
