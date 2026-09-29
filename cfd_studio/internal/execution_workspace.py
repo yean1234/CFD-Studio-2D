@@ -192,7 +192,7 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
                 continue
             valid = state.get('status') == 'complete' and bool(checks.get('execution_checks_pass') or checks.get('numerical_pass'))
             records[key] = {'id': key, 'kind': 'warehouse', 'rid': p.name, 'name': p.name,
-                'path': str(p), 'model': model.get('kind'), 'status': state.get('status', 'saved'),
+                'path': str(p), 'model': model.get('kind'), 'status': state.get('status', 'saved'), 'error': state.get('error', ''),
                 'created': (p/'model_contract.json').stat().st_mtime,
                 'end_s': checks.get('simulated_seconds'), 'has_results': valid and (p/'concentration.npz').is_file(),
                 'numerical_pass': checks.get('numerical_pass', False), 'experimental_validation': False,
@@ -342,7 +342,8 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
         if case and not case.get('result_key'):
             attempt = case.get('attempts', [])
             log_path = Path(attempt[-1]['job_path']).with_name('execution.log') if attempt else None
-            return {**record, 'config': copy.deepcopy(case['config']), 'log': log_path.read_text(encoding='utf-8', errors='replace')[-50000:] if log_path and log_path.exists() else '', 'checks': {}, 'grid': None}
+            log = log_path.read_text(encoding='utf-8', errors='replace')[-50000:] if log_path and log_path.exists() else ''
+            return {**record, 'recovery': self.recovery(record, case['config'], log), 'config': copy.deepcopy(case['config']), 'log': log, 'checks': {}, 'grid': None}
         p = Path(record['path'])
         if record['kind'] == 'warehouse':
             config = read_json(p/'transport_input.json', {})
@@ -374,7 +375,7 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
         live = self.live()
         if key == 'legacy:'+str(live.get('rid', '')) and live.get('running'):
             log = live.get('log') or log
-        return {**record, 'config': config, 'log': log, 'log_source': str(path) if path else None,
+        return {**record, 'recovery': self.recovery(record, config, log, read_json(p/'checks.json', {})), 'config': config, 'log': log, 'log_source': str(path) if path else None,
                 'checks': read_json(p/'checks.json', {}), 'grid': read_json(p/'grid_assessment.json', None)}
 
     def preset_paths(self):
@@ -579,6 +580,8 @@ def post_route(handler, workspace, body):
             result = workspace.rename_preset(body.get('id'), body.get('name'))
         elif path == '/api/executions/case':
             result = workspace.save_case(body.get('project_id'), body.get('name'), body.get('config'), body.get('id'), body.get('revision'), body.get('preset_id'), body.get('preset_name'))
+        elif path == '/api/executions/recover':
+            result = workspace.recover_case(body.get('id'), body.get('action'))
         elif path == '/api/executions/queue':
             result = workspace.queue_action(body.get('action'), body.get('ids'), body.get('id'))
         elif path == '/api/executions/result':

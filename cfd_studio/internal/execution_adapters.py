@@ -14,9 +14,48 @@ def install(workspace, g):
         def _json(self, value, code=200):
             self.value, self.code = value, code
 
+    def recovery(case):
+        rid = str(case.get('result_key', '')).removeprefix('legacy:')
+        if not re.fullmatch(r'[0-9]+', rid):
+            return {'resume': False, 'resume_reason': '재시작 원본의 실행 ID가 없습니다.'}
+        mode_error = g['_resume_mode_error'](rid)
+        if mode_error:
+            return {'resume': False, 'resume_reason': mode_error}
+        source = g['WSL_CASE'] if rid == str(g['_active_rid']()) else g['WSL_CASE'].rstrip('/')+'/ProjectRuns/'+rid
+        quoted = g['_shq'](source)
+        command = (f'cd {quoted} || exit 1; '
+                   f'test "$(cat .cfd_studio_runid 2>/dev/null)" = {g["_shq"](rid)} || exit 2; '
+                   + g['_resume_anchor_shell']('ANCHOR', '.') + 'printf "STUDIO_ANCHOR=%s\\n" "$ANCHOR"')
+        ok, output = g['wsl'](command, timeout=20)
+        match = re.search(r'STUDIO_ANCHOR=([0-9]+(?:[.][0-9]+)?)', output)
+        anchor = float(match[1]) if ok and match else None
+        if anchor is None or anchor <= 0 or anchor >= case['end_s']:
+            return {'resume': False, 'resume_reason': '목표 시점 이전의 완전한 재시작 저장 지점이 없습니다. 다시하기로 처음부터 계산할 수 있습니다.'}
+        return {'resume': True, 'anchor': anchor, 'resume_source': source,
+                'resume_reason': f'저장 지점 {anchor:g}부터 재개합니다. 이후의 불완전 저장 구간은 다시 계산합니다.'}
+
     def start(case):
         reply = Reply()
-        g['H']._run_legacy(reply, {'mode': 'fresh', 'config_ref': 'inline',
+        attempt = case['attempts'][-1]
+        mode = attempt.get('mode', 'fresh')
+        rid = str(attempt.get('source_result_key') or '').removeprefix('legacy:')
+        if mode == 'resume':
+            recovered = recovery(case)
+            if not recovered.get('resume'):
+                raise ValueError(recovered['resume_reason'])
+            # Preserve the original checkpoint and logs before the native resume path
+            # prunes incomplete writes or replaces log.restart.
+            destination = g['win2wsl'](str(Path(attempt['job_path']).parent/'Recovery_Source'))
+            source = recovered['resume_source']
+            command = (f'set -e; S={g["_shq"](source)}; D={g["_shq"](destination)}; test ! -e "$D"; mkdir "$D"; '
+                       'for P in "$S"/system "$S"/constant "$S"/config.json "$S"/.cfd_studio_runid "$S"/processor[0-9]* "$S"/[0-9]* "$S"/log.* "$S"/postProcessing; do '
+                       '[ ! -e "$P" ] || cp -a --reflink=auto "$P" "$D/"; done')
+            ok, output = g['wsl'](command, timeout=3600)
+            if not ok:
+                raise ValueError('재시작 원본 보존 실패: '+output[-1000:])
+        if workspace.queue_data()['cases'][case['id']].get('stop_requested'):
+            raise ValueError('실행 준비 중 사용자가 계산을 중단했습니다.')
+        g['H']._run_legacy(reply, {'mode': 'resume_archived' if mode == 'resume' else 'fresh', 'selected_rid': rid, 'end': case['end_s'], 'config_ref': 'inline',
             'config': copy.deepcopy(case['config']), 'output_fields': case['config']['run'].get('output_fields'),
             'execution_project_id': case['project_id'], 'execution_name': case['name'],
             'execution_attempt_path': str(Path(case['attempts'][-1]['job_path']).parent),
@@ -182,6 +221,7 @@ echo PROJECT_SAVED'''
                 threading.Thread(target=collect, name='case-result-check', daemon=True).start()
             return copy.deepcopy(result)
 
+    workspace.legacy_recovery = recovery
     workspace.legacy_start = start
     workspace.legacy_poll = nonblocking_poll
     workspace.legacy_stop = stop

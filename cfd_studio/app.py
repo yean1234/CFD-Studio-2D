@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v214"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v215"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -3832,7 +3832,7 @@ class H(BaseHTTPRequestHandler):
         if group_id:
             from execution_workspace import validate_settings, label
             try:
-                if body.get("mode") != "fresh" or body.get("reset_rid"):
+                if (body.get("mode") != "fresh" and not (body.get("mode") == "resume_archived" and body.get("_queue_authorized") is EXECUTION_WORKSPACE)) or body.get("reset_rid"):
                     raise ValueError("새 실행으로 시작해 주세요")
                 if validate_settings(body.get("config")) not in ("immersion", "grain_silo"):
                     raise ValueError("실행 모델을 확인해 주세요")
@@ -5015,7 +5015,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
     <button class="seg" id="mViz" onclick="setMode('viz')">Viewer</button>
   </div>
   <span class="pill"><span class="dot" id="stDot"></span><span id="stTxt">연결 확인 중…</span></span>
-  <span class="path" id="envPath">환경 확인 중…</span><span class="tag2" id="appContext">액침냉각 디지털트윈 · __APP_VER__</span>
+  <span class="path" id="envPath">환경 확인 중…</span><span class="tag2" id="appContext" hidden style="display:none">액침냉각 디지털트윈 · __APP_VER__</span>
   <button id="settingsBtn" onclick="showSettings()" title="환경 설정" aria-label="환경 설정"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><polygon points="18.47,9.32 20.83,10.28 20.83,13.72 18.47,14.68 19.46,17.03 17.03,19.46 14.68,18.47 13.72,20.83 10.28,20.83 9.32,18.47 6.97,19.46 4.54,17.03 5.53,14.68 3.17,13.72 3.17,10.28 5.53,9.32 4.54,6.97 6.97,4.54 9.32,5.53 10.28,3.17 13.72,3.17 14.68,5.53 17.03,4.54 19.46,6.97"/><circle cx="12" cy="12" r="3"/></svg></button>
   <button id="infoBtn" onclick="showInfo()" title="이 소프트웨어에 대하여 · 사용법 · 제작자">!</button>
 </div>
@@ -5358,7 +5358,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <details><summary>CFD FORM 생성 및 편집</summary><ul><li>왼쪽 하단 <b>CFD FORM 리스트</b> 제목 오른쪽 둥근 정사각형 <b>+</b> 클릭. 기존 항목은 이름 오른쪽 <b>수정</b></li><li><b>CFD FORM 이름</b> 입력 → <b>솔버</b> 선택</li><li><b>양식 구성</b>에서 유체·해석 조건 선택 → <b>양식 생성</b></li><li><b>Config 편집</b>에서 값 입력 → <b>Apply</b> → <b>FORM 초안 저장</b></li><li>기존 연결 양식은 <b>Config Template</b>에서 선택 → <b>FORM 저장</b>. 사용자 정의 초안은 실행 연결 후 프로젝트에 사용 가능</li><li>파일 편집: <b>Download JSON / Import JSON</b>. 항목 추가: <b>+ Field</b></li><li><b>설치 확인</b>: 솔버 설치 여부를 버튼 아래에 표시. 자동 설치 기능 미제공</li></ul></details>
    <details><summary>CFD Case 생성 및 Config 입력</summary><ul><li>프로젝트 선택 → 화면 오른쪽 상단 파란 <b>+CFD Case</b></li><li><b>Case 이름</b> 입력 → 왼쪽 Config 항목 선택 → 오른쪽 값 입력</li><li><b>종료 조건·목표</b>에서 <b>특정 물리시간</b> 또는 <b>저장 프레임 수</b> 선택 → 목표값 입력</li><li>프레임 수 선택 시 <b>0초 초기 프레임 포함</b> 여부 확인. <b>수렴 기준</b>은 현재 선택 불가</li><li>창 하단 파란 <b>실행 저장</b> → 실행 목록에 Case 추가. 계산 시작은 대기열에서 진행</li></ul></details>
    <details><summary>프리셋 저장 및 불러오기</summary><ul><li>Case의 Config 편집창 상단 <b>프리셋에 저장</b> 체크박스</li><li>체크 해제: 해당 Case에만 저장. 체크: 새 프리셋 이름 입력 → <b>실행 저장</b> 시 별도 프리셋 저장</li><li>기존 값 사용: <b>프리셋 불러오기</b>에서 선택 → <b>불러오기</b></li></ul></details>
-   <details><summary>대기열 구성 및 CFD 실행</summary><ul><li>가운데 <b>실행 목록</b>에서 Case 선택 → 오른쪽 <b>대기열에 추가</b></li><li>아래 <b>대기열</b> 영역의 파란 <b>대기열 시작</b> → <b>계산 중</b> 상태 확인</li><li>여러 Case는 각각 추가. 대기열 행의 <b>↑ / ↓</b>로 순서 변경, <b>제외</b>로 대기열에서 제거</li><li><b>다음 실행부터 일시정지</b>: 현재 Case 계산 유지. <b>실행 중단</b>: 선택한 실행 중 Case 중단</li><li>진행 내용: 오른쪽 <b>솔버 로그</b> 제목 끝 아래 화살표 클릭</li><li>실패: 원인 확인 → <b>재시도 / 건너뛰기</b> → <b>대기열 시작</b>. 앱 재시작 후에도 대기열을 확인하고 시작</li></ul></details>
+   <details><summary>대기열 구성 및 CFD 실행</summary><ul><li>가운데 <b>실행 목록</b>에서 Case 선택 → 오른쪽 <b>대기열에 추가</b></li><li>아래 <b>대기열</b> 영역의 파란 <b>대기열 시작</b> → <b>계산 중</b> 상태 확인</li><li>여러 Case는 각각 추가. 대기열 행의 <b>↑ / ↓</b>로 순서 변경, <b>제외</b>로 대기열에서 제거</li><li><b>다음 실행부터 일시정지</b>: 현재 Case 계산 유지. <b>실행 중단</b>: 선택한 실행 중 Case 중단</li><li>진행 내용: 오른쪽 <b>솔버 로그</b> 제목 끝 아래 화살표 클릭</li><li>실패: 원인 확인 → <b>실패 사유 및 복구</b> → <b>다시하기 / 이어하기 / 건너뛰기</b> → <b>대기열 시작</b>. 앱 재시작 후에도 대기열을 확인하고 시작</li><li><b>다시하기</b>: 기존 기록을 보존하고 처음부터 계산. Config 검증 실패 시 입력 수정 필요</li><li><b>이어하기</b>: 확인된 재시작 저장 지점부터 계산. 재시작 데이터가 없거나 실행기가 지원하지 않으면 사유 표시. 저장고 실행기는 현재 재개 미지원</li></ul></details>
    <details><summary>실행 Config 조회 및 비교</summary><ul><li>실행 목록에서 Case 선택 → 오른쪽 <b>Config 편집</b> 또는 <b>Config 보기</b></li><li>계산 전: 입력 수정 → <b>실행 저장</b>. 시작한 Case: 실행 당시 입력 조회</li><li>입력을 변경하여 새 Case 생성: <b>Config 보기 → 이 Config로 새 Case</b></li><li><b>Config 차이</b> 제목 끝 화살표: Case 생성 시 저장한 기준 Config와 비교</li><li>항목 찾기: 편집창 왼쪽 <b>Config 검색</b></li></ul></details>
    <details><summary>결과 생성 및 Viewer 열기</summary><ul><li>실행 목록에서 Case 선택 → 오른쪽 파란 결과 버튼</li><li><b>생성</b>: 계산 결과를 시각화용으로 준비. <b>업데이트</b>: 새 결과 반영. <b>열기</b>: 준비된 Viewer 열기</li><li><b>생성 / 업데이트</b> 완료 후 <b>열기</b>. 회색 버튼이면 실행 상태·솔버 로그 확인</li><li>원본 확인: 같은 영역의 <b>결과 폴더</b></li></ul></details>
    <h4>Viewer</h4>

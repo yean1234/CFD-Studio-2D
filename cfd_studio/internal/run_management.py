@@ -93,6 +93,74 @@ def differences(a, b, path=''):
 
 
 class RunManagement:
+    def recovery(self, record, config, log='', checks=None):
+        """Explain recorded failures without inferring a cause from exit status alone."""
+        state = record.get('status')
+        if state not in ('failed', 'stopped'):
+            return None
+        result = {'retry': False, 'resume': False, 'category': 'runtime',
+                  'reason': record.get('error') or ('사용자가 계산을 중단했습니다.' if state == 'stopped' else '실행이 실패했지만 상세 오류가 기록되지 않았습니다.'),
+                  'evidence': '', 'action': '실행 환경과 솔버 로그를 확인한 뒤 다시하기를 선택하세요.'}
+        if (checks or {}).get('execution_checks_pass') is False:
+            failures = []
+            if checks.get('timeline_complete') is False:
+                failures.append('저장 시점 또는 종료 시점이 목표와 일치하지 않음')
+            for key, title, limit in [('relative_balance_error', '질량수지 상대 오차', 1e-6),
+                                      ('relative_energy_balance_error', '에너지수지 상대 오차', .01),
+                                      ('max_divergence_s_inv', '최대 속도 발산 (1/s)', 1e-5)]:
+                value = checks.get(key)
+                if isinstance(value, (int, float)) and (not math.isfinite(value) or value >= limit):
+                    failures.append(f'{title}: {value:.6g} (통과 기준 < {limit:g})')
+            minimum = checks.get('minimum_concentration_kg_m3')
+            if isinstance(minimum, (int, float)) and minimum < -1e-14:
+                failures.append(f'음의 농도: {minimum:.6g} kg/m³ (하한 -1e-14)')
+            result.update(category='result_check', reason='계산 후 결과 검사 미달: '+('; '.join(failures) or '저장된 검사 기록에서 실행·보존 검사를 통과하지 못했습니다.'),
+                          action='검사 기록을 확인하세요. 같은 Config로 다시 계산하면 동일한 검사 미달이 반복될 수 있습니다.')
+        lines = log.splitlines()
+        for i, line in enumerate(lines):
+            if 'trapping enabled' in line.lower():
+                continue
+            if any(mark in line.lower() for mark in ('fatal error', 'fatal io error', 'traceback', 'permission denied', 'no space left', 'not found', 'floating point exception')):
+                result['evidence'] = '\n'.join(lines[i:i+12])[:3000]
+        try:
+            termination(config)
+        except (ValueError, TypeError, KeyError, OverflowError) as error:
+            result.update(category='config', reason='Config 검증 실패: '+str(error),
+                          action='Config 보기에서 이 Config로 새 Case를 선택하고 입력값을 수정하세요.')
+            return result
+        result['retry'] = True
+        if state == 'stopped':
+            case = self.queue_data()['cases'].get(record['id'])
+            if case and case.get('kind') != 'warehouse' and getattr(self, 'legacy_recovery', None):
+                try:
+                    result.update(self.legacy_recovery(case))
+                except (ValueError, OSError, KeyError) as error:
+                    result['resume_reason'] = '재시작 데이터 확인 실패: '+str(error)
+            else:
+                result['resume_reason'] = ('이 실행기는 저장 지점 재개가 연결되어 있지 않습니다. 다시하기는 새 실행 기록에서 처음부터 계산합니다.' if record.get('kind') == 'warehouse' else '이 Case의 재시작 데이터 연결이 없습니다.')
+            result['action'] = ('이어하기를 선택하면 확인된 저장 지점부터 계산합니다.' if result['resume'] else result.get('resume_reason', '재시작 데이터를 확인할 수 없습니다.'))
+        return result
+
+    def recover_case(self, key, action):
+        if action not in ('retry', 'continue_case'):
+            raise ValueError('지원하지 않는 복구 작업입니다')
+        with self.lock:
+            record = self.detail(key)
+            recovery = record.get('recovery') or {}
+            if not recovery.get('resume' if action == 'continue_case' else 'retry'):
+                raise ValueError(recovery.get('resume_reason') or recovery.get('reason') or '복구할 수 있는 실패·중단 Case를 선택하세요')
+            if key not in self.queue_data()['cases']:
+                project = next((p for p in self.snapshot()['projects'] if any(r['id'] == key for r in p['runs'])), None)
+                if not project:
+                    raise ValueError('Case의 프로젝트 연결을 찾을 수 없습니다')
+                created = self.save_case(project['id'], record['name'][:74]+' 다시하기', record['config'])
+                key = created['run_key']
+                self.queue_action('enqueue', ids=[key])
+                self.queue_action('pause')
+            else:
+                self.queue_action(action, case_id=key)
+            return {'id': key, 'queue': self.queue_summary()}
+
     def queue_data(self):
         return self.read_project_queue()
 
@@ -176,7 +244,9 @@ class RunManagement:
                 if case_id not in q['order']:
                     raise ValueError('아직 시작하지 않은 대기 실행만 제외할 수 있습니다')
                 q['order'].remove(case_id)
-                q['cases'][case_id]['status'] = 'draft'
+                c = q['cases'][case_id]
+                c['status'] = c.pop('queued_from_status', 'draft')
+                c.pop('next_mode', None)
             elif action == 'pause':
                 q['paused'] = True
             elif action == 'resume':
@@ -186,12 +256,23 @@ class RunManagement:
                     raise ValueError('실패한 실행을 재시도하거나 건너뛰세요')
                 q['paused'] = False
                 q.pop('service_error', None)
-            elif action in ('retry', 'skip'):
+            elif action in ('retry', 'continue_case'):
+                c = q['cases'].get(case_id)
+                if not c or c['status'] not in ('failed', 'stopped'):
+                    raise ValueError('실패하거나 중단된 Case만 복구할 수 있습니다')
+                recovery = self.detail(case_id)['recovery']
+                if not recovery.get('resume' if action == 'continue_case' else 'retry'):
+                    raise ValueError(recovery.get('resume_reason') or recovery['reason'])
+                c['queued_from_status'] = c['status']
+                c['next_mode'] = 'resume' if action == 'continue_case' else 'fresh'
+                c['status'] = 'queued'
+                q['order'].insert(0, case_id)
+                if q.get('failure') == case_id:
+                    q['failure'] = None
+                q['paused'] = True
+            elif action == 'skip':
                 if not q.get('failure') or q['failure'] != case_id:
                     raise ValueError('대기열을 중단시킨 실행을 선택하세요')
-                if action == 'retry':
-                    q['cases'][case_id]['status'] = 'queued'
-                    q['order'].insert(0, case_id)
                 q['failure'] = None
                 q['paused'] = True
             elif action == 'stop':
@@ -242,6 +323,8 @@ class RunManagement:
             if q['active']:
                 c = q['cases'][q['active']]
                 a = c['attempts'][-1]
+                if a['id'] in getattr(self, '_launching', set()):
+                    return
                 if c['kind'] == 'warehouse':
                     job = read(a['job_path'], {})
                     process = self.processes.get(a['id'])
@@ -281,12 +364,17 @@ class RunManagement:
                    'end_s': c['end_s'], 'run_key': 'warehouse:'+output.name, 'input_sha256': digest,
                    'termination': c['config']['_studio']['termination']}
             write(folder/'job.json', job)
+            c.pop('queued_from_status', None)
             c.update(status='running', error='', stop_requested=False)
-            c['attempts'].append({'id': attempt, 'job_path': str((folder/'job.json').resolve()), 'started': time.time(), 'input_sha256': digest})
+            c['attempts'].append({'id': attempt, 'job_path': str((folder/'job.json').resolve()), 'started': time.time(), 'input_sha256': digest,
+                                  'mode': c.pop('next_mode', 'fresh'), 'source_result_key': c.get('result_key')})
             q['active'] = key
             self.save_queue(q)  # Reserve before launching; never replay this attempt on restart.
             if c['kind'] == 'warehouse':
                 c['result_key'] = job['run_key'];c['output'] = job['output'];self.save_queue(q)
+            if not hasattr(self, '_launching'):
+                self._launching = set()
+            self._launching.add(attempt)
             if getattr(self, '_async_launch', False):
                 threading.Thread(target=self.launch_case, args=(key, attempt), name='case-launch', daemon=True).start()
             else:
@@ -316,9 +404,14 @@ class RunManagement:
         except Exception as error:
             with self.lock:
                 q = self.queue_data();c = q['cases'][key]
-                c.update(status='failed', error=str(error));q.update(active=None, paused=True, failure=key)
-                job = read(folder/'job.json');job.update(status='failed', error=str(error));write(folder/'job.json', job)
+                state = 'stopped' if c.get('stop_requested') else 'failed'
+                c.update(status=state, error=str(error));q.update(active=None, paused=True, failure=key)
+                c['attempts'][-1].update(status=state, finished=time.time())
+                job = read(folder/'job.json');job.update(status=state, error=str(error));write(folder/'job.json', job)
                 self.save_queue(q)
+        finally:
+            with self.lock:
+                getattr(self, '_launching', set()).discard(attempt)
 
     def edit_project(self, key, name, description, default_preset, storage_path=None, form_id=None):
         from cfd_studio.execution_workspace import label
