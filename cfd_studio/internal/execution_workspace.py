@@ -452,7 +452,7 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
 
 def get_route(handler, workspace):
     url = urlparse(handler.path)
-    if url.path in ('/execution_workspace.js', '/config_editor.js', '/form_config_editor.js', '/warehouse_viewer.js', '/data_sheet_viewer.js'):
+    if url.path in ('/execution_workspace.js', '/config_editor.js', '/form_config_editor.js', '/form_wizard.js', '/warehouse_viewer.js', '/data_sheet_viewer.js'):
         handler._send(200, Path(__file__).with_name(url.path[1:]).read_bytes(), 'text/javascript; charset=utf-8')
         return True
     if not url.path.startswith('/api/executions'):
@@ -471,6 +471,9 @@ def get_route(handler, workspace):
             result = workspace.series.page(q.get('id', [''])[0], q.get('metric', [''])[0], int(q.get('offset', ['0'])[0]), int(q.get('limit', ['16'])[0]))
         elif url.path == '/api/executions/forms':
             result = {'forms': workspace.forms()}
+        elif url.path == '/api/executions/form-profiles':
+            from cfd_studio.form_wizard import profiles
+            result = {'profiles': profiles()}
         elif url.path == '/api/executions/config-template':
             result = {'config': json.loads((Path(__file__).resolve().parents[1]/'templates/cfd-config-template.json').read_text(encoding='utf-8'))}
         elif url.path == '/api/executions/solvers':
@@ -494,7 +497,10 @@ def post_route(handler, workspace, body):
     try:
         if not isinstance(body, dict):
             raise ValueError('요청 형식을 확인해 주세요')
-        if path == '/api/executions/solver-check':
+        if path == '/api/executions/form-generate':
+            from cfd_studio.form_wizard import generate
+            result = generate(body.get('solver'), body.get('answers'))
+        elif path == '/api/executions/solver-check':
             result = workspace.solver_catalog(check=True)
         elif path == '/api/executions/preset':
             result = workspace.save_preset(body.get('name'), body.get('config'), body.get('form_id'))

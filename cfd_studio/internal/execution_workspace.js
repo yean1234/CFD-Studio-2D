@@ -154,16 +154,16 @@
   }
   async function formEditor(id=null){
     try{
-      const [reply,catalogReply,templateReply]=await Promise.all([api('/forms'),api('/solvers'),api('/config-template')]);
+      const [reply,catalogReply,templateReply,profileReply]=await Promise.all([api('/forms'),api('/solvers'),api('/config-template'),api('/form-profiles')]);
       const existing=reply.forms.find(f=>f.id===id),engines=reply.forms.filter(x=>['immersion','grain_silo','warehouse'].includes(x.id));
       let solvers=catalogReply.solvers,installation=catalogReply.installation;
       const d=node('dialog');d.className='ew-dialog ew-form-dialog';
-      d.innerHTML='<form><h2></h2><label>CFD FORM 이름<input name="name" required maxlength="80"></label><div class="ew-form-columns"><label>솔버<select name="solver"></select></label><label>Config Template<select name="model"></select></label></div><section class="ew-solver-card" aria-label="솔버 기능"><div class="ew-solver-heading"><strong data-solver-title></strong><button type="button" class="btn" data-check>설치 확인</button></div><p data-summary></p><div class="ew-solver-tags"></div><dl data-features></dl><p data-connection></p><details><summary>필요 입력</summary><p data-inputs></p></details><small data-environment></small></section><label>설명<textarea name="description" rows="2" maxlength="4000"></textarea></label><div class="ew-form-config"><div><strong>Config</strong><p data-config-count></p></div><button type="button" class="btn" data-config>Config 편집</button></div><div class="ew-form-sections" hidden></div><p role="alert"></p><div class="ew-bar"><button type="button" class="btn" data-cancel>취소</button><button type="submit" class="btn pri">FORM 저장</button></div></form>';
+      d.innerHTML='<form><h2></h2><label>CFD FORM 이름<input name="name" required maxlength="80"></label><div class="ew-form-columns"><label>솔버<select name="solver"></select></label><label>Config Template<select name="model"></select></label></div><section class="ew-solver-card" aria-label="솔버 기능"><div class="ew-solver-heading"><strong data-solver-title></strong><button type="button" class="btn" data-check>설치 확인</button></div><div data-install-result role="status" aria-live="polite"></div><p data-summary></p><div class="ew-solver-tags"></div><dl data-features></dl><p data-connection></p><details><summary>필요 입력</summary><p data-inputs></p></details><small data-environment></small></section><label>설명<textarea name="description" rows="2" maxlength="4000"></textarea></label><div class="ew-form-config"><div><strong>Config</strong><p data-config-count></p></div><div class="ew-bar"><button type="button" class="btn pri" data-wizard>양식 구성</button><button type="button" class="btn" data-config>Config 편집</button></div></div><div class="ew-form-sections" hidden></div><p role="alert"></p><div class="ew-bar"><button type="button" class="btn" data-cancel>취소</button><button type="submit" class="btn pri">FORM 저장</button></div></form>';
       const f=d.querySelector('form');f.querySelector('h2').textContent=existing?'CFD FORM 수정':'새 CFD FORM';
       for(const dedicated of [false,true]){const group=node('optgroup');group.label=dedicated?'Studio 전용':'OpenFOAM 범용';for(const solver of solvers.filter(x=>x.dedicated===dedicated))group.append(new Option(solver.id,solver.id));f.elements.solver.append(group);}
       f.elements.name.value=existing?.name||'';f.elements.description.value=existing?.description||'';
       f.elements.solver.value=existing?.solver||'icoFoam';f.elements.solver.disabled=!!existing;
-      let config,configSchema,activeConfigKey,sections={...existing?.sections};const configDrafts=new Map();
+      let config,configSchema,activeConfigKey,configured=!!existing,sections={...existing?.sections};const configDrafts=new Map();
       const selectedSolver=()=>solvers.find(x=>x.id===f.elements.solver.value);
       const isDraft=()=>f.elements.model.value==='solver_definition';
       const outputBox=node('details');outputBox.className='ew-form-outputs';outputBox.append(node('summary','결과 그래프'));f.querySelector('.ew-form-sections').after(outputBox);
@@ -171,6 +171,12 @@
         const solver=selectedSolver(),draft=isDraft();
         f.querySelector('[data-solver-title]').textContent=solver.id;
         f.querySelector('[data-summary]').textContent=solver.summary;
+        const result=f.querySelector('[data-install-result]');
+        result.style.cssText='padding:10px 12px;margin:12px 0;border:1px solid var(--line);border-radius:9px;font-size:12px;line-height:1.7';
+        result.textContent=installation?.status==='unavailable'?'확인 실패 · '+installation.note:solver.installation==='found'?solver.id+' · 설치 확인됨'+(installation?.version?' · OpenFOAM '+installation.version:'')+' · 실행 파일을 찾았습니다.':solver.installation==='missing'?solver.id+' · 실행 파일 없음 · 설정된 OpenFOAM 환경에 설치하거나 환경 경로를 확인하세요.':'미확인 · 설치 확인을 누르면 OpenFOAM 환경에서 '+solver.id+' 실행 파일을 찾습니다.';
+        f.querySelector('[data-wizard]').style.display=draft?'':'none';
+        f.querySelector('[data-wizard]').textContent=configured?'양식 다시 구성':'양식 구성';
+        f.querySelector('[data-config]').disabled=draft&&!configured;
         const tags=f.querySelector('.ew-solver-tags');tags.replaceChildren();
         for(const text of [solver.category,solver.time_mode,{found:'실행 파일 확인',missing:'실행 파일 없음',unchecked:'설치 미확인'}[solver.installation],draft?'Studio 연결 대기':'기존 양식 연결'])tags.append(node('span',text));
         const fields=f.querySelector('[data-features]');fields.replaceChildren(node('dt','주요 결과'),node('dd',solver.outputs.join(' · ')));
@@ -184,23 +190,23 @@
       const drawSections=()=>{
         drawSolver();
         const count=fields=>fields.reduce((n,x)=>n+1+(x.type==='object'?count(x.fields):0),0);
-        f.querySelector('[data-config-count]').textContent=count(configSchema.fields)+' fields · Key / Type / Unit / Value';
+        f.querySelector('[data-config-count]').textContent=isDraft()&&!configured?'유체·해석 조건을 선택해 양식을 구성하세요.':count(configSchema.fields)+' fields · Key / Type / Unit / Value';
         outputBox.querySelector('div')?.remove();
         if(!isDraft()){const items=node('div');for(const out of engines.find(x=>x.model===f.elements.model.value).outputs||[])items.append(node('p',out.name+' ('+out.unit+')'+(out.statistics.length?' · '+out.statistics.join(' / '):'')));outputBox.append(items);}
       };
-      const rememberConfig=()=>{if(activeConfigKey)configDrafts.set(activeConfigKey,{config:structuredClone(config),schema:structuredClone(configSchema),sections:{...sections}});};
+      const rememberConfig=()=>{if(activeConfigKey)configDrafts.set(activeConfigKey,{config:structuredClone(config),schema:structuredClone(configSchema),sections:{...sections},configured});};
       const setTemplates=(initial=false)=>{
-        f.elements.model.replaceChildren(new Option('General CFD Config','solver_definition'));
+        f.elements.model.replaceChildren(new Option('솔버별 양식','solver_definition'));
         for(const model of selectedSolver().models){const engine=engines.find(x=>x.model===model);f.elements.model.append(new Option(engine.name,model));}
         f.elements.model.value=initial&&existing?existing.model:'solver_definition';f.elements.model.disabled=!!existing;
       };
       const loadSelection=(initial=false)=>{
-        const solver=selectedSolver();activeConfigKey=isDraft()?'generic':f.elements.model.value+':'+solver.id;
+        const solver=selectedSolver();activeConfigKey=isDraft()?'guided:'+solver.id:f.elements.model.value+':'+solver.id;
         const saved=configDrafts.get(activeConfigKey);
-        if(initial&&existing){config=structuredClone(existing.config);configSchema=existing.config_schema?structuredClone(existing.config_schema):null;
+        if(initial&&existing){config=structuredClone(existing.config);configured=true;configSchema=existing.config_schema?structuredClone(existing.config_schema):null;
           if(existing.definition_only&&!configSchema&&config._해석유형==='solver_definition')config=structuredClone(config.requirements||{});
-        }else if(saved){config=structuredClone(saved.config);configSchema=structuredClone(saved.schema);sections={...saved.sections};}
-        else{config=structuredClone(isDraft()?templateReply.config:engines.find(x=>x.model===f.elements.model.value).config);configSchema=null;sections={};
+        }else if(saved){configured=saved.configured;config=structuredClone(saved.config);configSchema=structuredClone(saved.schema);sections={...saved.sections};}
+        else{configured=!isDraft();config=structuredClone(isDraft()?templateReply.config:engines.find(x=>x.model===f.elements.model.value).config);configSchema=null;sections={};
           if(f.elements.model.value==='grain_silo'){const steady=solver.id==='simpleFoam';config.openfoam_mapping.solver=solver.id;config.openfoam_mapping.pressure_velocity_coupling=steady?'SIMPLE':'PIMPLE';config.run.time_basis=steady?'iterations':'physical_time';delete config._studio;}}
         if(f.elements.model.value==='immersion')config.run.output_fields??=['bubble','phase','flow','therm'];
         configSchema=CFDFormConfig.fromConfig(config,configSchema);drawSections();
@@ -208,11 +214,12 @@
       setTemplates(true);loadSelection(true);
       f.elements.solver.onchange=()=>{rememberConfig();setTemplates();loadSelection();};
       f.elements.model.onchange=()=>{rememberConfig();loadSelection();};
-      f.querySelector('[data-check]').onclick=async()=>{const check=f.querySelector('[data-check]');check.disabled=true;check.textContent='확인 중';try{const response=await api('/solver-check',{});solvers=response.result.solvers;installation=response.result.installation;drawSolver();}catch(error){f.querySelector('[role=alert]').textContent=error.message;}finally{check.disabled=false;check.textContent='다시 확인';}};
+      f.querySelector('[data-check]').onclick=async()=>{const check=f.querySelector('[data-check]'),result=f.querySelector('[data-install-result]');check.disabled=true;check.textContent='확인 중';result.textContent='확인 중 · OpenFOAM 환경과 솔버 실행 파일을 확인하고 있습니다.';try{const response=await api('/solver-check',{});if(!d.isConnected)return;solvers=response.result.solvers;installation=response.result.installation;drawSolver();}catch(error){result.textContent='확인 실패 · '+error.message;}finally{check.disabled=false;check.textContent='설치 확인';}};
       f.querySelector('[data-config]').onclick=()=>CFDFormConfig.open({config,schema:configSchema,title:'FORM Config',onSave:async(value,schema)=>{config=value;configSchema=schema;sections=Object.fromEntries(Object.entries(sections).filter(([key])=>config[key]&&typeof config[key]==='object'));drawSections();}});
+      f.querySelector('[data-wizard]').onclick=()=>CFDFormWizard.open({profile:profileReply.profiles.find(x=>x.solver===selectedSolver().id),answers:config?.analysis?.choices||{},replace:configured,generate:async answers=>(await api('/form-generate',{solver:selectedSolver().id,answers})).result,onApply:async result=>{config=result.config;configSchema=result.config_schema;sections={};configured=true;drawSections();}});
       if(existing&&!existing.definition_only){const area=node('div',null,'ew-form-config'),info=node('div');info.append(node('strong','프리셋'),node('p','이 FORM 전용 값 묶음'));area.append(info,button('새 프리셋',()=>CFDSettings.open({config,purpose:'preset',managed:true,form:existing,name:'',title:'새 프리셋',submitLabel:'프리셋 저장',onRun:async(name,value)=>{await api('/preset',{name,config:value,form_id:existing.id});await refresh();}})));f.querySelector('.ew-form-sections').after(area);}
       f.querySelector('[data-cancel]').onclick=()=>d.close();d.onclose=()=>d.remove();
-      f.onsubmit=async e=>{e.preventDefault();const submit=f.querySelector('[type=submit]');submit.disabled=true;try{await api('/form',{id,revision:existing?.revision,name:f.elements.name.value,model:f.elements.model.value,solver:f.elements.solver.value,description:f.elements.description.value,config,sections,config_schema:configSchema});d.close();await refresh();}catch(error){f.querySelector('[role=alert]').textContent=error.message;}finally{submit.disabled=false;}};
+      f.onsubmit=async e=>{e.preventDefault();const submit=f.querySelector('[type=submit]');submit.disabled=true;try{if(isDraft()&&!configured)throw Error('양식 구성에서 해석 조건을 선택해 주세요');await api('/form',{id,revision:existing?.revision,name:f.elements.name.value,model:f.elements.model.value,solver:f.elements.solver.value,description:f.elements.description.value,config,sections,config_schema:configSchema});d.close();await refresh();}catch(error){f.querySelector('[role=alert]').textContent=error.message;}finally{submit.disabled=false;}};
       document.body.append(d);d.showModal();
     }catch(error){message(error.message);}
   }

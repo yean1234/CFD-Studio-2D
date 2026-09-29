@@ -29,15 +29,18 @@ class SolverCatalogTests(unittest.TestCase):
 
     def test_installation_does_not_enable_an_unconnected_adapter(self):
         stdout='VERSION\t2312\n'+''.join(x['id']+'\tfound\n' for x in CATALOG)
-        with patch('cfd_studio.solver_catalog.subprocess.run',return_value=Mock(returncode=0,stdout=stdout)) as run:
+        with patch('cfd_studio.solver_catalog.subprocess.run',return_value=Mock(returncode=0,stdout=stdout.encode('utf-8'))) as run:
             result=probe({})
         self.assertEqual(result['status'],'checked')
         item=next(x for x in catalog(result) if x['id']=='interFoam')
         self.assertEqual(item['installation'],'found')
         self.assertEqual(item['integration'],'definition_only')
         script=run.call_args.kwargs['input']
-        self.assertIn('type -P interFoam',script)
-        self.assertNotIn('interFoam -',script)
+        self.assertIsInstance(script,bytes)
+        self.assertNotIn(b'\r',script)
+        self.assertNotIn('text',run.call_args.kwargs)
+        self.assertIn(b'type -P interFoam',script)
+        self.assertNotIn(b'interFoam -',script)
 
     def test_probe_failure_is_unknown_not_missing(self):
         for failure in (OSError('missing bash'),subprocess.TimeoutExpired('bash',15)):

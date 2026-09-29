@@ -3,15 +3,16 @@
 ## 사용법
 
 1. **CFD FORM 리스트 → 새로 만들기**
-2. FORM 이름과 솔버 선택
-3. **General CFD Config → Config 편집**
-4. 공통 파트를 펼쳐 기본 항목 확인
-5. **Download JSON**으로 파일 저장
-6. JSON 파일에 세부 항목 작성 후 **Import JSON**
+2. FORM 이름·솔버 선택
+3. **양식 구성**에서 질문에 응답
+4. **양식 생성 → Config 편집**
+5. 항목에 값 입력 후 **Download JSON**
+6. 파일 수정은 **Import JSON**으로 다시 적용
 7. **Apply → FORM 초안 저장**
 
-- 화면의 Fields·JSON 편집도 지원
-- [기본 JSON 파일](../cfd_studio/templates/cfd-config-template.json)
+- [질문별 구성과 화면](form-wizard-20260929.md)
+- 아래 기본 구조는 수동 편집용 공통 JSON 설명. 실제 생성 양식은 솔버·응답에 따라 변경
+- [공통 JSON 파일](../cfd_studio/templates/cfd-config-template.json)
 
 ![Config 편집](assets/generic-config-20260929/editor.png)
 

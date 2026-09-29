@@ -41,10 +41,11 @@ def config_from_schema(schema):
             else:
                 if 'value' not in field:raise ValueError('Config Value is missing: '+key)
                 value=field['value']
+                if 'nullable' in field and type(field['nullable']) is not bool:raise ValueError('Invalid nullable flag')
                 valid={'string':lambda:type(value) is str,'number':lambda:type(value) in (int,float),
                        'integer':lambda:type(value) is int,'boolean':lambda:type(value) is bool,
                        'array':lambda:type(value) is list,'null':lambda:value is None}[kind]()
-                if not valid:raise ValueError('Config Value does not match Type: '+key)
+                if not valid and not (field.get('nullable') is True and value is None):raise ValueError('Config Value does not match Type: '+key)
                 _json_value(value,depth+1)
             result[key]=copy.deepcopy(value)
         return result

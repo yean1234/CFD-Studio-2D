@@ -93,6 +93,12 @@ class CFDForms:
             from cfd_studio.form_schema import validate_schema
             validate_schema(config_schema,config)
         if model=='solver_definition':
+            analysis=config.get('analysis',{}) if isinstance(config,dict) else {}
+            if isinstance(analysis,dict) and analysis.get('form_generator')=='solver-questionnaire-v1':
+                from cfd_studio.form_wizard import generate
+                generated=generate(solver,analysis.get('choices'))
+                if analysis.get('solver')!=solver or analysis.get('time_mode')!=generated['config']['analysis']['time_mode']:
+                    raise ValueError('JSON의 솔버·해석 방식이 FORM과 다릅니다')
             if config_schema is None:
                 validate_draft(config,solver)  # Preserve older input-plan drafts.
         else:

@@ -8,7 +8,7 @@
     if(!config||typeof config!=='object'||Array.isArray(config))throw Error('Config must be a JSON object');
     function fields(object,prior=[],depth=0){
       if(depth>16)throw Error('Config nesting exceeds 16 levels');
-      return Object.entries(object).map(([key,value])=>{const old=prior.find(f=>f.key===key),actual=kind(value),type=old?.type==='number'&&actual==='integer'?'number':actual;return {key,type,unit:old?.unit||'',...(type==='object'?{fields:fields(value,old?.fields,depth+1)}:{value:clone(value)})};});
+      return Object.entries(object).map(([key,value])=>{const old=prior.find(f=>f.key===key),actual=kind(value),type=old?.nullable&&actual==='null'?old.type:old?.type==='number'&&actual==='integer'?'number':actual;return {key,type,unit:['value','x','y','z'].includes(key)&&typeof object.unit==='string'?object.unit:(old?.unit||''),...(old?.nullable?{nullable:true}:{}),...(type==='object'?{fields:fields(value,old?.fields,depth+1)}:{value:clone(value)})};});
     }
     const schema={version:1,fields:fields(config,previous?.fields)};toConfig(schema);return schema;
   }
@@ -25,7 +25,7 @@
         if(typeof (f.unit??'')!=='string'||(f.unit||'').length>64)throw Error('Config Unit is too long');
         let value;
         if(f.type==='object')value=group(f.fields,depth+1);
-        else{value=f.value;const actual=kind(value);if(actual!==f.type&&!(f.type==='number'&&actual==='integer'))throw Error('Config Value does not match Type: '+f.key);checkJSON(value,depth+1);value=clone(value);}
+        else{value=f.value;const actual=kind(value);if(actual!==f.type&&!(f.type==='number'&&actual==='integer')&&!(f.nullable===true&&value===null))throw Error('Config Value does not match Type: '+f.key);checkJSON(value,depth+1);value=clone(value);}
         result[f.key]=value;
       }return result;
     }return group(schema.fields,0);
@@ -67,7 +67,7 @@
         else if(field.type==='boolean'){const v=input('Value',el('select'));v.append(new Option('true','true'),new Option('false','false'));v.value=String(field.value);v.onchange=()=>field.value=v.value==='true';}
         else if(field.type==='null')input('Value',el('output','null'));
         else if(field.type==='array'){const v=input('Value',el('textarea'));v.rows=2;v.value=JSON.stringify(field.value);v.oninput=()=>{try{const value=JSON.parse(v.value);field.value=value;}catch(_){field.value=undefined;}};}
-        else{const v=input('Value',el('input'));v.type=['number','integer'].includes(field.type)?'number':'text';v.step=field.type==='integer'?'1':'any';v.value=field.value;v.oninput=()=>field.value=v.type==='number'?(v.value.trim()===''?null:Number(v.value)):v.value;}
+        else{const v=input('Value',el('input'));v.type=['number','integer'].includes(field.type)?'number':'text';v.step=field.type==='integer'?'1':'any';v.value=field.value??'';v.placeholder=field.nullable?'Enter value':'';v.oninput=()=>field.value=v.type==='number'?(v.value.trim()===''?null:Number(v.value)):v.value;}
         const remove=button('Remove',()=>{fields.splice(index,1);render();});remove.setAttribute('aria-label',label+' Remove');row.append(remove);
         if(field.type==='object'){const children=el('div',null,'fc-children');box.append(children);renderFields(field.fields,children,label+'.');children.append(button('+ Field',()=>{field.fields.push(newField(field.fields));render();}));}
       }

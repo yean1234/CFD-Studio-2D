@@ -42,15 +42,14 @@
 ## CFD FORM
 
 - 왼쪽 **CFD FORM 리스트**: 이중액침냉각 / 옥수수 사일로 / 식량 저장고 훈증 시스템
-- **새로 만들기**: FORM 이름 → 솔버 선택 → **General CFD Config → Config 편집**
-- Geometry·Mesh·Materials 등 공통 파트 제공. 각 파트를 펼쳐 편집
-- **Download JSON → 파일 수정 → Import JSON**: 세부 Config 작성
-- [기본 JSON 파일](../cfd_studio/templates/cfd-config-template.json)
-- **+ Field**: Key·Type·Unit·Value 직접 입력. Object 안에 하위 항목 추가 가능
-- **JSON / Import JSON / Download JSON**: 값 구조 직접 편집·가져오기·내보내기
-- **Apply → FORM 초안 저장**: Config와 항목별 Type·Unit 보존
-- 기존 양식 필요 시 **Config Template**에서 직접 선택 → **FORM 저장**
-- 사용자 정의 Config: 대상·형상·필드 이름 자동 지정 없음. 실제 계산에는 솔버 입력·결과 연결 구현 필요
+- **새로 만들기**: FORM 이름 → 솔버 선택 → **양식 구성**
+- 유체 → 해석·유동 모델 → 영역·격자·종료 조건 → **양식 생성**
+- **Config 편집**: 자동 구성된 항목에 사용자가 수치·경계조건 입력
+- **Download JSON / Import JSON**: 파일 저장·수정·불러오기
+- **Apply → FORM 초안 저장**: 선택 조건·입력값·자료형·단위 보존
+- **양식 다시 구성**: 마지막 단계에서 교체 확인. 취소하면 기존 입력 유지
+- 기존 실행 양식은 **Config Template**에서 직접 선택
+- [사용법과 화면](form-wizard-20260929.md)
 - 각 FORM 오른쪽 **수정**: 이름·설명·입력 양식·기본값 수정
 - 기존 FORM의 해석 대상·솔버: 고정. 다른 대상·솔버는 새 FORM으로 생성
 - 프로젝트: 생성 시 선택한 FORM 유지
@@ -248,7 +247,7 @@
 - 솔버 선택 시 해석 기능·주요 결과·연결 양식 표시
 - **설치 확인**: 실행 파일 확인. Studio 연결 상태는 별도 표시
 - 연결된 양식: **Config 편집 → FORM 저장**
-- 사용자 정의: **General CFD Config → Config 편집 → FORM 초안 저장**. 실행 연결 후 프로젝트에 적용 가능
+- 사용자 정의: **양식 구성 → Config 편집 → FORM 초안 저장**. 실행 연결 후 프로젝트에 적용 가능
 - [솔버별 설명과 화면](solver-catalog-20260929.md)
 
 ## 문제 해결

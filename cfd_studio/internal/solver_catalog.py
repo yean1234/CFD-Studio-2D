@@ -83,10 +83,12 @@ def probe(settings):
         exe=shutil.which('wsl.exe') or os.path.join(os.environ.get('SystemRoot',r'C:\Windows'),'System32','wsl.exe')
         argv=[exe]+(['-d',str(settings['wsl_distro'])] if settings.get('wsl_distro') else [])+['bash','-ls']
     try:
-        result=subprocess.run(argv,input=script,text=True,encoding='utf-8',errors='replace',capture_output=True,timeout=15,creationflags=0x08000000 if os.name=='nt' else 0)
+        # Binary stdin preserves LF when Windows passes this script into WSL bash.
+        result=subprocess.run(argv,input=script.encode('utf-8'),capture_output=True,timeout=15,creationflags=0x08000000 if os.name=='nt' else 0)
         if result.returncode:
             raise OSError('OpenFOAM 환경 확인 실패')
-        lines=dict(line.split('\t',1) for line in result.stdout.splitlines() if '\t' in line)
+        stdout=result.stdout.decode('utf-8',errors='replace')
+        lines=dict(line.split('\t',1) for line in stdout.splitlines() if '\t' in line)
         if any(lines.get(x['id']) not in ('found','missing') for x in CATALOG):
             raise OSError('설치 확인 응답 누락')
         return {'checked_at':time.time(),'version':lines.get('VERSION',''),'status':'checked',
