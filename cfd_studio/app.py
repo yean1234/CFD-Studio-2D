@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v204"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v205"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -4870,7 +4870,8 @@ INDEX_HTML = r'''<!DOCTYPE html>
  .exnote{font-size:10.5px;color:#c9a86b;line-height:1.5;margin-top:8px}
  #settingsBtn,#infoBtn{width:26px;height:26px;flex:none;border-radius:50%;border:1px solid var(--line);background:var(--surface2);
   color:var(--ink2);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1;
-  display:inline-flex;align-items:center;justify-content:center}
+  display:inline-flex;align-items:center;justify-content:center;padding:0;box-sizing:border-box}
+ #settingsBtn svg{display:block;flex:none}
  #settingsBtn{margin-left:10px;font-size:14px} #infoBtn{margin-left:6px}
  #settingsBtn:hover,#infoBtn:hover{border-color:var(--acc);color:var(--acc)}
  .setrow{display:grid;grid-template-columns:170px minmax(0,1fr);gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--grid)}
@@ -5009,7 +5010,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
   </div>
   <span class="pill"><span class="dot" id="stDot"></span><span id="stTxt">연결 확인 중…</span></span>
   <span class="path" id="envPath">환경 확인 중…</span><span class="tag2" id="appContext">액침냉각 디지털트윈 · __APP_VER__</span>
-  <button id="settingsBtn" onclick="showSettings()" title="환경 설정">⚙</button>
+  <button id="settingsBtn" onclick="showSettings()" title="환경 설정" aria-label="환경 설정"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><polygon points="18.47,9.32 20.83,10.28 20.83,13.72 18.47,14.68 19.46,17.03 17.03,19.46 14.68,18.47 13.72,20.83 10.28,20.83 9.32,18.47 6.97,19.46 4.54,17.03 5.53,14.68 3.17,13.72 3.17,10.28 5.53,9.32 4.54,6.97 6.97,4.54 9.32,5.53 10.28,3.17 13.72,3.17 14.68,5.53 17.03,4.54 19.46,6.97"/><circle cx="12" cy="12" r="3"/></svg></button>
   <button id="infoBtn" onclick="showInfo()" title="이 소프트웨어에 대하여 · 사용법 · 제작자">!</button>
 </div>
 
