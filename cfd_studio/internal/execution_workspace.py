@@ -497,7 +497,10 @@ def post_route(handler, workspace, body):
     try:
         if not isinstance(body, dict):
             raise ValueError('요청 형식을 확인해 주세요')
-        if path == '/api/executions/form-generate':
+        if path == '/api/executions/form-inspect':
+            from cfd_studio.solver_requirements import inspect_config
+            result = inspect_config(body.get('solver'),body.get('config'))
+        elif path == '/api/executions/form-generate':
             from cfd_studio.form_wizard import generate
             result = generate(body.get('solver'), body.get('answers'))
         elif path == '/api/executions/solver-check':

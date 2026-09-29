@@ -98,3 +98,10 @@
 - 범용 솔버 분류: [OpenFOAM Solver Applications](https://doc.openfoam.com/2306/tools/processing/solvers/)
 - 다상 열전달 기능: [OpenFOAM v1806](https://www.openfoam.com/news/main-news/openfoam-v1806/solver-and-physics)
 - 전용 솔버: 저장소의 `tracer_transport/coupled_solver/warehouseBuoyantFoam.C` 및 기존 Studio 실행 연결 코드
+
+## 솔버별 필수 입력
+
+- 솔버 선택 시 주요 용도·필수 Config·선택 Config·계산 범위 확인
+- 자동 생성 양식의 **Required** 항목 입력 후 **입력 검사**
+- 누락 경로 확인·초안 저장 가능. 물리 정확도·실행 연결 검증은 별도
+- [솔버별 입력 정의](solver-input-definitions-20260929.md)

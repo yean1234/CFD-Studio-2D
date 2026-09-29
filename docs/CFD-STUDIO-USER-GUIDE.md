@@ -273,3 +273,10 @@
 - [계산 기록](warehouse-porous-grid-review-20260928.md)
 
 - [Viewer 검토](shared-viewer-review-20260928.md)
+
+## 솔버별 필수 입력
+
+- 솔버 선택 시 주요 용도·필수 Config·선택 Config·계산 범위 확인
+- 자동 생성 양식의 **Required** 항목 입력 후 **입력 검사**
+- 누락 경로 확인·초안 저장 가능. 물리 정확도·실행 연결 검증은 별도
+- [솔버별 입력 정의](solver-input-definitions-20260929.md)

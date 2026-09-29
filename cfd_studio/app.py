@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v192"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v193"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -5323,15 +5323,27 @@ INDEX_HTML = r'''<!DOCTYPE html>
   </div>
   <div class="ibx" id="ifB0">
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-MANUAL.md" target="_blank" rel="noopener noreferrer"><b>설명서</b></a></p>
-   <p style="margin:0 0 10px">대상: 액침냉각·단상 저장고·포대식 저장고<br>기능: 계산·결과 관리<br>확인 항목: 연구 대상·계산 모델·단위·검증 상태</p>
-   <div class="kv">
-    <table>
-     <tr><td>액침냉각</td><td>이중 액침냉각 수조 · OpenFOAM v2312의 3상 VOF·상변화 계산. T1~T6 가상 프로브와 결과 Viewer가 있습니다.</td></tr>
-     <tr><td>단상 저장고</td><td>설정별 OpenFOAM 솔버·단위를 확인하세요. 저장된 원본장과 별도 실험 검증 여부는 각각 확인해야 합니다.</td></tr>
-     <tr><td>포대식 쌀 저장고</td><td>78 m 저장동, 균질 다공성 곡물<br>유속·온도·ClO₂ 농도 연결 계산<br>누출 제외, 물성·경계조건은 가정값<br>최신 다공성 사례 300초, 이전 연결 사례 1시간<br>7일 전체 연결 계산 미완료</td></tr>
-     <tr><td>검증 경계</td><td>파일 무결성·수치시험 통과와 실제 저장고의 물리적 정확도·실험 검증은 별개입니다. 실내 치수, 적재, 개구, 유동 및 독립 실측은 아직 확정되지 않았습니다.</td></tr>
-    </table>
-   </div>
+   <p>CFD Studio는 해석 양식 정의, 실행별 입력 보관, 대기열 관리와 결과 비교를 연결하는 작업 환경입니다.</p>
+   <h4>작업 구조</h4>
+   <ul><li><b>CFD FORM</b>: 선택한 솔버의 입력 구조·필수 항목·계산 범위 정의</li><li><b>프리셋</b>: FORM에 속한 재사용 가능한 입력값 묶음</li><li><b>프로젝트</b>: 같은 목적의 여러 Case와 결과를 보관하는 폴더</li><li><b>Case</b>: 독립적인 Config·종료 조건·로그·결과. 시작 시 입력 스냅샷 보존</li></ul>
+   <h4>솔버와 Config</h4>
+   <ul><li>솔버: 어떤 방정식과 알고리즘으로 계산할지 결정</li><li>유체 종류: 액체·기체·다상 구분. 물질과 물성값은 사용자가 입력</li><li>형상·격자: 해석 영역과 공간 분할. 이름만으로 수조·집 등의 형상을 만들지 않음</li><li>물성·초기장·경계조건: 재료 특성, 시작 상태, 경계에서의 속도·압력·온도 등</li><li>수치 설정: 이산화 기법·선형 솔버·연결 알고리즘·시간간격</li><li>Required: 선택한 솔버·조건에 필요한 입력. 조건부 항목은 난류·열물성·경계 모델에 따라 달라짐</li></ul>
+   <h4>솔버 선택</h4>
+   <div class="kv"><table>
+    <tr><td>icoFoam</td><td>비정상 층류. U·운동학적 압력 p·nu·PISO</td></tr>
+    <tr><td>simpleFoam</td><td>정상 비압축성 유동. U·p·점성·SIMPLE</td></tr>
+    <tr><td>pisoFoam / pimpleFoam</td><td>비정상 비압축성 유동. PISO / PIMPLE 및 시간간격</td></tr>
+    <tr><td>buoyantSimpleFoam / buoyantPimpleFoam</td><td>정상 / 비정상 부력·열전달. 열역학·중력·T·p_rgh</td></tr>
+    <tr><td>chtMultiRegionFoam</td><td>영역별 유체·고체 열전달. 고체 물성·접합면·영역별 수치 설정</td></tr>
+    <tr><td>interFoam / interIsoFoam</td><td>등온 2상 계면. 상별 rho·nu·상분율·표면장력. MULES / isoAdvector</td></tr>
+    <tr><td>rhoPimpleFoam</td><td>압축성 유동·에너지. 상태방정식·열물성·U·p·T</td></tr>
+    <tr><td>전용 구성</td><td>다상 열전달·상변화 구성과 저장고 열·스칼라 구성. 각 FORM의 조건·제한 확인</td></tr>
+   </table></div>
+   <h4>상태 읽기</h4>
+   <ul><li><b>설치 확인</b>: 현재 OpenFOAM 환경에 실행 파일이 존재하는지 확인</li><li><b>입력 검사</b>: 정의한 필수값·자료형·기본 범위 확인. 물리 정확도 보증은 별도</li><li><b>실행 연결</b>: Config를 솔버 입력으로 변환하고 결과를 읽는 어댑터. 새 FORM의 JSON만으로 자동 연결되지 않음</li><li><b>실행 상태 / 수치 검사 / 시각화</b>: 계산 진행, 수치 점검, Viewer 준비 상태를 각각 표시</li></ul>
+   <h4>결과와 시간</h4>
+   <ul><li>3D Virtual Viewer: 저장된 장·형상·시간별 변화 탐색</li><li>Data Sheet Viewer: 여러 Case의 시계열·수치 비교</li><li>계산 시간간격·저장 간격·재생 속도·종료 조건은 서로 독립</li><li>파일 검사·입력 검사 통과와 격자 수렴·실험 검증은 각각 별도 판단</li></ul>
+   <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/solver-input-definitions-20260929.md" target="_blank" rel="noopener noreferrer">솔버별 입력 정의</a></p>
   </div>
   <div class="ibx" id="ifB1" style="display:none">
    <h4 style="margin-top:0">CFD 실행</h4>
@@ -5392,11 +5404,12 @@ INDEX_HTML = r'''<!DOCTYPE html>
 
 <div id="settingsBg" class="mbg" onclick="if(event.target===this)closeSettings()"><div class="mbox" style="width:620px">
  <h3>환경 설정 <span class="badge">PC별</span><button class="mini x" onclick="closeSettings()">닫기 ✕</button></h3>
- <p class="mhint">현재 PC의 계산 자원과 원본 보관 위치를 설정합니다. 실행 중인 솔버는 변경하지 않으며 계산 설정은 다음 시작·재개부터 적용됩니다.</p>
- <div class="setrow"><label>CPU 사용 상한<span>논리 CPU 중 CFD Studio가 배정할 최대 비율 · 최대 80%</span></label><div><input id="setCpu" type="number" min="1" max="80" step="1"></div></div>
+ <p class="mhint">현재 PC에서 계산에 사용할 CPU·MPI·GPU 자원을 지정합니다. 저장한 변경은 다음 계산 시작·재개 시 적용됩니다. 프로젝트별 물성·경계조건·격자는 Case의 Config에서 입력합니다.</p>
+ <div class="setrow"><label>CPU 사용 상한<span>계산에 배정할 논리 CPU 비율입니다. 다른 작업의 여유를 남기며, 최대 80%까지 지정할 수 있습니다.</span></label><div><input id="setCpu" type="number" min="1" max="80" step="1"></div></div>
  <div class="setrow"><label>MPI 작업자<span id="setMpiHint">CPU 상한 안에서 자동 배정</span></label><div><select id="setMpi"></select></div></div>
- <div class="setrow"><label>계산 GPU<span>인식된 NVIDIA GPU 중 선택 · 자동은 성능 점수 우선</span></label><div><select id="setGpu"></select></div></div>
- <div class="setrow"><label>계산 모드<span>CPU 전용 / 압력만 GPU / OpenCFD 전체 GPU 오프로딩</span></label><div><select id="setPressureMode"><option value="cpu">CPU Only (권장)</option><option value="gpu">CPU + GPU 병행 (p_rgh)</option><option value="gpu_only">GPU Only (OpenCFD 개발)</option></select><div id="setGpuOnlyHint" class="mhint" style="margin-top:6px"></div></div></div>
+ <div class="setrow"><label>계산 GPU<span>GPU 계산을 지원하는 실행 구성에서 사용할 장치입니다. 자동 선택은 감지된 NVIDIA GPU의 성능 점수를 기준으로 합니다.</span></label><div><select id="setGpu"></select></div></div>
+ <div class="setrow"><label>계산 모드<span>CPU Only는 CPU 계산, 병행 모드는 지원 구성의 압력 계산만 GPU 사용, GPU Only는 별도 OpenCFD 환경이 필요합니다. 솔버 설치만으로 GPU 지원이 생기지는 않습니다.</span></label><div><select id="setPressureMode"><option value="cpu">CPU Only (권장)</option><option value="gpu">CPU + GPU 병행 (p_rgh)</option><option value="gpu_only">GPU Only (OpenCFD 개발)</option></select><div id="setGpuOnlyHint" class="mhint" style="margin-top:6px"></div></div></div>
+ <details style="margin-top:12px"><summary>환경 설정 안내</summary><ul class="mhint"><li>MPI 작업자는 영역을 나누어 계산하는 병렬 프로세스 수입니다. 많을수록 통신·메모리 비용도 늘어나므로 격자 규모에 맞게 선택합니다.</li><li>자원 수는 계산 속도·메모리 사용에 영향을 줍니다. 격자 정확도나 수렴 기준을 대신하지 않습니다.</li><li>원본·결과·캐시는 프로젝트 생성·관리에서 지정한 폴더에 보관합니다.</li><li>FORM에서 솔버·입력 항목을 정의하고, 프리셋과 Case에서 실제 값을 채웁니다.</li><li>설치 확인은 실행 파일 유무를 확인합니다. 라이브러리 호환성·GPU 지원·새 FORM의 실행 연결은 별도로 확인합니다.</li></ul></details>
  <div id="setSummary" class="mhint" style="margin:12px 0 0"></div>
  <div class="row" style="margin-top:16px"><button class="btn" onclick="closeSettings()">취소</button><button class="btn pri" id="setSave" onclick="saveSettings()">저장</button></div>
 </div></div>
@@ -7936,7 +7949,7 @@ let STUDIOSET=null;
 async function showSettings(){
  if(runBusyNow()){toast('실행 중에는 설정을 할 수 없습니다',true);return;}
  document.getElementById('settingsBg').style.display='flex';
- document.getElementById('setSummary').textContent='하드웨어와 저장 위치를 확인 중입니다.';
+ document.getElementById('setSummary').textContent='현재 PC의 CPU·GPU와 계산 환경을 확인 중입니다.';
  try{const r=await fetch('/api/settings?refresh=1'),j=await r.json();if(!r.ok||!j.ok)throw Error(j.msg||'설정 조회 실패');renderSettingsModal(j.settings);}
  catch(e){document.getElementById('setSummary').textContent=e.message||'설정을 읽지 못했습니다';}
 }

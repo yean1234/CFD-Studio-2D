@@ -1,6 +1,7 @@
 """Solver-aware input scaffolds. No physical values or executable cases are inferred."""
 import copy
 from cfd_studio.solver_catalog import definition, CATALOG
+from cfd_studio.solver_requirements import definition as input_definition
 
 LABELS = {
     'medium': {'liquid':'액체', 'gas':'기체', 'liquid_gas':'액체 + 기체', 'liquid_liquid':'액체 + 액체', 'liquid_liquid_gas':'액체 2종 + 기체'},
@@ -30,7 +31,7 @@ def profile(solver):
     if steady:options['regime']=['laminar','RAS']
     return {'solver':solver,'time_mode':'steady' if steady else 'transient',
             'options':{k:[{'value':v,'label':LABELS[k][v]} for v in values] for k,values in options.items()},
-            'note':item['limitation'] or item['summary']}
+            'note':item['limitation'] or item['summary'], 'requirements': input_definition(solver)}
 
 def profiles():
     return [profile(item['id']) for item in CATALOG]
@@ -98,7 +99,9 @@ def generate(solver,answers):
     if purpose=='thermal_scalar':
         config['physics']['scalar_transport']={'field_name':'','unit':'','diffusivity':quantity('m^2/s'),'initial_value':None,'boundary_conditions':{}}
         config['physics']['porous_regions']=[]
-    schema=make_schema(config)
+    from cfd_studio.solver_requirements import refine,annotate
+    config=refine(solver,config)
+    schema=annotate(solver,config,make_schema(config))
     return {'config':config,'config_schema':schema,'sections':list(config),
             'summary':{'solver':solver,'choices':{key:LABELS[key][value] for key,value in a.items()},'fields':list(field_units)},
             'definition_only':True}

@@ -19,13 +19,13 @@ def entry(name, category, mode, summary, outputs, inputs, models=(), limitation=
 
 CATALOG = (
     entry('icoFoam','단상 유동','비정상','비압축성 뉴턴 유체의 층류',
-          ['유속','동압력 p/ρ'],['유체 격자','동점성계수','초기 U·p','속도·압력 경계조건'],limitation='열전달·다상·난류 모델 없음'),
+          ['유속','운동학적 압력 p/ρ'],['유체 격자','동점성계수','초기 U·p','속도·압력 경계조건'],limitation='열전달·다상·난류 모델 없음'),
     entry('simpleFoam','단상 유동','정상','비압축성 정상 유동과 난류',
-          ['유속','동압력 p/ρ','선택한 난류장'],['유체 격자','점성·난류 모델','초기 U·p','경계조건'],('grain_silo',),'Studio 연결 범위: 기존 사일로 형상·Config'),
+          ['유속','운동학적 압력 p/ρ','선택한 난류장'],['유체 격자','점성·난류 모델','초기 U·p','경계조건'],('grain_silo',),'Studio 연결 범위: 기존 사일로 형상·Config'),
     entry('pimpleFoam','단상 유동','비정상','비압축성 비정상 유동, PIMPLE 알고리즘',
-          ['유속','동압력 p/ρ','선택한 난류장'],['유체 격자','점성·난류 모델','초기 U·p','경계조건'],('grain_silo',),'Studio 연결 범위: 기존 사일로 형상·Config'),
+          ['유속','운동학적 압력 p/ρ','선택한 난류장'],['유체 격자','점성·난류 모델','초기 U·p','경계조건'],('grain_silo',),'Studio 연결 범위: 기존 사일로 형상·Config'),
     entry('pisoFoam','단상 유동','비정상','비압축성 비정상 유동, PISO 알고리즘',
-          ['유속','동압력 p/ρ','선택한 난류장'],['유체 격자','점성·난류 모델','초기 U·p','경계조건'],limitation='기본 솔버에 온도 계산 없음'),
+          ['유속','운동학적 압력 p/ρ','선택한 난류장'],['유체 격자','점성·난류 모델','초기 U·p','경계조건'],limitation='기본 솔버에 온도 계산 없음'),
     entry('buoyantSimpleFoam','열·부력','정상','압축성 유체의 정상 부력·열전달, 복사 모델 지원',
           ['유속','압력','온도','밀도'],['유체 격자','열물성','중력','열·유동 경계조건']),
     entry('buoyantPimpleFoam','열·부력','비정상','압축성 유체의 비정상 부력·열전달',
@@ -100,6 +100,7 @@ def probe(settings):
 
 
 def catalog(installation=None):
+    from cfd_studio.solver_requirements import definition as requirements
     installation=installation or {}
     return [{**copy.deepcopy(x),'installation':installation.get('solvers',{}).get(x['id'],'unchecked'),
-             'draft_config':draft_config(x['id'])} for x in CATALOG]
+             'draft_config':draft_config(x['id']),'requirements':requirements(x['id'])} for x in CATALOG]

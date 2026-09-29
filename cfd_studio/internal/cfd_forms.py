@@ -128,6 +128,9 @@ class CFDForms:
                 'revision': old['revision']+1 if old else 1}
             if config_schema is not None:
                 item['config_schema']=copy.deepcopy(config_schema)
+            if model=='solver_definition' and isinstance(config.get('analysis'),dict) and config['analysis'].get('form_generator')=='solver-questionnaire-v1':
+                from cfd_studio.solver_requirements import inspect_config
+                item['input_review']=inspect_config(solver,config)
             data = read_json(self.folder/'forms.json', {})
             data[key] = item
             atomic_json(self.folder/'forms.json', data)
