@@ -26,14 +26,15 @@ const DataSheetViewer=(()=>{
  .ds-legend{display:flex;gap:10px 16px;flex-wrap:wrap;padding:14px 18px 4px;font-size:11px}.ds-legend span{max-width:100%;overflow-wrap:anywhere}.ds-legend span:before,.ds-values span:before{content:'';display:inline-block;width:14px;height:3px;background:var(--series);margin-right:7px;vertical-align:middle}
  .ds-plot{display:block;width:100%;height:clamp(260px,34vh,370px);touch-action:none;user-select:none;-webkit-user-select:none;cursor:crosshair;outline:none}.ds-plot *{user-select:none;-webkit-user-select:none}.ds-plot:focus-visible{outline:1px solid var(--s1);outline-offset:-2px}body.ds-dragging,body.ds-dragging *{user-select:none!important;-webkit-user-select:none!important}
  .ds-cursor{padding:14px 18px;border-top:1px solid var(--line);background:var(--surface2);font-size:12px;min-height:84px;box-sizing:border-box}.ds-x{font-variant-numeric:tabular-nums;display:block;margin-bottom:8px}.ds-values{display:flex;gap:10px 16px;flex-wrap:wrap;font-variant-numeric:tabular-nums}.ds-values span{overflow-wrap:anywhere}.ds-empty{padding:65px 18px;text-align:center;color:var(--muted);font-size:12px}.ds-notice{font-size:11px;color:var(--muted);line-height:1.6;margin:10px 2px}.ds-error{color:var(--s3);font-size:12px;white-space:pre-wrap}#dsTools{margin-top:18px}#dsTools #warehouseDetails{border:0}#dsTools .wh-inputs{grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px}#dsTools details{margin-top:10px}#dsTools p{font-size:12px;white-space:pre-wrap}
+ .ds-export-dialog{box-sizing:border-box;max-width:calc(100vw - 32px);width:480px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:22px}.ds-export-dialog::backdrop{background:#0008}.ds-export-dialog h2{margin:0 0 12px;font-size:20px}.ds-export-dialog p{line-height:1.6;overflow-wrap:anywhere}.ds-export-dialog .ew-bar{display:flex;flex-wrap:wrap;gap:8px}
  @media(max-width:950px){#dataSheet{padding:16px}.ds-grid{grid-template-columns:1fr}.ds-plot{height:280px}}`);document.head.append(css);
  const box=el('section');box.id='dataSheet';box.setAttribute('aria-label','Data Sheet Viewer');box.innerHTML='<header class="ds-heading"><h2 id="dsName">Data Sheet</h2><p id="dsSelection"></p></header><div class="ds-grid"></div><div id="dsTools"></div>';$('viz').append(box);
  for(const p of panels){
   const id=name=>name+(p.index?'2':''),panel=el('section');panel.className='ds-panel';panel.setAttribute('aria-label',p.index?'오른쪽 그래프':'왼쪽 그래프');
-  panel.innerHTML=`<div class="ds-chart"><div class="ds-toolbar"><label><span>그래프 ${p.index+1}</span><select id="${id('dsField')}" aria-label="${p.index?'오른쪽':'왼쪽'} 그래프 결과 항목"></select></label><div class="ds-actions"><span class="ds-coverage" id="${id('dsCoverage')}"></span><button class="btn" id="${id('dsRead')}">전체 구간 읽기</button><button class="btn" id="${id('dsExport')}">CSV 저장</button></div></div><div class="ds-legend" id="${id('dsLegend')}"></div><svg class="ds-plot" id="${id('dsPlot')}" role="img" tabindex="0" aria-label="그래프 ${p.index+1}. 클릭 또는 좌우 화살표로 저장 시점 선택" viewBox="0 0 640 360" preserveAspectRatio="none"></svg><div class="ds-empty" id="${id('dsEmpty')}"></div><div class="ds-cursor" aria-live="polite"><strong class="ds-x" id="${id('dsX')}">그래프에서 확인할 위치를 선택하세요</strong><div class="ds-values" id="${id('dsValues')}"></div></div></div><p class="ds-notice" id="${id('dsNotice')}"></p><p class="ds-error" id="${id('dsError')}" role="status"></p>`;box.querySelector('.ds-grid').append(panel);
+  panel.innerHTML=`<div class="ds-chart"><div class="ds-toolbar"><label><span>그래프 ${p.index+1}</span><select id="${id('dsField')}" aria-label="${p.index?'오른쪽':'왼쪽'} 그래프 결과 항목"></select></label><div class="ds-actions"><span class="ds-coverage" id="${id('dsCoverage')}"></span><button class="btn" id="${id('dsRead')}">전체 구간 읽기</button><button class="btn" id="${id('dsExport')}">Export</button></div></div><div class="ds-legend" id="${id('dsLegend')}"></div><svg class="ds-plot" id="${id('dsPlot')}" role="img" tabindex="0" aria-label="그래프 ${p.index+1}. 클릭 또는 좌우 화살표로 저장 시점 선택" viewBox="0 0 640 360" preserveAspectRatio="none"></svg><div class="ds-empty" id="${id('dsEmpty')}"></div><div class="ds-cursor" aria-live="polite"><strong class="ds-x" id="${id('dsX')}">그래프에서 확인할 위치를 선택하세요</strong><div class="ds-values" id="${id('dsValues')}"></div></div></div><p class="ds-notice" id="${id('dsNotice')}"></p><p class="ds-error" id="${id('dsError')}" role="status"></p>`;box.querySelector('.ds-grid').append(panel);
   at(p,'dsField').onchange=()=>{stopRead(p);p.metric=at(p,'dsField').value;p.cursor=null;refreshPanel(p);read(p,false);};
   at(p,'dsRead').onclick=()=>{if(p.reading){stopRead(p);refreshPanel(p);return;}const d=dataset(p),key=at(p,'dsField').value;if(d.series.length&&d.series.every(s=>{const item=p.cache.get(s.id+'|'+key);return item&&item.next>=item.total;}))for(const s of d.series)p.cache.delete(s.id+'|'+key);read(p,true);};
-  at(p,'dsExport').onclick=()=>{const d=dataset(p);exportDownload(new Blob([sheetCSV([d.axis==='iteration'?'반복 횟수':'시간 (s)',...d.series.map(s=>s.name+' · '+d.name+' ('+d.unit+')')],sheetRows(d.series))],{type:'text/csv;charset=utf-8'}),'data-sheet-'+(p.index+1)+'.csv');};
+  at(p,'dsExport').onclick=()=>openChartExport(p);
   const svg=at(p,'dsPlot'),pick=e=>{if(!p.domain)return;const rect=svg.getBoundingClientRect(),px=(e.clientX-rect.left)/rect.width*640;p.cursor=p.domain.a+Math.max(0,Math.min(1,(px-72)/548))*(p.domain.b-p.domain.a);draw(p,dataset(p));};
   svg.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();svg.focus({preventScroll:true});p.drag=e.pointerId;document.body.classList.add('ds-dragging');svg.setPointerCapture?.(e.pointerId);pick(e);};
   svg.onpointermove=e=>{if(p.drag===e.pointerId&&e.buttons===1){e.preventDefault();pick(e);}};
@@ -42,6 +43,50 @@ const DataSheetViewer=(()=>{
   svg.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;const d=dataset(p),rows=sheetRows(d.series);if(!rows.length)return;e.preventDefault();const chosen=sheetPick(d.series,p.cursor??rows[0][0]),index=rows.findIndex(r=>r[0]===chosen[0]);p.cursor=rows[e.key==='Home'?0:e.key==='End'?rows.length-1:Math.max(0,Math.min(rows.length-1,index+(e.key==='ArrowRight'?1:-1)))][0];draw(p,d);};
  }
  window.addEventListener('blur',()=>panels.forEach(endDrag));
+ }
+ function chartSnapshot(p){
+  const d=dataset(p),rows=sheetRows(d.series);if(!rows.length)return null;
+  return {index:p.index,project:project?.name||context?.name||'Data Sheet',name:d.name,unit:d.unit,
+   metric:d.id,axis:d.axis,series:d.series,rows,svg:at(p,'dsPlot').cloneNode(true),
+   coverage:at(p,'dsCoverage').textContent,x:p.cursor==null?'':at(p,'dsX').textContent,
+   values:p.cursor==null?[]:[...at(p,'dsValues').children].map(n=>n.textContent)};
+ }
+ async function chartPNG(snapshot){
+  const ns='http://www.w3.org/2000/svg',root=document.createElementNS(ns,'svg'),width=1280;
+  root.setAttribute('xmlns',ns);root.setAttribute('width',width);root.setAttribute('font-family','Segoe UI, Arial, sans-serif');
+  const add=(tag,attrs,text)=>{const n=document.createElementNS(ns,tag);for(const [key,value] of Object.entries(attrs))n.setAttribute(key,value);if(text!=null)n.textContent=text;root.append(n);return n;};
+  add('rect',{width:'100%',height:'100%',fill:'#1b1b19'});const canvas=document.createElement('canvas'),measure=canvas.getContext('2d');
+  if(!measure)throw Error('이미지 생성을 위한 Canvas를 사용할 수 없습니다');
+  let y=36;
+  const text=(value,size=18,color='#dcdcd5')=>{
+   measure.font=size+'px "Segoe UI", Arial, sans-serif';let line='';
+   for(const char of String(value)){if(line&&measure.measureText(line+char).width>width-64){add('text',{x:32,y,fill:color,'font-size':size},line);y+=size+10;line='';}line+=char;}
+   if(line){add('text',{x:32,y,fill:color,'font-size':size},line);y+=size+10;}
+  };
+  text('그래프 '+(snapshot.index+1)+' · '+snapshot.name+' ('+snapshot.unit+')',24);
+  text(snapshot.project+' · '+snapshot.series.map(s=>s.name).join(', '));
+  text(snapshot.coverage,16,'#a4a49b');
+  const graph=snapshot.svg;for(const name of ['id','class','style','tabindex'])graph.removeAttribute(name);
+  graph.setAttribute('x','0');graph.setAttribute('y',y);graph.setAttribute('width',width);graph.setAttribute('height','720');root.append(graph);y+=740;
+  if(snapshot.x)text(snapshot.x);for(const value of snapshot.values)text(value);
+  const height=y+16;root.setAttribute('height',height);root.setAttribute('viewBox','0 0 '+width+' '+height);
+  const source=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(root)],{type:'image/svg+xml;charset=utf-8'}));
+  try{const img=new Image();await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(Error('그래프 이미지 변환 실패'));img.src=source;});canvas.width=width;canvas.height=height;canvas.getContext('2d').drawImage(img,0,0);return await new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(Error('PNG 이미지 생성 실패')),'image/png'));}
+  finally{URL.revokeObjectURL(source);}
+ }
+ function openChartExport(p){
+  const snapshot=chartSnapshot(p);if(!snapshot)return;
+  const dialog=el('dialog');dialog.className='ew-dialog ds-export-dialog';dialog.setAttribute('aria-label','그래프 '+(p.index+1)+' Export');
+  dialog.innerHTML='<h2>Export</h2><p class="ds-export-name"></p><p class="ew-path-note">현재 그래프에 읽어온 구간을 저장합니다. 이미지는 표시 중인 축·곡선·조회 위치를 포함합니다.</p><div class="ew-bar"><button type="button" class="btn pri" data-png>PNG 이미지</button><button type="button" class="btn" data-csv>CSV 데이터</button><button type="button" class="btn" data-close>닫기</button></div><p role="status" aria-live="polite"></p>';
+  dialog.querySelector('.ds-export-name').textContent='그래프 '+(p.index+1)+' · '+snapshot.name+' ('+snapshot.unit+') · '+snapshot.coverage;
+  let busy=false;dialog.oncancel=e=>{if(busy)e.preventDefault();};dialog.onclose=()=>dialog.remove();dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+  const save=async format=>{if(busy)return;busy=true;for(const b of dialog.querySelectorAll('button'))b.disabled=true;const status=dialog.querySelector('[role=status]');status.textContent='파일 생성 중…';
+   try{const blob=format==='png'?await chartPNG(snapshot):new Blob([sheetCSV([snapshot.axis==='iteration'?'반복 횟수':'시간 (s)',...snapshot.series.map(s=>s.name+' · '+snapshot.name+' ('+snapshot.unit+')')],snapshot.rows)],{type:'text/csv;charset=utf-8'});
+    const safe=value=>String(value).replace(/[\\/:*?"<>|]+/g,'_').replace(/[. ]+$/,'').slice(0,60)||'graph';
+    exportDownload(blob,safe(snapshot.project)+'_graph-'+(p.index+1)+'_'+safe(snapshot.metric)+'.'+format);dialog.close();
+   }catch(e){status.textContent='내보내기 실패: '+e.message;}finally{busy=false;for(const b of dialog.querySelectorAll('button'))b.disabled=false;}
+  };
+  dialog.querySelector('[data-png]').onclick=()=>save('png');dialog.querySelector('[data-csv]').onclick=()=>save('csv');document.body.append(dialog);dialog.showModal();
  }
  function endDrag(p){const svg=at(p,'dsPlot'),pointer=p.drag;p.drag=null;if(pointer!=null&&svg?.hasPointerCapture?.(pointer))svg.releasePointerCapture(pointer);if(panels.every(v=>v.drag==null))document.body.classList.remove('ds-dragging');}
  function stopRead(p){p.epoch++;p.controller?.abort();p.controller=null;p.reading=false;endDrag(p);}
