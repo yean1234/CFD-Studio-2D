@@ -10,6 +10,22 @@ BUILTINS = (
 )
 
 
+# Defaults belong to the connected input adapter, not to UI branches.
+FORM_OUTPUTS = {
+    'immersion': {'default_output_fields': ['bubble', 'phase', 'flow', 'therm'],
+                  'output_fields': ['bubble', 'phase', 'flow', 'therm', 'pressure', 'turbulence']},
+    'grain_silo': {'output_fields': ['flow', 'pressure', 'turbulence']},
+}
+
+
+def prepare_config(config, model):
+    value = copy.deepcopy(config)
+    defaults = FORM_OUTPUTS.get(model, {}).get('default_output_fields')
+    if defaults is not None:
+        value.setdefault('run', {}).setdefault('output_fields', list(defaults))
+    return value
+
+
 class CFDForms:
     def forms(self):
         from cfd_studio.execution_workspace import read_json
@@ -17,15 +33,33 @@ class CFDForms:
         items = []
         for key, name, preset, solvers in BUILTINS:
             config = self.template(preset)
-            if key == 'immersion':
-                config['run'].setdefault('output_fields', ['bubble', 'phase', 'flow', 'therm'])
+            config = prepare_config(config, key)
             items.append(overrides.pop(key, {'id': key, 'name': name, 'model': key,
                 'description': '', 'solver': solvers[0], 'config': config, 'revision': 1, 'sections': {}}))
         items.extend(overrides.values())
         from cfd_studio.result_series import output_definitions
-        return [{**item, 'outputs': output_definitions(item['model']),
+        return [{**item, 'capabilities': copy.deepcopy(FORM_OUTPUTS.get(item['model'], {})), 'outputs': output_definitions(item['model']),
                  'definition_only':item['model']=='solver_definition',
                  'solvers':next((b[3] for b in BUILTINS if b[0] == item['model']),[item['solver']])} for item in items]
+
+    def form_templates(self):
+        """Connected templates by solver; UI never constructs solver input defaults."""
+        from cfd_studio.solver_catalog import definition, result_axis
+        forms = {f['id']: f for f in self.forms()}
+        templates = []
+        for key, _, _, solvers in BUILTINS:
+            form = forms[key]
+            for solver in solvers:
+                config = prepare_config(form['config'], key)
+                options = definition(solver)
+                if options.get('coupling') and 'openfoam_mapping' in config:
+                    config['openfoam_mapping']['solver'] = solver
+                    config['openfoam_mapping']['pressure_velocity_coupling'] = options['coupling']
+                    config['run']['time_basis'] = 'iterations' if result_axis({'solver': solver}) == 'iteration' else 'physical_time'
+                    config.pop('_studio', None)
+                templates.append({'model': key, 'name': form['name'], 'solver': solver,
+                                  'config': config, 'outputs': form['outputs']})
+        return templates
 
     def solver_catalog(self, check=False):
         from cfd_studio.solver_catalog import catalog, probe
@@ -56,12 +90,15 @@ class CFDForms:
             return project['form_id']
         if project.get('default_preset'):
             return self.preset_form(project['default_preset'])
-        models = [(records or {}).get(k, {}).get('model', '') for k in project.get('runs', [])]
-        if 'immersion' in models:
-            return 'immersion'
-        if 'grain_silo' in models:
-            return 'grain_silo'
-        return 'warehouse'
+        known = {b[0] for b in BUILTINS}
+        models = set()
+        for key in project.get('runs', []):
+            record = (records or {}).get(key, {})
+            model = 'warehouse' if record.get('kind') == 'warehouse' else record.get('model')
+            if model not in known:
+                return None
+            models.add(model)
+        return next(iter(models)) if len(models) == 1 else None
 
     def check_form_config(self, form_id, config):
         from cfd_studio.execution_workspace import config_kind

@@ -81,7 +81,9 @@
     return matchesSearch(query,'종료 조건 목표 종료 방식 수렴 기준 특정 물리시간 저장 프레임 수 목표값 비교 목적',config._studio?.goals||'',
       mode==='frames'?'목표 저장 프레임 수 0초 초기 프레임 포함 frames include_initial':'목표 물리시간 종료시간 time_s end_s end_time_s');
   }
-  function summary(c){if(!c)return '';const k=kind(c);return k==='warehouse'?`저장고 연결 · ${c.numerics.end_s} s · 초기 ${c.coupled.initial_temperature_C} °C`:k==='immersion'?`이중액침 · ${c.run?.end_time_s??'—'} s · 발열 ${c.heater?.total_W??'—'} W`:k==='grain_silo'?'단상 저장고 설정':'보관된 Case Config';}
+  function summary(c,form){if(!c)return '';const n=c.numerics||c.run||{},iterations=n.time_basis==='iterations',end=iterations?n.max_iterations:n.end_s??n.end_time_s;return [form?.name,form?.solver||c.openfoam_mapping?.solver||c.analysis?.solver,end==null?null:`${end} ${iterations?'회':'s'}`].filter(Boolean).join(' · ')||'보관된 Case Config';}
+  function prepareConfig(config,form){const c=clone(config),defaults=form?.capabilities?.default_output_fields;if(defaults){c.run??={};c.run.output_fields??=clone(defaults);}return c;}
+  function outputChoices(value,form){return [...new Set([...(form?.capabilities?.output_fields||enums.output_fields),...value])];}
   function configParts(config){
     const groups=[
       {title:'형상·격자',keys:['tank','layers','board','coil','geometry_spec','geometry','loading','silo','mesh','porous_mesh']},
@@ -133,7 +135,7 @@
     }
     function set(path,value){let obj=config;for(const k of path.slice(0,-1))obj=obj[k];obj[path.at(-1)]=value;subtitle.textContent=[options.form?.name,options.form?.solver,readonly?'실행 시점 Config':options.purpose==='form'?'새 Case의 기본값':options.purpose==='preset'?'프리셋 Config':'이 Case에 적용'].filter(Boolean).join(' · ');}
     function draw(value,path,host){if(section!=='references'&&path.some(isReferenceKey))return;const key=path.at(-1),info=fieldInfo(path,config);
-      if(key==='output_fields'&&Array.isArray(value)){const box=el('div');box.className='settings-output';for(const field of enums.output_fields){const l=el('label'),input=el('input');input.type='checkbox';input.checked=value.includes(field);input.disabled=readonly;input.onchange=()=>{const selected=enums.output_fields.filter((_,i)=>box.querySelectorAll('input')[i].checked);set(path,selected);};l.append(input,el('span',choices[field]));box.append(l);}host.append(box);return;}
+      if(key==='output_fields'&&Array.isArray(value)){const box=el('div'),available=outputChoices(value,options.form);box.className='settings-output';for(const field of available){const l=el('label'),input=el('input');input.type='checkbox';input.checked=value.includes(field);input.disabled=readonly;input.onchange=()=>{const selected=available.filter((_,i)=>box.querySelectorAll('input')[i].checked);set(path,selected);};l.append(input,el('span',choices[field]||field));box.append(l);}host.append(box);return;}
       if(value!==null&&typeof value==='object'){
         const box=el('fieldset');box.append(el('legend',info.title));host.append(box);
         for(const [k,v] of Object.entries(value)){
@@ -196,6 +198,6 @@
     }
     search.oninput=()=>act(()=>{if(section==='json'){config=jsonText!==null?parse(jsonText):config;jsonText=null;section=config.numerics?'numerics':config.run?'run':Object.keys(config)[0];renderNav();}render();});renderNav();render();dialog.showModal();return {close,current};
   }
-  globalThis.CFDSettings={open,kind,parse,validate,fieldInfo,summary,applyTermination,references,searchFields,searchTermination,configParts};
+  globalThis.CFDSettings={open,kind,parse,validate,fieldInfo,summary,prepareConfig,outputChoices,applyTermination,references,searchFields,searchTermination,configParts};
   if(typeof module!=='undefined')module.exports=globalThis.CFDSettings;
 })();

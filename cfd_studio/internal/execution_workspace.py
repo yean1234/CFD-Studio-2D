@@ -16,6 +16,7 @@ import time
 import uuid
 from urllib.parse import parse_qs, urlparse
 from zipfile import BadZipFile
+from cfd_studio.solver_catalog import config_solver, result_axis
 
 
 def read_json(path, default=None):
@@ -34,6 +35,17 @@ def atomic_json(path, value):
         os.replace(temp, path)
     finally:
         temp.unlink(missing_ok=True)
+
+
+def result_logs(root, config):
+    """Prefer the configured solver, then available solver logs, then setup logs."""
+    root = Path(root)
+    solver = config_solver(config)
+    preferred = [root/('log.'+solver)] if solver and re.fullmatch(r'[A-Za-z0-9_+-]+', solver) else []
+    setup = {'log.blockMesh', 'log.checkMesh', 'log.snappyHexMesh', 'log.decomposePar', 'log.reconstructPar'}
+    logs = sorted(root.glob('log.*'), key=lambda p: (p.name in setup, p.name))
+    candidates = preferred + [root/'solver.log'] + [p for p in logs if p.name not in setup] + [root/'execution.log'] + [p for p in logs if p.name in setup]
+    return list(dict.fromkeys(p for p in candidates if not p.is_symlink()))
 
 
 def label(value):
@@ -164,7 +176,7 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
                 'created': meta.get('created') or p.stat().st_mtime, 'end_s': meta.get('tmax') or meta.get('end'),
                 'has_results': any(p.glob('*.bin')), 'study_attempt_id': meta.get('study_attempt_id'),
                 'last_saved': meta.get('tmax'), 'completion_reason': meta.get('completion_reason'),
-                'time_unit': '회' if cfg.get('openfoam_mapping', {}).get('solver') == 'simpleFoam' else 's', 'result_status': 'ready' if any(p.glob('*.bin')) else 'none',
+                'time_unit': '회' if result_axis(cfg) == 'iteration' else 's', 'result_status': 'ready' if any(p.glob('*.bin')) else 'none',
                 'numerical_status': 'unchecked'}
             if project_id:
                 records[key]['project_id'] = project_id
@@ -224,7 +236,7 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
             raise ValueError('프로젝트 목록 형식을 확인해 주세요')
         before = json.dumps(data, sort_keys=True)
         if records and not data['projects']:
-            data['projects'].append({'id': uuid.uuid4().hex, 'name': '식량창고', 'created': time.time(), 'runs': []})
+            data['projects'].append({'id': uuid.uuid4().hex, 'name': '가져온 결과', 'created': time.time(), 'runs': []})
         projects = {p['id']: p for p in data['projects']}
         assigned = {rid for p in projects.values() for rid in p['runs']}
         for key, record in records.items():
@@ -334,14 +346,14 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
         p = Path(record['path'])
         if record['kind'] == 'warehouse':
             config = read_json(p/'transport_input.json', {})
-            candidates = [p/'log.warehouseBuoyantFoam', p/'log.porousTracerFoam', p/'log.blockMesh']
+            candidates = result_logs(p, config)
         else:
             config = read_json(p/'case_config.json', None) or read_json(p/'config.json', {})
-            candidates = [p/n for n in ('solver.log', 'log.simpleFoam', 'log.icoReactingMultiphaseInterFoam', 'execution.log')]
+            candidates = result_logs(p, config)
             attempt = record.get('study_attempt_id')
             if isinstance(attempt, str) and re.fullmatch('[a-f0-9]{32}', attempt):
                 source = self.root/'cfd_studio/Studies/attempts'/attempt
-                candidates = [source/'raw/log.porousTracerFoam', source/'execution.log'] + candidates
+                candidates = result_logs(source/'raw', config) + [source/'execution.log'] + candidates
         if record.get('job_id'):
             folder = Path(record['job_path']).parent if record.get('job_path') else self.folder/'runs'/record['job_id']
             config = read_json(folder/'input.json')
@@ -506,7 +518,7 @@ def get_route(handler, workspace):
             q = parse_qs(url.query)
             result = workspace.series.page(q.get('id', [''])[0], q.get('metric', [''])[0], int(q.get('offset', ['0'])[0]), int(q.get('limit', ['16'])[0]))
         elif url.path == '/api/executions/forms':
-            result = {'forms': workspace.forms()}
+            result = {'forms': workspace.forms(), 'templates': workspace.form_templates()}
         elif url.path == '/api/executions/form-profiles':
             from cfd_studio.form_wizard import profiles
             result = {'profiles': profiles()}

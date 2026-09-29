@@ -8,6 +8,7 @@ import struct
 import sys
 import threading
 from zipfile import BadZipFile
+from cfd_studio.solver_catalog import result_axis
 
 FIELDS = {
  'lower_temperature': ('유전체층 온도', '°C', 'therm', b'THM1', 1),
@@ -74,7 +75,7 @@ class ResultSeries:
         cache_key=(key,str(root),stamps,bin_names)
         with self.lock:
             if cache_key in self.catalog_cache: return self.catalog_cache[cache_key]
-        axis = 'iteration' if config.get('openfoam_mapping',{}).get('solver')=='simpleFoam' else 'time'
+        axis = result_axis(config)
         fields, metrics = [], []
         if record['kind']=='warehouse':
             model = read(root/'model_contract.json', {})

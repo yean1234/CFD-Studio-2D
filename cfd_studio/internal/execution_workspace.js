@@ -7,7 +7,7 @@
   let queuePending=false;let pending=false, refreshing=false, projectSignature='',runSignature='',viewMode='cfd',presets=[],forms=[];
   const status = {complete:'완료', failed:'실패', running:'계산 중', queued:'대기', draft:'대기', stopped:'중단', preparing:'준비 중', saved:'보관'};
   const stateText=r=>(status[r.status]||r.status)+(r.completion_reason==='limit'?' · 한계 도달':'');
-  const model = {warehouse:'저장고 연결',clo2_coupled_scenario:'저장고 연결', clo2_plan_scenario:'저장고 확산', normalized_gable_verification:'정규화 시험', gas_transport:'추적자 시험', immersion:'액침냉각', grain_silo:'단상 저장고'};
+  const modelName = run => run.form_snapshot?.name || forms.find(f=>f.id===run.form_id)?.name || forms.find(f=>f.model===run.model)?.name || run.model || '모델 미확인';
   const node = (tag, text, cls) => {const e=document.createElement(tag); if(text!=null)e.textContent=text; if(cls)e.className=cls; return e;};
   async function api(path, body) {
     const response = await fetch('/api/executions'+path, body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -100,10 +100,10 @@
     if(signature===runSignature)return;runSignature=signature;
     rows.replaceChildren();
     for(const r of p?.runs||[]){
-      if(!`${r.name} ${r.model}`.toLowerCase().includes(search))continue;
+      if(!`${r.name} ${r.model} ${modelName(r)}`.toLowerCase().includes(search))continue;
       const row=button('',()=>selectRun(r.id),'ew-run-card');row.classList.toggle('selected',r.id===runId);row.setAttribute('aria-pressed',String(r.id===runId));
       const top=node('div',null,'ew-run-top'),name=node('strong',r.name);name.title=r.name;top.append(name,badge(stateText(r)+(r.status==='draft'?' · 초안':''),r.status));
-      const meta=node('div',null,'ew-run-meta');meta.append(node('span',model[r.model]||r.model||'미확인'),node('span',stopText(r.termination,r.end_s)));
+      const meta=node('div',null,'ew-run-meta');meta.append(node('span',modelName(r)),node('span',stopText(r.termination,r.end_s)));
       const bottom=node('div',null,'ew-run-meta');bottom.append(node('span',r.differences?.length?`Config ${r.differences.length}개 변경`:Array.isArray(r.differences)?'Config 동일':'비교 기준 없음'),node('span',resultText(r)));row.append(top,meta,bottom);
       row.title=`${r.name}
 마지막 저장 ${r.last_saved==null?'—':r.last_saved+' '+(r.time_unit||'s')} · 수치 검사 ${numericalText(r)}`;rows.append(row);
@@ -127,9 +127,9 @@
   function showDetail(value){
     detail=value;const row=currentProject()?.runs.find(r=>r.id===value.id);if(row){for(const k of ['result_status','last_saved','numerical_status','has_results','frame_counts'])if(k in value)row[k]=value[k];renderRuns();renderSidebarAction();}$('ewRunTitle').textContent=value.name;$('ewLog').textContent=value.log||'보존된 솔버 로그 없음';
     $('ewStatus').replaceChildren(badge(stateText(value),value.status));
-    $('ewConfigSummary').textContent=CFDSettings.summary(value.config);$('ewSettings').disabled=false;
+    $('ewConfigSummary').textContent=CFDSettings.summary(value.config,value.form_snapshot||forms.find(f=>f.id===value.form_id));$('ewSettings').disabled=false;
     const checks=value.checks||{};
-    $('ewFacts').textContent=model[value.model]||value.model||'모델 미확인';
+    $('ewFacts').textContent=modelName(value);
     $('ewStats').replaceChildren();
     for(const [label,text,state] of [['마지막 저장',value.last_saved==null?'—':value.last_saved+' '+(value.time_unit||'s'),''],['수치 검사',numericalText(value),value.numerical_status],['시각화',resultText(value),value.result_status]]){const card=node('div',null,'ew-stat');card.append(node('span',label),badge(text,state));$('ewStats').append(card);}
     $('ewRunError').textContent=value.error||'';
@@ -211,16 +211,17 @@
   async function formEditor(id=null){
     try{
       const [reply,catalogReply,templateReply,profileReply]=await Promise.all([api('/forms'),api('/solvers'),api('/config-template'),api('/form-profiles')]);
-      const existing=reply.forms.find(f=>f.id===id),engines=reply.forms.filter(x=>['immersion','grain_silo','warehouse'].includes(x.id));
+      const existing=reply.forms.find(f=>f.id===id),engines=reply.templates;
       let solvers=catalogReply.solvers,installation=catalogReply.installation;
       const d=node('dialog');d.className='ew-dialog ew-form-dialog';
       d.innerHTML='<form><h2></h2><label>CFD FORM 이름<input name="name" required maxlength="80"></label><div class="ew-form-columns"><label>솔버<select name="solver"></select></label><label>Config Template<select name="model"></select></label></div><section class="ew-solver-card" aria-label="솔버 기능"><div class="ew-solver-heading"><strong data-solver-title></strong><button type="button" class="btn" data-check>설치 확인</button></div><div data-install-result role="status" aria-live="polite"></div><p data-summary></p><div class="ew-solver-tags"></div><dl data-features></dl><p data-connection></p><p data-uses></p><details><summary>필수 Config</summary><ul data-required></ul></details><details><summary>선택·조건부 Config</summary><ul data-optional></ul></details><details><summary>계산 범위</summary><p data-inputs></p></details><small data-environment></small></section><label>설명<textarea name="description" rows="2" maxlength="4000"></textarea></label><div class="ew-form-config"><div><strong>Config</strong><p data-config-count></p></div><div class="ew-bar"><button type="button" class="btn pri" data-wizard>양식 구성</button><button type="button" class="btn" data-config>Config 편집</button></div></div><div class="ew-form-sections" hidden></div><p role="alert"></p><div class="ew-bar"><button type="button" class="btn" data-cancel>취소</button><button type="submit" class="btn pri">FORM 저장</button></div></form>';
       const f=d.querySelector('form');f.querySelector('h2').textContent=existing?'CFD FORM 수정':'새 CFD FORM';
       for(const dedicated of [false,true]){const group=node('optgroup');group.label=dedicated?'Studio 전용':'OpenFOAM 범용';for(const solver of solvers.filter(x=>x.dedicated===dedicated))group.append(new Option(solver.id,solver.id));f.elements.solver.append(group);}
       f.elements.name.value=existing?.name||'';f.elements.description.value=existing?.description||'';
-      f.elements.solver.value=existing?.solver||'icoFoam';f.elements.solver.disabled=!!existing;
+      f.elements.solver.value=existing?.solver||solvers[0]?.id||'';f.elements.solver.disabled=!!existing;
       let config,configSchema,activeConfigKey,configured=!!existing,sections={...existing?.sections};const configDrafts=new Map();
       const selectedSolver=()=>solvers.find(x=>x.id===f.elements.solver.value);
+      const selectedTemplate=()=>engines.find(x=>x.model===f.elements.model.value&&x.solver===f.elements.solver.value);
       const isDraft=()=>f.elements.model.value==='solver_definition';
       const outputBox=node('details');outputBox.className='ew-form-outputs';outputBox.append(node('summary','결과 그래프'));f.querySelector('.ew-form-sections').after(outputBox);
       const drawSolver=()=>{
@@ -248,12 +249,12 @@
         const count=fields=>fields.reduce((n,x)=>n+1+(x.type==='object'?count(x.fields):0),0);
         f.querySelector('[data-config-count]').textContent=isDraft()&&!configured?'유체·해석 조건을 선택해 양식을 구성하세요.':count(configSchema.fields)+' fields · Key / Type / Unit / Value';
         outputBox.querySelector('div')?.remove();
-        if(!isDraft()){const items=node('div');for(const out of engines.find(x=>x.model===f.elements.model.value).outputs||[])items.append(node('p',out.name+' ('+out.unit+')'+(out.statistics.length?' · '+out.statistics.join(' / '):'')));outputBox.append(items);}
+        if(!isDraft()){const items=node('div');for(const out of selectedTemplate()?.outputs||[])items.append(node('p',out.name+' ('+out.unit+')'+(out.statistics.length?' · '+out.statistics.join(' / '):'')));outputBox.append(items);}
       };
       const rememberConfig=()=>{if(activeConfigKey)configDrafts.set(activeConfigKey,{config:structuredClone(config),schema:structuredClone(configSchema),sections:{...sections},configured});};
       const setTemplates=(initial=false)=>{
         f.elements.model.replaceChildren(new Option('솔버별 양식','solver_definition'));
-        for(const model of selectedSolver().models){const engine=engines.find(x=>x.model===model);f.elements.model.append(new Option(engine.name,model));}
+        for(const engine of engines.filter(x=>x.solver===selectedSolver().id))f.elements.model.append(new Option(engine.name,engine.model));
         f.elements.model.value=initial&&existing?existing.model:'solver_definition';f.elements.model.disabled=!!existing;
       };
       const loadSelection=(initial=false)=>{
@@ -262,9 +263,7 @@
         if(initial&&existing){config=structuredClone(existing.config);configured=true;configSchema=existing.config_schema?structuredClone(existing.config_schema):null;
           if(existing.definition_only&&!configSchema&&config._해석유형==='solver_definition')config=structuredClone(config.requirements||{});
         }else if(saved){configured=saved.configured;config=structuredClone(saved.config);configSchema=structuredClone(saved.schema);sections={...saved.sections};}
-        else{configured=!isDraft();config=structuredClone(isDraft()?templateReply.config:engines.find(x=>x.model===f.elements.model.value).config);configSchema=null;sections={};
-          if(f.elements.model.value==='grain_silo'){const steady=solver.id==='simpleFoam';config.openfoam_mapping.solver=solver.id;config.openfoam_mapping.pressure_velocity_coupling=steady?'SIMPLE':'PIMPLE';config.run.time_basis=steady?'iterations':'physical_time';delete config._studio;}}
-        if(f.elements.model.value==='immersion')config.run.output_fields??=['bubble','phase','flow','therm'];
+        else{configured=!isDraft();config=structuredClone(isDraft()?templateReply.config:selectedTemplate().config);configSchema=null;sections={};}
         configSchema=CFDFormConfig.fromConfig(config,configSchema);drawSections();
       };
       setTemplates(true);loadSelection(true);
@@ -293,8 +292,9 @@
       const form=forms.find(f=>f.id===currentProject()?.form_id);if(!form)throw Error('프로젝트에서 CFD FORM을 선택하세요');
       let sourceId=editing?.preset_id||currentProject()?.default_preset||'form:'+form.id;
       const [presetData,result]=await Promise.all([api('/presets'),source?Promise.resolve({config:structuredClone(source)}):api('/template?id='+encodeURIComponent(sourceId))]);
-      const prepare=config=>{const c=structuredClone(config);if(CFDSettings.kind(c)==='immersion'&&!c.run.output_fields)c.run.output_fields=['bubble','phase','flow','therm'];return c;};
-      CFDSettings.open({config:prepare(result.config),managed:true,submitLabel:'실행 저장',name:editing?.name,title:editing?'Case Config':'CFD Case · '+projectName,form:editing?.form_snapshot||form,presets:presetData.presets.filter(p=>p.form_id===form.id),
+      const activeForm={...form,...editing?.form_snapshot,capabilities:editing?.form_snapshot?.capabilities||form.capabilities};
+      const prepare=config=>CFDSettings.prepareConfig(config,activeForm);
+      CFDSettings.open({config:prepare(result.config),managed:true,submitLabel:'실행 저장',name:editing?.name,title:editing?'Case Config':'CFD Case · '+projectName,form:activeForm,presets:presetData.presets.filter(p=>p.form_id===form.id),
         onLoad:async id=>{sourceId=id;return prepare((await api('/template?id='+encodeURIComponent(id))).config);},
         onRun:async(name,config,extra)=>{
           pending=true;renderProjects();try{

@@ -84,3 +84,32 @@ class FormTests(unittest.TestCase):
         f = forms[0]
         self.w.save_form('변경',f['model'],f['solver'],f['config'],f['id'],f['revision'])
         self.assertEqual([p.read_bytes() for p in paths], before)
+
+class FormMetadataTests(unittest.TestCase):
+    setUp = FormTests.setUp
+    def test_templates_supply_solver_specific_inputs_without_mutating_forms(self):
+        before = copy.deepcopy(self.w.forms())
+        templates = self.w.form_templates()
+        steady = next(t for t in templates if t['solver'] == 'simpleFoam')
+        transient = next(t for t in templates if t['solver'] == 'pimpleFoam')
+        self.assertEqual(steady['config']['run']['time_basis'], 'iterations')
+        self.assertEqual(transient['config']['run']['time_basis'], 'physical_time')
+        self.assertEqual(transient['config']['openfoam_mapping']['pressure_velocity_coupling'], 'PIMPLE')
+        transient['config']['run']['output_fields'].clear()
+        self.assertEqual(self.w.forms(), before)
+        self.assertFalse(any(t['solver'] == 'icoFoam' for t in templates))
+
+    def test_form_names_and_output_capabilities_are_metadata(self):
+        form = self.w.form('immersion')
+        self.w.save_form('Custom cooling', form['model'], form['solver'], form['config'], form['id'], form['revision'])
+        template = next(t for t in self.w.form_templates() if t['model'] == 'immersion')
+        self.assertEqual(template['name'], 'Custom cooling')
+        self.assertEqual(self.w.form('immersion')['capabilities']['default_output_fields'], ['bubble', 'phase', 'flow', 'therm'])
+
+    def test_unassigned_projects_do_not_silently_become_warehouse_forms(self):
+        self.assertIsNone(self.w.project_form({'runs': []}))
+        self.assertIsNone(self.w.project_form({'runs': ['x']}, {'x': {'model': 'custom'}}))
+        records = {'a': {'model': 'immersion'}, 'b': {'model': 'grain_silo'}}
+        self.assertIsNone(self.w.project_form({'runs': ['a', 'b']}, records))
+        self.assertEqual(self.w.project_form({'runs': ['a']}, records), 'immersion')
+        self.assertEqual(self.w.project_form({'runs': ['w']}, {'w': {'kind': 'warehouse', 'model': 'normalized_gable_verification'}}), 'warehouse')

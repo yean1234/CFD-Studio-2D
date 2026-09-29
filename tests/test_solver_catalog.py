@@ -90,3 +90,11 @@ class SolverCatalogTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+class ResultAxisTests(unittest.TestCase):
+    def test_axes_follow_registered_solver_or_custom_snapshot(self):
+        from cfd_studio.solver_catalog import result_axis
+        self.assertEqual(result_axis({'analysis': {'solver': 'buoyantSimpleFoam'}}), 'iteration')
+        self.assertEqual(result_axis({'analysis': {'solver': 'buoyantPimpleFoam'}, 'run': {'time_basis': 'iterations'}}), 'time')
+        self.assertEqual(result_axis({'analysis': {'solver': 'custom'}, 'run': {'time_basis': 'iterations'}}), 'iteration')
+        self.assertEqual(result_axis({'run': {'time_basis': 'physical_time'}}), 'time')

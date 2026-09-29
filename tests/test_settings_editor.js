@@ -65,3 +65,20 @@ test('Config parts cover each input exactly once and retain the original values'
   assert.equal(new Set(keys).size,keys.length);assert.ok(parts.some(p=>p.title==='형상·격자'));assert.ok(parts.some(p=>p.title==='솔버·계산'));assert.ok(keys.includes('run'));assert.equal(JSON.stringify(c),before);
  }
 });
+
+test('FORM output choices retain saved custom fields and stay scoped',()=>{
+ const form={capabilities:{output_fields:['flow','therm'],default_output_fields:['flow']}};
+ const saved=['therm','custom_temperature'];
+ assert.deepEqual(editor.outputChoices(saved,form),['flow','therm','custom_temperature']);
+ assert.deepEqual(saved,['therm','custom_temperature']);
+ const original={run:{output_fields:saved}};
+ const prepared=editor.prepareConfig(original,form);prepared.run.output_fields.push('flow');
+ assert.deepEqual(original.run.output_fields,saved);
+ assert.deepEqual(editor.prepareConfig({run:{}},form).run.output_fields,['flow']);
+ assert.deepEqual(editor.prepareConfig({run:{output_fields:[]}},form).run.output_fields,[]);
+});
+
+test('Config summary follows the frozen FORM and time basis without subject-specific labels',()=>{
+ assert.equal(editor.summary({run:{time_basis:'iterations',max_iterations:40}}, {name:'Custom flow',solver:'customSolver'}),'Custom flow · customSolver · 40 회');
+ assert.equal(editor.summary({run:{end_time_s:12}}, {name:'Cooling',solver:'otherSolver'}),'Cooling · otherSolver · 12 s');
+});

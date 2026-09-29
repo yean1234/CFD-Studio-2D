@@ -11,19 +11,19 @@ import subprocess
 import time
 
 
-def entry(name, category, mode, summary, outputs, inputs, models=(), limitation='', dedicated=False):
+def entry(name, category, mode, summary, outputs, inputs, models=(), limitation='', dedicated=False, coupling=None):
     return dict(id=name, category=category, time_mode=mode, summary=summary,
                 outputs=outputs, inputs=inputs, models=list(models), limitation=limitation,
-                dedicated=dedicated, integration='connected' if models else 'definition_only')
+                dedicated=dedicated, coupling=coupling, integration='connected' if models else 'definition_only')
 
 
 CATALOG = (
     entry('icoFoam','단상 유동','비정상','비압축성 뉴턴 유체의 층류',
           ['유속','운동학적 압력 p/ρ'],['유체 격자','동점성계수','초기 U·p','속도·압력 경계조건'],limitation='열전달·다상·난류 모델 없음'),
     entry('simpleFoam','단상 유동','정상','비압축성 정상 유동과 난류',
-          ['유속','운동학적 압력 p/ρ','선택한 난류장'],['유체 격자','점성·난류 모델','초기 U·p','경계조건'],('grain_silo',),'Studio 연결 범위: 기존 사일로 형상·Config'),
+          ['유속','운동학적 압력 p/ρ','선택한 난류장'],['유체 격자','점성·난류 모델','초기 U·p','경계조건'],('grain_silo',),'Studio 연결 범위: 기존 사일로 형상·Config',coupling='SIMPLE'),
     entry('pimpleFoam','단상 유동','비정상','비압축성 비정상 유동, PIMPLE 알고리즘',
-          ['유속','운동학적 압력 p/ρ','선택한 난류장'],['유체 격자','점성·난류 모델','초기 U·p','경계조건'],('grain_silo',),'Studio 연결 범위: 기존 사일로 형상·Config'),
+          ['유속','운동학적 압력 p/ρ','선택한 난류장'],['유체 격자','점성·난류 모델','초기 U·p','경계조건'],('grain_silo',),'Studio 연결 범위: 기존 사일로 형상·Config',coupling='PIMPLE'),
     entry('pisoFoam','단상 유동','비정상','비압축성 비정상 유동, PISO 알고리즘',
           ['유속','운동학적 압력 p/ρ','선택한 난류장'],['유체 격자','점성·난류 모델','초기 U·p','경계조건'],limitation='기본 솔버에 온도 계산 없음'),
     entry('buoyantSimpleFoam','열·부력','정상','압축성 유체의 정상 부력·열전달, 복사 모델 지원',
@@ -50,6 +50,26 @@ def definition(solver):
     if item is None:
         raise ValueError('등록된 솔버를 선택하세요')
     return copy.deepcopy(item)
+
+
+def config_solver(config):
+    for section in ('openfoam_mapping', 'analysis'):
+        solver = config.get(section, {}).get('solver')
+        if isinstance(solver, str) and solver:
+            return solver
+    return config.get('solver') if isinstance(config.get('solver'), str) else None
+
+
+def result_axis(config):
+    """Display basis only; never enables an adapter or changes solver inputs."""
+    solver = config_solver(config)
+    known = next((x for x in CATALOG if x['id'] == solver), None)
+    if known:
+        return 'iteration' if known['time_mode'] == '정상' else 'time'
+    basis = config.get('run', {}).get('time_basis')
+    if basis is None:
+        basis = config.get('analysis', {}).get('time_mode')
+    return 'iteration' if basis in ('iterations', 'steady') else 'time'
 
 
 def draft_config(solver):

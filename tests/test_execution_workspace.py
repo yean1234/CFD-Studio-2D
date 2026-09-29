@@ -237,3 +237,16 @@ class ExecutionWorkspaceTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+class GenericResultLogTests(unittest.TestCase):
+    def test_configured_solver_log_precedes_other_solver_and_setup_logs(self):
+        from cfd_studio.execution_workspace import result_logs
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for name in ('log.blockMesh', 'log.simpleFoam', 'log.customSolver', 'execution.log'):
+                (root/name).write_text(name)
+            candidates = result_logs(root, {'analysis': {'solver': 'customSolver'}})
+            actual = [p.name for p in candidates if p.is_file()]
+            self.assertEqual(actual[0], 'log.customSolver')
+            self.assertEqual(actual[-1], 'log.blockMesh')
+            self.assertTrue(all(p.parent == root for p in result_logs(root, {'solver': '../secret'})))
