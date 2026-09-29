@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v208"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v209"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -5366,8 +5366,8 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <details><summary>프로젝트 및 CFD Case 선택</summary><ul><li>왼쪽 프로젝트 이름 클릭 → 아래 <b>CFD Case</b> 목록에서 Case 선택</li><li>선택 항목은 파란 테두리. 3D·그래프 모두 선택한 Case의 결과 표시</li><li>다른 Case 비교: 목록에서 다른 항목 선택. 한 번에 한 Case 표시</li><li>계산 화면 복귀: 상단 <b>CFD</b> 탭</li></ul></details>
    <details><summary>데이터 시각화율 확인 및 업데이트</summary><ul><li>왼쪽 <b>CFD Case</b> 목록의 각 항목 안 게이지에서 현재 시각화 준비 상태 확인</li><li>갱신: <b>CFD Case</b> 제목 오른쪽 둥근 사각형의 <b>원형 화살표</b> 클릭. 포인터를 올리면 <b>다시 읽기</b> 표시</li><li>프로젝트 내 Case들의 준비 상태 확인 및 선택한 Case의 결과 다시 읽기</li><li><b>100%</b>: 시각화 준비 완료. CFD 계산 진행률·수렴·실험 검증과 별도</li><li>새 원본의 변환이 필요하면 <b>CFD</b> 탭 → Case 선택 → <b>생성 / 업데이트</b> → <b>열기</b></li></ul></details>
    <details><summary>3D Virtual Viewer 조작</summary><ul><li>왼쪽 상단 <b>3D Virtual</b> 버튼 클릭 → 중앙 3D 화면 표시. 선택한 모드는 파란 테두리와 배경으로 표시</li><li>아래 파란 <b>▶</b>: 재생·일시정지. 시간 막대: 시점 선택. 오른쪽 <b>1×</b>: 재생 배속</li><li>시간 표시: <b>0.00s (전체 프레임 수)</b></li><li>드래그: 회전. 휠: 확대·축소. 더블클릭: 기본 시점 복원</li><li>오른쪽 <b>결과 데이터 / 설계 레이어</b>: 물리량·형상 표시. 항목은 Case의 저장 데이터에 따라 변경</li></ul></details>
-   <details><summary>Data Sheet Viewer 전환 및 수치 조회</summary><ul><li>왼쪽 상단 <b>Data Sheet</b> 버튼 클릭 → 그래프 화면 표시. <b>3D Virtual</b> 버튼으로 3D 화면 전환</li><li>그래프 위 <b>결과 항목</b> 선택 → 그래프 클릭·드래그 → 세로 점선과 X·Y 수치 확인</li><li>그래프에 초점을 둔 뒤 <b>← / →</b>로 시점 이동. 이 화면에는 재생 버튼 없음</li><li>전체 저장 구간을 조회하려면 그래프 위 <b>전체 구간 읽기</b>. 수치 저장: 오른쪽 상단 <b>CSV 저장</b></li><li>위치 조회를 지원하는 결과: 그래프 아래 <b>위치·시간 조회</b> → 좌표·시간 입력 → <b>조회</b></li><li>3D 화면 전환: 왼쪽 상단 <b>3D Virtual</b> 버튼 클릭</li></ul></details>
-   <details><summary>영상·이미지·CSV 내보내기</summary><ul><li>3D 화면 하단 재생 바 오른쪽 끝 <b>Export</b></li><li>영상: <b>영상 내보내기</b> → 종료할 때 재생 바의 <b>녹화 종료</b></li><li>3D 화면: <b>현재 화면 PNG</b>. 그래프: 항목 선택 → <b>PNG 사진 / CSV 데이터</b></li><li>그래프 수치만 저장: <b>Data Sheet Viewer</b> 오른쪽 상단 <b>CSV 저장</b></li></ul></details>
+   <details><summary>Data Sheet Viewer 전환 및 수치 조회</summary><ul><li>왼쪽 상단 <b>Data Sheet</b> 버튼 클릭 → 그래프 화면 표시. <b>3D Virtual</b> 버튼으로 3D 화면 전환</li><li>좌우 <b>그래프 1 / 그래프 2</b>에서 결과 항목을 각각 선택 → 그래프 클릭·드래그 → 세로 점선과 X·Y 수치 확인</li><li>그래프에 초점을 둔 뒤 <b>← / →</b>로 시점 이동. 이 화면에는 재생 버튼 없음</li><li>전체 저장 구간을 조회하려면 그래프 위 <b>전체 구간 읽기</b>. 수치 저장: 각 그래프 상단 <b>CSV 저장</b></li><li>위치 조회를 지원하는 결과: 그래프 아래 <b>위치·시간 조회</b> → 좌표·시간 입력 → <b>조회</b></li><li>3D 화면 전환: 왼쪽 상단 <b>3D Virtual</b> 버튼 클릭</li></ul></details>
+   <details><summary>영상·이미지·CSV 내보내기</summary><ul><li>3D 화면 하단 재생 바 오른쪽 끝 <b>Export</b></li><li>영상: <b>영상 내보내기</b> → 종료할 때 재생 바의 <b>녹화 종료</b></li><li>3D 화면: <b>현재 화면 PNG</b>. 그래프: 항목 선택 → <b>PNG 사진 / CSV 데이터</b></li><li>그래프 수치만 저장: <b>Data Sheet Viewer</b>의 각 그래프 상단 <b>CSV 저장</b></li></ul></details>
    <h4>설치 및 프로그램 실행</h4>
    <ul><li>최초 설치: WSL2 Ubuntu 설치·사용자 초기화 → <b>cfd_studio/설치.bat</b> → <b>cfd_studio/실행.bat</b></li><li>설치 완료 후 실행: <b>실행.bat</b> 더블클릭. Windows Python 포함. 전용 솔버·GPU 환경은 별도 준비</li></ul>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>사용법</b></a> · <a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/cfd_studio/README.md" target="_blank" rel="noopener noreferrer">설치</a> · 모델·단위·검증 범위는 위 <b>설명서</b> 탭</p>
