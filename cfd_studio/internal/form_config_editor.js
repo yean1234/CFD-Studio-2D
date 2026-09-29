@@ -32,7 +32,7 @@
   }
   function newField(fields){let n=1;while(fields.some(f=>f.key==='field_'+n))n++;return {key:'field_'+n,type:'number',unit:'',value:0};}
   function open({config={},schema=null,onSave,onValidate=null,title='Config'}){
-    let draft=schema?clone(schema):fromConfig(config),mode='fields';toConfig(draft);const expanded=new WeakSet();
+    let draft=schema?clone(schema):fromConfig(config),mode='fields';const rawValues=new WeakMap();toConfig(draft);const expanded=new WeakSet();
     const el=(tag,text,cls)=>{const x=document.createElement(tag);if(text!=null)x.textContent=text;if(cls)x.className=cls;return x;};
     const button=(text,fn)=>{const x=el('button',text,'btn');x.type='button';x.onclick=fn;return x;};
     if(!document.getElementById('formConfigStyle')){const style=el('style');style.id='formConfigStyle';style.textContent=`
@@ -43,9 +43,9 @@
     `;document.head.append(style);}
     const dialog=el('dialog',null,'fc-dialog'),header=el('div',null,'fc-header');header.append(el('h2',title));dialog.append(header);
     const toolbar=el('div',null,'fc-toolbar'),body=el('div',null,'fc-body'),error=el('p',null,'fc-error'),actions=el('div',null,'fc-actions');error.setAttribute('role','alert');
-    let jsonArea;const commitJSON=()=>{if(mode==='json')draft=fromConfig(JSON.parse(jsonArea.value),draft);};
+    let jsonArea;const commitJSON=()=>{globalThis.CFDInput?.assertValid(body);if(mode==='json')draft=fromConfig(JSON.parse(jsonArea.value),draft);};
     const guarded=fn=>{try{error.textContent='';fn();}catch(e){error.textContent=e.message;}};
-    const fieldButton=button('Fields',()=>guarded(()=>{commitJSON();mode='fields';render();}));const jsonButton=button('JSON',()=>guarded(()=>{if(mode==='json')return;toConfig(draft);mode='json';render();}));
+    const fieldButton=button('Fields',()=>guarded(()=>{commitJSON();mode='fields';render();}));const jsonButton=button('JSON',()=>guarded(()=>{if(mode==='json')return;globalThis.CFDInput?.assertValid(body);toConfig(draft);mode='json';render();}));
     const add=button('+ Field',()=>guarded(()=>{commitJSON();draft.fields.push(newField(draft.fields));mode='fields';render();}));
     const upload=el('input');upload.type='file';upload.accept='.json,application/json';upload.hidden=true;
     upload.onchange=async()=>{const file=upload.files[0];if(!file)return;try{if(file.size>1000000)throw Error('JSON file must be under 1 MB');const next=fromConfig(JSON.parse(await file.text()),draft);draft=next;mode='fields';error.textContent='';render();}catch(e){error.textContent=e.message;}upload.value='';};
@@ -60,20 +60,20 @@
         }else host.append(box);
         if(field.required)box.append(el('p','Required','fc-required'));box.append(row);
         const input=(caption,node)=>{const l=el('label',caption);node.setAttribute('aria-label',label+' '+caption);l.append(node);row.append(l);return node;};
-        const key=input('Key',el('input'));key.value=field.key;key.maxLength=80;key.oninput=()=>{field.key=key.value;if(heading)heading.textContent=key.value;};
+        const key=input('Key',el('input'));key.value=field.key;key.maxLength=80;key.required=true;key.oninput=()=>{field.key=key.value;if(heading)heading.textContent=key.value;};
         const type=input('Type',el('select'));for(const t of types)type.append(new Option(t,t));type.value=field.type;
         const unit=input('Unit',el('input'));unit.value=field.unit||'';unit.maxLength=64;unit.placeholder='—';unit.oninput=()=>field.unit=unit.value;
-        type.onchange=()=>{field.type=type.value;delete field.fields;delete field.value;if(field.type==='object')field.fields=[];else field.value={string:'',number:0,integer:0,boolean:false,array:[],null:null}[field.type];render();};
+        type.onchange=()=>{field.type=type.value;rawValues.delete(field);delete field.fields;delete field.value;if(field.type==='object')field.fields=[];else field.value={string:'',number:0,integer:0,boolean:false,array:[],null:null}[field.type];render();};
         if(field.type==='object'){const count=el('output',field.fields.length+' fields');input('Value',count);}
         else if(field.type==='boolean'){const v=input('Value',el('select'));v.append(new Option('true','true'),new Option('false','false'));v.value=String(field.value);v.onchange=()=>field.value=v.value==='true';}
         else if(field.type==='null')input('Value',el('output','null'));
-        else if(field.type==='array'){const v=input('Value',el('textarea'));v.rows=2;v.value=JSON.stringify(field.value);v.oninput=()=>{try{const value=JSON.parse(v.value);field.value=value;}catch(_){field.value=undefined;}};}
-        else{const v=input('Value',el('input'));v.type=['number','integer'].includes(field.type)?'number':'text';v.step=field.type==='integer'?'1':'any';v.value=field.value??'';v.placeholder=field.nullable?'Enter value':'';v.oninput=()=>field.value=v.type==='number'?(v.value.trim()===''?null:Number(v.value)):v.value;}
+        else if(field.type==='array'){const v=input('Value',el('textarea'));v.rows=2;v.value=rawValues.get(field)??JSON.stringify(field.value);globalThis.CFDInput?.bind(v,{type:'array'});v.oninput=()=>{rawValues.set(field,v.value);try{field.value=globalThis.CFDInput?CFDInput.parseValue(v.value,'array'):JSON.parse(v.value);}catch(_){field.value=undefined;}};if(rawValues.has(field))queueMicrotask(()=>globalThis.CFDInput?.check(v));}
+        else{const v=input('Value',el('input'));v.type=['number','integer'].includes(field.type)?'number':'text';v.step=field.type==='integer'?'1':'any';v.value=rawValues.get(field)??field.value??'';v.placeholder=field.nullable?'Enter value':'';globalThis.CFDInput?.bind(v,{type:field.type,nullable:field.nullable===true});if(rawValues.has(field))v.value=rawValues.get(field);v.oninput=()=>{rawValues.set(field,v.value);try{field.value=globalThis.CFDInput?CFDInput.parseValue(v.value,field.type,{nullable:field.nullable===true}):v.type==='number'?Number(v.value):v.value;}catch(_){field.value=undefined;}};if(rawValues.has(field))queueMicrotask(()=>globalThis.CFDInput?.check(v));}
         const remove=button('Remove',()=>{fields.splice(index,1);render();});remove.setAttribute('aria-label',label+' Remove');row.append(remove);
         if(field.type==='object'){const children=el('div',null,'fc-children');box.append(children);renderFields(field.fields,children,label+'.');children.append(button('+ Field',()=>{field.fields.push(newField(field.fields));render();}));}
       }
     }
-    function render(){body.replaceChildren();fieldButton.setAttribute('aria-pressed',String(mode==='fields'));jsonButton.setAttribute('aria-pressed',String(mode==='json'));if(mode==='json'){jsonArea=el('textarea',null,'fc-json');jsonArea.setAttribute('aria-label','Config JSON');jsonArea.spellcheck=false;jsonArea.value=JSON.stringify(toConfig(draft),null,2);body.append(jsonArea);}else if(!draft.fields.length)body.append(el('div','+ Field 또는 Import JSON으로 Config를 정의하세요.','fc-empty'));else renderFields(draft.fields,body);}
+    function render(){body.replaceChildren();fieldButton.setAttribute('aria-pressed',String(mode==='fields'));jsonButton.setAttribute('aria-pressed',String(mode==='json'));if(mode==='json'){jsonArea=el('textarea',null,'fc-json');jsonArea.setAttribute('aria-label','Config JSON');jsonArea.spellcheck=false;globalThis.CFDInput?.bind(jsonArea,{type:'object'});jsonArea.value=JSON.stringify(toConfig(draft),null,2);body.append(jsonArea);}else if(!draft.fields.length)body.append(el('div','+ Field 또는 Import JSON으로 Config를 정의하세요.','fc-empty'));else renderFields(draft.fields,body);}
     const save=button('Apply',async()=>{save.disabled=true;try{commitJSON();const value=toConfig(draft);await onSave(value,clone(draft));dialog.close();}catch(e){error.textContent=e.message;}finally{save.disabled=false;}});save.classList.add('pri');actions.append(button('Cancel',()=>dialog.close()),save);
     dialog.onclose=()=>dialog.remove();render();document.body.append(dialog);dialog.showModal();
   }

@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v217"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v218"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -3703,7 +3703,7 @@ class H(BaseHTTPRequestHandler):
 
     def _do_GET(self):
         u = urlparse(self.path)
-        if (u.path.startswith("/api/executions") or u.path in ("/execution_workspace.js", "/form_config_editor.js", "/form_wizard.js", "/config_editor.js", "/warehouse_viewer.js", "/data_sheet_viewer.js")) and execution_get(self, EXECUTION_WORKSPACE):
+        if (u.path.startswith("/api/executions") or u.path in ("/execution_workspace.js", "/form_config_editor.js", "/form_wizard.js", "/config_editor.js", "/input_validation.js", "/warehouse_viewer.js", "/data_sheet_viewer.js")) and execution_get(self, EXECUTION_WORKSPACE):
             return
         if u.path.startswith(('/studies', '/api/studies', '/api/attempts', '/api/study-packages', '/api/capabilities')):
             if study_http.get(self, study_http.service(HERE, SCFG, PROJECT_DIR)):
@@ -5358,7 +5358,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <details><summary>프로젝트 생성</summary><ul><li>왼쪽 <b>프로젝트</b> 제목 아래 <b>새 프로젝트</b> 클릭</li><li><b>프로젝트 이름</b> 입력 → <b>프로젝트 폴더</b> 옆 <b>찾기</b>로 저장 폴더 지정</li><li><b>프로젝트 설명</b> 입력 → <b>CFD FORM</b>·<b>기본 프리셋</b> 선택 → 창 하단 <b>저장</b></li><li>저장한 프로젝트는 왼쪽 목록에서 이름을 클릭해 선택</li></ul></details>
    <details><summary>프로젝트 정보 및 저장 폴더 변경</summary><ul><li>프로젝트 선택 → 화면 오른쪽 상단 <b>프로젝트 관리</b></li><li>이름·설명·폴더·기본 프리셋 수정 → <b>저장</b>. C·D 등 드라이브 선택 가능</li><li>기본 프리셋 변경은 이후 생성하는 Case에 적용</li><li>폴더 변경은 복사·검증 후 연결 전환. 원본 보존. 계산·결과 저장 중에는 변경 불가</li></ul></details>
    <details><summary>CFD FORM 생성 및 편집</summary><ul><li>왼쪽 하단 <b>CFD FORM 리스트</b> 제목 오른쪽 둥근 정사각형 <b>+</b> 클릭. 기존 항목은 이름 오른쪽 <b>수정</b></li><li><b>CFD FORM 이름</b> 입력 → <b>솔버</b> 선택</li><li><b>양식 구성</b>에서 유체·해석 조건 선택 → <b>양식 생성</b></li><li><b>Config 편집</b>에서 값 입력 → <b>Apply</b> → <b>FORM 초안 저장</b></li><li>기존 연결 양식은 <b>Config Template</b>에서 선택 → <b>FORM 저장</b>. 사용자 정의 초안은 실행 연결 후 프로젝트에 사용 가능</li><li>파일 편집: <b>Download JSON / Import JSON</b>. 항목 추가: <b>+ Field</b></li><li><b>설치 확인</b>: 솔버 설치 여부를 버튼 아래에 표시. 자동 설치 기능 미제공</li></ul></details>
-   <details><summary>CFD Case 생성 및 Config 입력</summary><ul><li>프로젝트 선택 → 화면 오른쪽 상단 파란 <b>+CFD Case</b></li><li><b>Case 이름</b> 입력 → 왼쪽 Config 항목 선택 → 오른쪽 값 입력</li><li><b>종료 조건·목표</b>에서 <b>특정 물리시간</b> 또는 <b>저장 프레임 수</b> 선택 → 목표값 입력</li><li>프레임 수 선택 시 <b>0초 초기 프레임 포함</b> 여부 확인. <b>수렴 기준</b>은 현재 선택 불가</li><li>창 하단 파란 <b>실행 저장</b> → 실행 목록에 Case 추가. 계산 시작은 대기열에서 진행</li></ul></details>
+   <details><summary>CFD Case 생성 및 Config 입력</summary><ul><li>프로젝트 선택 → 화면 오른쪽 상단 파란 <b>+CFD Case</b></li><li><b>Case 이름</b> 입력 → 왼쪽 Config 항목 선택 → 오른쪽 값 입력</li><li>숫자 입력란은 문자 입력·붙여넣기를 차단. 정수 입력란은 소수도 차단. 빈 필수값·미완성 숫자·잘못된 JSON은 수정 후 저장</li><li><b>종료 조건·목표</b>에서 <b>특정 물리시간</b> 또는 <b>저장 프레임 수</b> 선택 → 목표값 입력</li><li>프레임 수 선택 시 <b>0초 초기 프레임 포함</b> 여부 확인. <b>수렴 기준</b>은 현재 선택 불가</li><li>창 하단 파란 <b>실행 저장</b> → 실행 목록에 Case 추가. 계산 시작은 대기열에서 진행</li></ul></details>
    <details><summary>프리셋 저장 및 불러오기</summary><ul><li>Case의 Config 편집창 상단 <b>프리셋에 저장</b> 체크박스</li><li>체크 해제: 해당 Case에만 저장. 체크: 새 프리셋 이름 입력 → <b>실행 저장</b> 시 별도 프리셋 저장</li><li>기존 값 사용: <b>프리셋 불러오기</b>에서 선택 → <b>불러오기</b></li></ul></details>
    <details><summary>대기열 구성 및 CFD 실행</summary><ul><li>가운데 <b>실행 목록</b>에서 Case 선택 → 오른쪽 <b>대기열에 추가</b></li><li>아래 <b>대기열</b> 영역의 파란 <b>대기열 시작</b> → <b>계산 중</b> 상태 확인</li><li>여러 Case는 각각 추가. 대기열 행의 <b>↑ / ↓</b>로 순서 변경, <b>제외</b>로 대기열에서 제거</li><li><b>다음 실행부터 일시정지</b>: 현재 Case 계산 유지. <b>실행 중단</b>: 선택한 실행 중 Case 중단</li><li>진행 내용: 오른쪽 <b>솔버 로그</b> 제목 끝 아래 화살표 클릭</li><li>실패: 원인 확인 → <b>실패 사유 및 복구</b> → <b>다시하기 / 이어하기 / 건너뛰기</b> → <b>대기열 시작</b>. 앱 재시작 후에도 대기열을 확인하고 시작</li><li><b>다시하기</b>: 기존 기록을 보존하고 처음부터 계산. Config 검증 실패 시 입력 수정 필요</li><li><b>이어하기</b>: 확인된 재시작 저장 지점부터 계산. 재시작 데이터가 없거나 실행기가 지원하지 않으면 사유 표시. 저장고 실행기는 현재 재개 미지원</li></ul></details>
    <details><summary>실행 Config 조회 및 비교</summary><ul><li>실행 목록에서 Case 선택 → 오른쪽 <b>Config 편집</b> 또는 <b>Config 보기</b></li><li>계산 전: 입력 수정 → <b>실행 저장</b>. 시작한 Case: 실행 당시 입력 조회</li><li>입력을 변경하여 새 Case 생성: <b>Config 보기 → 이 Config로 새 Case</b></li><li><b>Config 차이</b> 제목 끝 화살표: Case 생성 시 저장한 기준 Config와 비교</li><li>항목 찾기: 편집창 왼쪽 <b>Config 검색</b></li></ul></details>
@@ -8650,6 +8650,7 @@ __TRACER_VIEWER__
 })();
 </script>
 <script src="/warehouse_viewer.js"></script>
+<script src="/input_validation.js"></script>
 <script src="/config_editor.js"></script>
 <script src="/form_config_editor.js"></script>
 <script src="/form_wizard.js"></script>
