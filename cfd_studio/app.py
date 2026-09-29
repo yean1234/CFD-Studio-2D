@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v218"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v219"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -5329,7 +5329,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-MANUAL.md" target="_blank" rel="noopener noreferrer"><b>설명서</b></a></p>
    <p>CFD Studio는 해석 양식 정의, 실행별 입력 보관, 대기열 관리와 결과 비교를 연결하는 작업 환경입니다.</p>
    <h4>작업 구조</h4>
-   <ul><li><b>CFD FORM</b>: 선택한 솔버의 입력 구조·필수 항목·계산 범위 정의</li><li><b>프리셋</b>: FORM에 속한 재사용 가능한 입력값 묶음</li><li><b>프로젝트</b>: 같은 목적의 여러 Case와 결과를 보관하는 폴더</li><li><b>Case</b>: 독립적인 Config·종료 조건·로그·결과. 시작 시 입력 스냅샷 보존</li></ul>
+   <ul><li><b>CFD Template</b>: 선택한 솔버의 빈 입력 양식·자료형·단위 정의</li><li><b>프리셋</b>: Template에 속한 재사용 가능한 입력값 묶음</li><li><b>프로젝트</b>: 같은 목적의 여러 Case와 결과를 보관하는 폴더</li><li><b>Case</b>: 독립적인 Config·종료 조건·로그·결과. 시작 시 입력 스냅샷 보존</li></ul>
    <h4>솔버와 Config</h4>
    <ul><li>솔버: 어떤 방정식과 알고리즘으로 계산할지 결정</li><li>유체 종류: 액체·기체·다상 구분. 물질과 물성값은 사용자가 입력</li><li>형상·격자: 해석 영역의 치수·배치·공간 분할 정의</li><li>물성·초기장·경계조건: 재료 특성, 시작 상태, 경계에서의 속도·압력·온도 등</li><li>수치 설정: 이산화 기법·선형 솔버·연결 알고리즘·시간간격</li><li>Required: 선택한 솔버·조건에 필요한 입력. 조건부 항목은 난류·열물성·경계 모델에 따라 달라짐</li></ul>
    <h4>솔버 선택</h4>
@@ -5341,10 +5341,10 @@ INDEX_HTML = r'''<!DOCTYPE html>
     <tr><td>chtMultiRegionFoam</td><td>영역별 유체·고체 열전달. 고체 물성·접합면·영역별 수치 설정</td></tr>
     <tr><td>interFoam / interIsoFoam</td><td>등온 2상 계면. 상별 rho·nu·상분율·표면장력. MULES / isoAdvector</td></tr>
     <tr><td>rhoPimpleFoam</td><td>압축성 유동·에너지. 상태방정식·열물성·U·p·T</td></tr>
-    <tr><td>전용 구성</td><td>다상 열전달·상변화 구성과 저장고 열·스칼라 구성. 각 FORM의 조건·제한 확인</td></tr>
+    <tr><td>전용 구성</td><td>다상 열전달·상변화 구성과 저장고 열·스칼라 구성. 각 Template의 조건·제한 확인</td></tr>
    </table></div>
    <h4>상태 읽기</h4>
-   <ul><li><b>설치 확인</b>: 현재 OpenFOAM 환경에 실행 파일이 존재하는지 확인</li><li><b>입력 검사</b>: 정의한 필수값·자료형·기본 범위 확인. 물리 정확도 보증은 별도</li><li><b>실행 연결</b>: Config를 솔버 입력으로 변환하고 결과를 읽는 어댑터. 새 FORM의 JSON만으로 자동 연결되지 않음</li><li><b>실행 상태 / 수치 검사 / 시각화</b>: 계산 진행, 수치 점검, Viewer 준비 상태를 각각 표시</li></ul>
+   <ul><li><b>설치 확인</b>: 현재 OpenFOAM 환경에 실행 파일이 존재하는지 확인</li><li><b>입력 검사</b>: 정의한 필수값·자료형·기본 범위 확인. 물리 정확도 보증은 별도</li><li><b>실행 연결</b>: Config를 솔버 입력으로 변환하고 결과를 읽는 어댑터. 새 Template의 JSON만으로 자동 연결되지 않음</li><li><b>실행 상태 / 수치 검사 / 시각화</b>: 계산 진행, 수치 점검, Viewer 준비 상태를 각각 표시</li></ul>
    <h4>결과와 시간</h4>
    <ul><li>3D Virtual Viewer: 저장된 장·형상·시간별 변화 탐색</li><li>Data Sheet Viewer: 선택한 Case의 시계열·수치 조회</li><li>계산 시간간격·저장 간격·재생 속도·종료 조건은 서로 독립</li><li>파일 검사·입력 검사 통과와 격자 수렴·실험 검증은 각각 별도 판단</li></ul>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/solver-input-definitions-20260929.md" target="_blank" rel="noopener noreferrer">솔버별 입력 정의</a></p>
@@ -5355,13 +5355,13 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <h4>CFD</h4>
    <p>화면 상단 <b>CFD</b> 탭. 프로젝트 생성 → Case 저장 → 대기열 실행 → 결과 준비</p>
    <details><summary>기존 프로젝트 등록</summary><ul><li>CFD 화면 왼쪽 상단 <b>프로젝트 찾기</b> 클릭</li><li><b>찾기</b>로 프로젝트 폴더 선택 또는 전체 경로 입력 → <b>추가</b></li><li>프로젝트 파일·실행 목록 검증 후 왼쪽 목록에 등록. 이미 등록된 폴더는 해당 프로젝트 선택</li><li>검증 실패 시 안내 내용을 확인하고 올바른 폴더 선택. 가져온 대기열은 일시정지 상태로 복원</li></ul></details>
-   <details><summary>프로젝트 생성</summary><ul><li>왼쪽 <b>프로젝트</b> 제목 아래 <b>새 프로젝트</b> 클릭</li><li><b>프로젝트 이름</b> 입력 → <b>프로젝트 폴더</b> 옆 <b>찾기</b>로 저장 폴더 지정</li><li><b>프로젝트 설명</b> 입력 → <b>CFD FORM</b>·<b>기본 프리셋</b> 선택 → 창 하단 <b>저장</b></li><li>저장한 프로젝트는 왼쪽 목록에서 이름을 클릭해 선택</li></ul></details>
+   <details><summary>프로젝트 생성</summary><ul><li>왼쪽 <b>프로젝트</b> 제목 아래 <b>새 프로젝트</b> 클릭</li><li><b>프로젝트 이름</b> 입력 → <b>프로젝트 폴더</b> 옆 <b>찾기</b>로 저장 폴더 지정</li><li><b>프로젝트 설명</b> 입력 → <b>CFD Template</b> 선택 → <b>직접 입력 → Config 입력</b> 또는 해당 Template의 프리셋 선택 → <b>저장</b></li><li><b>프리셋에 저장</b> 체크 시 새 이름으로 입력값 프리셋 저장 · 기본 해제</li><li>저장한 프로젝트는 왼쪽 목록에서 이름을 클릭해 선택</li></ul></details>
    <details><summary>프로젝트 정보 및 저장 폴더 변경</summary><ul><li>프로젝트 선택 → 화면 오른쪽 상단 <b>프로젝트 관리</b></li><li>이름·설명·폴더·기본 프리셋 수정 → <b>저장</b>. C·D 등 드라이브 선택 가능</li><li>기본 프리셋 변경은 이후 생성하는 Case에 적용</li><li>폴더 변경은 복사·검증 후 연결 전환. 원본 보존. 계산·결과 저장 중에는 변경 불가</li></ul></details>
-   <details><summary>CFD FORM 생성 및 편집</summary><ul><li>왼쪽 하단 <b>CFD FORM 리스트</b> 제목 오른쪽 둥근 정사각형 <b>+</b> 클릭. 기존 항목은 이름 오른쪽 <b>수정</b></li><li><b>CFD FORM 이름</b> 입력 → <b>솔버</b> 선택</li><li><b>양식 구성</b>에서 유체·해석 조건 선택 → <b>양식 생성</b></li><li><b>Config 편집</b>에서 값 입력 → <b>Apply</b> → <b>FORM 초안 저장</b></li><li>기존 연결 양식은 <b>Config Template</b>에서 선택 → <b>FORM 저장</b>. 사용자 정의 초안은 실행 연결 후 프로젝트에 사용 가능</li><li>파일 편집: <b>Download JSON / Import JSON</b>. 항목 추가: <b>+ Field</b></li><li><b>설치 확인</b>: 솔버 설치 여부를 버튼 아래에 표시. 자동 설치 기능 미제공</li></ul></details>
+   <details><summary>CFD Template 생성 및 편집</summary><ul><li>왼쪽 <b>CFD Template 리스트</b>의 <b>+</b> 클릭 · 기존 항목은 <b>수정</b></li><li><b>이름 → 설명 → 솔버</b> 입력 · 솔버 설명의 텍스트 링크에서 원작자·원본 소스 확인</li><li><b>양식 구성</b>에서 유체·해석·영역·격자·종료 방식 선택 → <b>양식 생성</b></li><li><b>양식 편집</b>: Key·Type·Unit 편집 → <b>Apply → Template 저장</b> · 물성·치수·초기값은 이 단계에서 입력하지 않음</li><li><b>Download JSON / Import JSON</b>: Template 정의 파일 · 실제 입력값 JSON은 프로젝트의 <b>Config 입력</b>에서 관리</li><li>기존 연결 Template은 실행 양식 유지 · 새 Template은 Config·프로젝트·프리셋 저장 지원, 계산은 실행기 연결 필요</li><li><b>설치 확인</b>: 솔버 실행 파일 유무 확인 · 실행기 연결 상태와 별도</li></ul></details>
    <details><summary>CFD Case 생성 및 Config 입력</summary><ul><li>프로젝트 선택 → 화면 오른쪽 상단 파란 <b>+CFD Case</b></li><li><b>Case 이름</b> 입력 → 왼쪽 Config 항목 선택 → 오른쪽 값 입력</li><li>숫자 입력란은 문자 입력·붙여넣기를 차단. 정수 입력란은 소수도 차단. 빈 필수값·미완성 숫자·잘못된 JSON은 수정 후 저장</li><li><b>종료 조건·목표</b>에서 <b>특정 물리시간</b> 또는 <b>저장 프레임 수</b> 선택 → 목표값 입력</li><li>프레임 수 선택 시 <b>0초 초기 프레임 포함</b> 여부 확인. <b>수렴 기준</b>은 현재 선택 불가</li><li>창 하단 파란 <b>실행 저장</b> → 실행 목록에 Case 추가. 계산 시작은 대기열에서 진행</li></ul></details>
    <details><summary>프리셋 저장 및 불러오기</summary><ul><li>Case의 Config 편집창 상단 <b>프리셋에 저장</b> 체크박스</li><li>체크 해제: 해당 Case에만 저장. 체크: 새 프리셋 이름 입력 → <b>실행 저장</b> 시 별도 프리셋 저장</li><li>기존 값 사용: <b>프리셋 불러오기</b>에서 선택 → <b>불러오기</b></li></ul></details>
-   <details><summary>대기열 구성 및 CFD 실행</summary><ul><li>가운데 <b>실행 목록</b>에서 Case 선택 → 오른쪽 <b>대기열에 추가</b></li><li>아래 <b>대기열</b> 영역의 파란 <b>대기열 시작</b> → <b>계산 중</b> 상태 확인</li><li>여러 Case는 각각 추가. 대기열 행의 <b>↑ / ↓</b>로 순서 변경, <b>제외</b>로 대기열에서 제거</li><li><b>다음 실행부터 일시정지</b>: 현재 Case 계산 유지. <b>실행 중단</b>: 선택한 실행 중 Case 중단</li><li>진행 내용: 오른쪽 <b>솔버 로그</b> 제목 끝 아래 화살표 클릭</li><li>실패: 원인 확인 → <b>실패 사유 및 복구</b> → <b>다시하기 / 이어하기 / 건너뛰기</b> → <b>대기열 시작</b>. 앱 재시작 후에도 대기열을 확인하고 시작</li><li><b>다시하기</b>: 기존 기록을 보존하고 처음부터 계산. Config 검증 실패 시 입력 수정 필요</li><li><b>이어하기</b>: 확인된 재시작 저장 지점부터 계산. 재시작 데이터가 없거나 실행기가 지원하지 않으면 사유 표시. 저장고 실행기는 현재 재개 미지원</li></ul></details>
-   <details><summary>실행 Config 조회 및 비교</summary><ul><li>실행 목록에서 Case 선택 → 오른쪽 <b>Config 편집</b> 또는 <b>Config 보기</b></li><li>계산 전: 입력 수정 → <b>실행 저장</b>. 시작한 Case: 실행 당시 입력 조회</li><li>입력을 변경하여 새 Case 생성: <b>Config 보기 → 이 Config로 새 Case</b></li><li><b>Config 차이</b> 제목 끝 화살표: Case 생성 시 저장한 기준 Config와 비교</li><li>항목 찾기: 편집창 왼쪽 <b>Config 검색</b></li></ul></details>
+   <details><summary>대기열 구성 및 CFD 실행</summary><ul><li>가운데 <b>실행 목록</b>에서 Case 선택 → 오른쪽 <b>대기열에 추가</b></li><li>아래 <b>대기열</b> 영역의 파란 <b>대기열 시작</b> → <b>계산 중</b> 상태 확인</li><li>여러 Case는 각각 추가. 대기열 행의 <b>↑ / ↓</b>로 순서 변경, <b>제외</b>로 대기열에서 제거</li><li><b>다음 실행부터 일시정지</b>: 현재 Case 계산 유지. <b>실행 중단</b>: 선택한 실행 중 Case 중단</li><li>진행 내용: 오른쪽 <b>솔버 로그</b>에서 확인 · 항상 표시</li><li>실패: 원인 확인 → <b>실패 사유 및 복구</b> → <b>다시하기 / 이어하기 / 건너뛰기</b> → <b>대기열 시작</b>. 앱 재시작 후에도 대기열을 확인하고 시작</li><li><b>다시하기</b>: 기존 기록을 보존하고 처음부터 계산. Config 검증 실패 시 입력 수정 필요</li><li><b>이어하기</b>: 확인된 재시작 저장 지점부터 계산. 재시작 데이터가 없거나 실행기가 지원하지 않으면 사유 표시. 저장고 실행기는 현재 재개 미지원</li></ul></details>
+   <details><summary>실행 Config 조회 및 비교</summary><ul><li>실행 목록에서 Case 선택 → 오른쪽 <b>Config 편집</b> 또는 <b>Config 보기</b></li><li>계산 전: 입력 수정 → <b>실행 저장</b>. 시작한 Case: 실행 당시 입력 조회</li><li>입력을 변경하여 새 Case 생성: <b>Config 보기 → 이 Config로 새 Case</b></li><li><b>Config 차이</b>: 항상 표시 · Case 생성 시 저장한 기준 Config와 비교</li><li>항목 찾기: 편집창 왼쪽 <b>Config 검색</b></li></ul></details>
    <details><summary>결과 생성 및 Viewer 열기</summary><ul><li>실행 목록에서 Case 선택 → 오른쪽 파란 결과 버튼</li><li><b>생성</b>: 계산 결과를 시각화용으로 준비. <b>업데이트</b>: 새 결과 반영. <b>열기</b>: 준비된 Viewer 열기</li><li><b>생성 / 업데이트</b> 완료 후 <b>열기</b>. 회색 버튼이면 실행 상태·솔버 로그 확인</li><li>원본 확인: 같은 영역의 <b>결과 폴더</b></li></ul></details>
    <details><summary>전체 CSV 내보내기</summary><ul><li><b>CFD → 실행 목록에서 Case 선택 → 오른쪽 전체 CSV</b></li><li>모든 저장 시점의 시계열과 공간 데이터를 CSV로 묶어 ZIP 다운로드. 그래프 선택·표시 밀도와 무관</li><li><b>time_series.csv</b>: 전체 결과 항목·통계·단위. <b>fields/</b>: 저장된 공간 배열. <b>manifest.json</b>: Case·Config·행 수</li><li>시각화 격자로 저장된 Case는 해당 격자를 내보냅니다. 저장되지 않은 원본 셀은 복원하지 않습니다.</li></ul></details>
    <h4>Viewer</h4>
@@ -5408,7 +5408,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
  <div class="setrow"><label>MPI 작업자<span id="setMpiHint">CPU 상한 안에서 자동 배정</span></label><div><select id="setMpi"></select></div></div>
  <div class="setrow"><label>계산 GPU<span>GPU 계산을 지원하는 실행 구성에서 사용할 장치입니다. 자동 선택은 감지된 NVIDIA GPU의 성능 점수를 기준으로 합니다.</span></label><div><select id="setGpu"></select></div></div>
  <div class="setrow"><label>계산 모드<span>CPU Only는 CPU 계산, 병행 모드는 지원 구성의 압력 계산만 GPU 사용, GPU Only는 별도 OpenCFD 환경이 필요합니다. 솔버 설치만으로 GPU 지원이 생기지는 않습니다.</span></label><div><select id="setPressureMode"><option value="cpu">CPU Only (권장)</option><option value="gpu">CPU + GPU 병행 (p_rgh)</option><option value="gpu_only">GPU Only (OpenCFD 개발)</option></select><div id="setGpuOnlyHint" class="mhint" style="margin-top:6px"></div></div></div>
- <details style="margin-top:12px"><summary>환경 설정 안내</summary><ul class="mhint"><li>MPI 작업자는 영역을 나누어 계산하는 병렬 프로세스 수입니다. 많을수록 통신·메모리 비용도 늘어나므로 격자 규모에 맞게 선택합니다.</li><li>자원 수는 계산 속도·메모리 사용에 영향을 줍니다. 격자 정확도나 수렴 기준을 대신하지 않습니다.</li><li>원본·결과·캐시는 프로젝트 생성·관리에서 지정한 폴더에 보관합니다.</li><li>FORM에서 솔버·입력 항목을 정의하고, 프리셋과 Case에서 실제 값을 채웁니다.</li><li>설치 확인은 실행 파일 유무를 확인합니다. 라이브러리 호환성·GPU 지원·새 FORM의 실행 연결은 별도로 확인합니다.</li></ul></details>
+ <details style="margin-top:12px"><summary>환경 설정 안내</summary><ul class="mhint"><li>MPI 작업자는 영역을 나누어 계산하는 병렬 프로세스 수입니다. 많을수록 통신·메모리 비용도 늘어나므로 격자 규모에 맞게 선택합니다.</li><li>자원 수는 계산 속도·메모리 사용에 영향을 줍니다. 격자 정확도나 수렴 기준을 대신하지 않습니다.</li><li>원본·결과·캐시는 프로젝트 생성·관리에서 지정한 폴더에 보관합니다.</li><li>Template에서 솔버·입력 항목을 정의하고, 프리셋과 Case에서 실제 값을 채웁니다.</li><li>설치 확인은 실행 파일 유무를 확인합니다. 라이브러리 호환성·GPU 지원·새 Template의 실행 연결은 별도로 확인합니다.</li></ul></details>
  <div id="setSummary" class="mhint" style="margin:12px 0 0"></div>
  <div class="row" style="margin-top:16px"><button class="btn" onclick="closeSettings()">취소</button><button class="btn pri" id="setSave" onclick="saveSettings()">저장</button></div>
 </div></div>

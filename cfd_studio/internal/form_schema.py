@@ -58,3 +58,41 @@ def validate_schema(schema,config):
     derived=config_from_schema(schema)
     if json.dumps(derived,sort_keys=True,allow_nan=False)!=json.dumps(config,sort_keys=True,allow_nan=False):
         raise ValueError('Config and field schema do not match')
+
+
+def blank_schema(config, schema=None):
+    """Separate definition metadata from user values without rewriting legacy presets."""
+    from cfd_studio.form_wizard import make_schema
+    result=copy.deepcopy(schema or make_schema(config))
+    def visit(fields,path=()):
+        for field in fields:
+            p=path+(field['key'],)
+            fixed=(p[0]=='analysis' or (field['key']=='unit' and bool(field.get('value'))) or str(p[0]).startswith('_')
+                   or p in (('numerics','algorithm'),('physics','flow_regime'),('termination','mode'),('openfoam_mapping','solver'),('openfoam_mapping','pressure_velocity_coupling'),('run','time_basis'),('outputs','fields'))
+                   or field['key'] in ('model_options','method','state'))
+            if field['type']=='object':visit(field['fields'],p)
+            elif fixed:field['readonly']=True
+            else:
+                field.pop('readonly',None)
+                field['nullable']=True
+                field['value']=[] if field['type']=='array' else '' if field['type']=='string' else None
+    visit(result['fields'])
+    config_from_schema(result)
+    return result
+
+
+def validate_values(schema,config):
+    """Validate Template keys/types and fixed metadata, preserving entered values."""
+    def visit(fields,obj,path=''):
+        if not isinstance(obj,dict):raise ValueError(path+' JSON 객체를 입력하세요')
+        for field in fields:
+            key=field['key'];name=path+'.'+key if path else key
+            if key not in obj:raise ValueError(name+' 항목이 없습니다')
+            value=obj[key]
+            if field['type']=='object':visit(field['fields'],value,name)
+            else:
+                if field.get('required') and not field.get('readonly') and value in (None,'',[],{}):raise ValueError(name+' 값을 입력하세요')
+                if field.get('readonly') and value!=field.get('value'):raise ValueError(name+' Template 정의는 변경할 수 없습니다')
+                trial={'version':1,'fields':[{**field,'value':value}]}
+                config_from_schema(trial)
+    _json_value(config);visit(schema['fields'],config)

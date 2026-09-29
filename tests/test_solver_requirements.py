@@ -39,7 +39,7 @@ class SolverRequirementTests(unittest.TestCase):
     def test_required_values_complete_but_not_physical_validation_or_execution(self):
         c=config()['config'];original=copy.deepcopy(c)
         for rule in rules('icoFoam',original,c):
-            kind=rule['kind'];value={'number':0,'positive':1,'integer':1,'text':'userInput','boolean':False,'object':{},'choice':rule['unit'],'mapping':{'default':'userInput'},'sequence':['userInput'],'filled':{'custom':1},'unit':rule['unit']}[kind]
+            kind=rule['kind'];value={'number':0,'positive':1,'integer':1,'nonnegative_integer':0,'text':'userInput','boolean':False,'object':{},'choice':rule['unit'],'mapping':{'default':'userInput'},'sequence':['userInput'],'filled':{'custom':1},'unit':rule['unit']}[kind]
             put(c,rule['path'],value)
         result=inspect_config('icoFoam',c)
         self.assertEqual(result['issues'],[]);self.assertEqual(result['status'],'specified')

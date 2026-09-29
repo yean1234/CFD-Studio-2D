@@ -37,6 +37,10 @@ class CFDForms:
             items.append(overrides.pop(key, {'id': key, 'name': name, 'model': key,
                 'description': '', 'solver': solvers[0], 'config': config, 'revision': 1, 'sections': {}}))
         items.extend(overrides.values())
+        from cfd_studio.form_schema import blank_schema, config_from_schema
+        for item in items:
+            item['input_schema']=blank_schema(item['config'],item.get('input_schema') or item.get('config_schema'))
+            item['blank_config']=config_from_schema(item['input_schema'])
         from cfd_studio.result_series import output_definitions
         return [{**item, 'capabilities': copy.deepcopy(FORM_OUTPUTS.get(item['model'], {})), 'outputs': output_definitions(item['model']),
                  'definition_only':item['model']=='solver_definition',
@@ -71,7 +75,7 @@ class CFDForms:
     def form(self, key):
         found = next((f for f in self.forms() if f['id'] == key), None)
         if found is None:
-            raise ValueError('CFD FORM을 선택하세요')
+            raise ValueError('CFD Template을 선택하세요')
         return found
 
     def preset_form(self, key):
@@ -104,28 +108,48 @@ class CFDForms:
         from cfd_studio.execution_workspace import config_kind
         form = self.form(form_id)
         if form.get('definition_only'):
-            raise ValueError('솔버 FORM 초안입니다. 입력 생성·실행·결과 읽기 연결 후 Case를 만들 수 있습니다.')
+            raise ValueError('솔버 Template입니다. 입력 생성·실행·결과 읽기 연결 후 Case를 만들 수 있습니다')
         if config_kind(config) != form['model']:
-            raise ValueError('프로젝트의 CFD FORM과 Config 해석 대상이 다릅니다')
+            raise ValueError('프로젝트의 CFD Template과 Config 해석 대상이 다릅니다')
         if form['model'] == 'grain_silo' and config.get('openfoam_mapping', {}).get('solver') != form['solver']:
-            raise ValueError('CFD FORM에 지정된 솔버와 Config 솔버가 다릅니다')
+            raise ValueError('CFD Template에 지정된 솔버와 Config 솔버가 다릅니다')
         return form
 
     def check_form_preset(self, form_id, preset_id):
-        if self.form(form_id).get('definition_only'):
-            raise ValueError('솔버 FORM 초안은 프로젝트에 적용할 수 없습니다. Studio 연결이 필요합니다.')
         if preset_id and self.preset_form(preset_id) != form_id:
-            raise ValueError('선택한 CFD FORM에 속한 프리셋을 선택하세요')
+            raise ValueError('선택한 CFD Template에 속한 프리셋을 선택하세요')
         if preset_id:
-            self.check_form_config(form_id, self.template(preset_id))
+            self.check_project_config(form_id, self.template(preset_id))
 
-    def save_form(self, name, model, solver, config, form_id=None, revision=None, description='', sections=None, config_schema=None):
+    def check_project_config(self, form_id, config):
+        from cfd_studio.execution_workspace import validate_settings
+        from cfd_studio.form_schema import validate_values
+        form=self.form(form_id)
+        if form.get('definition_only'):
+            if not form.get('config_schema') and form['config'].get('_해석유형')=='solver_definition':raise ValueError('양식 구성에서 입력 구조를 먼저 정의하세요')
+            validate_values(form['input_schema'],config)
+            if config.get('analysis',{}).get('form_generator')=='solver-questionnaire-v1':
+                from cfd_studio.solver_requirements import inspect_config
+                report=inspect_config(form['solver'],config)
+                if report['missing_count']:
+                    raise ValueError('필수 Config '+str(report['missing_count'])+'개 입력 필요: '+'.'.join(report['issues'][0]['path']))
+        else:
+            self.check_form_config(form_id,config)
+            validate_settings(config)
+        return form
+
+    def save_form(self, name, model, solver, config, form_id=None, revision=None, description='', sections=None, config_schema=None, input_schema=None):
         from cfd_studio.execution_workspace import label, config_kind, read_json, atomic_json
         name = label(name)
+        if input_schema is not None:
+            from cfd_studio.form_schema import config_from_schema, blank_schema
+            config_from_schema(input_schema)
+            input_schema=blank_schema(config,input_schema)
         json.dumps(config, allow_nan=False)
         from cfd_studio.execution_workspace import validate_settings
         from cfd_studio.solver_catalog import definition as solver_definition, validate_draft
         solver_definition(solver)
+        if config_schema is None and model=='solver_definition' and input_schema is not None:config_schema=copy.deepcopy(input_schema)
         if config_schema is not None:
             from cfd_studio.form_schema import validate_schema
             validate_schema(config_schema,config)
@@ -135,13 +159,13 @@ class CFDForms:
                 from cfd_studio.form_wizard import generate
                 generated=generate(solver,analysis.get('choices'))
                 if analysis.get('solver')!=solver or analysis.get('time_mode')!=generated['config']['analysis']['time_mode']:
-                    raise ValueError('JSON의 솔버·해석 방식이 FORM과 다릅니다')
+                    raise ValueError('JSON의 솔버·해석 방식이 Template과 다릅니다')
             if config_schema is None:
                 validate_draft(config,solver)  # Preserve older input-plan drafts.
         else:
             validate_settings(config)
         if not isinstance(description, str) or len(description) > 4000:
-            raise ValueError('FORM 설명은 4,000자 이내로 입력하세요')
+            raise ValueError('Template 설명은 4,000자 이내로 입력하세요')
         definition = next((b for b in BUILTINS if b[0] == model), None)
         if model!='solver_definition' and (not definition or solver not in definition[3] or config_kind(config) != model):
             raise ValueError('지원되는 해석 대상·솔버·Config를 선택하세요')
@@ -154,15 +178,17 @@ class CFDForms:
         with self.lock:
             old = self.form(form_id) if form_id else None
             if old and old['revision'] != revision:
-                raise ValueError('다른 화면에서 FORM이 변경되었습니다. 다시 열어 주세요.')
+                raise ValueError('다른 화면에서 Template이 변경되었습니다. 다시 열어 주세요')
             if old and (old['model'] != model or old['solver'] != solver):
-                raise ValueError('기존 FORM의 해석 대상·솔버는 고정됩니다. 새 FORM을 만드세요.')
+                raise ValueError('기존 Template의 해석 대상·솔버는 고정됩니다. 새 Template을 만드세요')
             if any(f['id'] != form_id and f['name'].casefold() == name.casefold() for f in self.forms()):
-                raise ValueError('같은 이름의 CFD FORM이 있습니다')
+                raise ValueError('같은 이름의 CFD Template이 있습니다')
             key = form_id or 'custom_'+uuid.uuid4().hex
             item = {'id': key, 'name': name, 'model': model, 'solver': solver,
                 'config': copy.deepcopy(config), 'description': description, 'sections': sections,
                 'revision': old['revision']+1 if old else 1}
+            if input_schema is not None:
+                item['input_schema']=copy.deepcopy(input_schema)
             if config_schema is not None:
                 item['config_schema']=copy.deepcopy(config_schema)
             if model=='solver_definition' and isinstance(config.get('analysis'),dict) and config['analysis'].get('form_generator')=='solver-questionnaire-v1':
@@ -176,12 +202,11 @@ class CFDForms:
     def save_scoped_preset(self, name, config, form_id):
         from cfd_studio.execution_workspace import label, validate_settings, atomic_json
         name = label(name)
-        self.check_form_config(form_id, config)
-        validate_settings(config)
+        self.check_project_config(form_id, config)
         with self.lock:
             folder = self.folder/'form_presets'
             if any(p['name'] == name and p['form_id'] == form_id for p in self.presets()):
-                raise FileExistsError('같은 이름의 프리셋이 이 FORM에 있습니다')
+                raise FileExistsError('같은 이름의 프리셋이 이 Template에 있습니다')
             key = uuid.uuid4().hex
             atomic_json(folder/(key+'.json'), {'name': name, 'form_id': form_id, 'config': config})
             return {'id': 'scoped:'+key, 'name': name, 'form_id': form_id}

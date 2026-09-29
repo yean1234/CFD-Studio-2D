@@ -107,7 +107,7 @@
     const button=(text,fn)=>{const b=el('button',text);b.type='button';b.className='btn';b.onclick=()=>act(fn);return b;};
     const error=message=>{document.getElementById('settingsError').textContent=message;};
     const act=async fn=>{try{error('');await fn();}catch(e){error(e.message);}};
-    const current=()=>{if(!readonly){globalThis.CFDInput?.assertValid(dialog);if(invalidNumbers.size)throw Error([...invalidNumbers.keys()][0]+' 입력값을 숫자로 수정하세요.');}const c=jsonText!==null?parse(jsonText):clone(config);if(!readonly&&options.form){if(kind(c)!==kind(options.config))throw Error('CFD FORM의 해석 대상을 변경할 수 없습니다');if(kind(c)==='grain_silo'&&c.openfoam_mapping?.solver!==options.form.solver)throw Error('솔버는 CFD FORM에서 지정합니다');}return !readonly&&options.managed?applyTermination(c):c;};
+    const current=()=>{if(!readonly){globalThis.CFDInput?.assertValid(dialog);if(invalidNumbers.size)throw Error([...invalidNumbers.keys()][0]+' 입력값을 숫자로 수정하세요.');}const c=jsonText!==null?parse(jsonText):clone(config);if(!readonly&&options.form){if(kind(c)!==kind(options.config))throw Error('CFD Template의 해석 대상을 변경할 수 없습니다');if(kind(c)==='grain_silo'&&c.openfoam_mapping?.solver!==options.form.solver)throw Error('솔버는 CFD Template에서 지정합니다');}return !readonly&&options.managed?applyTermination(c):c;};
     const close=()=>{if(!locked){version++;dialog.close();}};
     const busy=value=>{locked=value;for(const n of dialog.querySelectorAll('button,input,textarea,select'))n.disabled=value;};
     dialog.replaceChildren();const header=el('header');header.append(el('h2',options.title||(readonly?'Case Config':'새 Case Config')),button('닫기',close));dialog.append(header);

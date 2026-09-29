@@ -34,7 +34,7 @@ test('a Case without results stays in Viewer with the same Case list',async()=>{
  await ctx.viewResult();
  assert.equal(ctx.viewMode,'viewer');assert.equal(mode,'viz');
  assert.equal(ctx.$('controls').inert,true);
- assert.equal(ctx.$('ewViewerEmpty').textContent,'선택한 Case의 결과가 아직 없습니다.');
+ assert.equal(ctx.$('ewViewerEmpty').textContent,'선택한 Case의 결과가 아직 없습니다');
 });
 
 test('Viewer controls select explicit modes, retain selection on repeat click and restore project actions',()=>{

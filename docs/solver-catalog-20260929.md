@@ -2,23 +2,13 @@
 
 ## 사용법
 
-1. **CFD FORM 리스트 → 새로 만들기**.
-2. FORM 이름 입력 후 **솔버** 선택.
-3. 해석 기능·정상/비정상·주요 결과·연결 양식 확인.
-4. **설치 확인**으로 설정된 CPU OpenFOAM 환경의 실행 파일 확인.
-5. **양식 구성**에서 유체·해석·영역·격자·종료 조건 선택 후 **Config 편집**.
-6. **Apply → FORM 초안 저장**. 기존 연결 양식은 **Config Template**에서 선택 후 **FORM 저장**.
-
-- 기존 FORM은 이름·설명·입력 양식 편집 가능. 사용 중인 솔버는 변경 불가.
-- 저장한 초안은 왼쪽 리스트에서 **수정**으로 다시 열기.
-- 초안은 프로젝트 선택에서 **연결 대기** 표시. Case 실행·프리셋 생성 불가.
-- 설치 확인은 요청할 때만 수행. 주기적인 프로세스 생성·솔버 실행 없음.
-- 출처는 이 문서에서 확인. FORM 화면에는 기능과 상태 표시.
-
-![Config 편집](assets/generic-config-20260929/editor.png)
-
-- 솔버별 자동 양식: [설명](form-wizard-20260929.md)
-- 아래 구현 확인 항목은 솔버 목록 추가 당시 기록. 최신 Config 편집 검사는 위 문서 참고.
+- **CFD Template 리스트 → +**
+- 이름·설명 입력 → 솔버 선택
+- 설명의 원작자·원본 소스 링크와 주요 기능 확인
+- **양식 구성 → 양식 편집 → Apply → Template 저장**
+- 실제 값은 프로젝트 생성 시 입력 · 프리셋은 Template별 관리
+- **설치 확인**은 실행 파일 존재 확인 · 실행기 연결과 별도
+- [Template 사용법](template-inputs.md) · [입력 검토](solver-template-audit.md)
 
 ## 범용 솔버
 
@@ -26,16 +16,16 @@ OpenCFD OpenFOAM 2312 기준. 인기 순위가 아닌 기능 범주별 선정.
 
 | 솔버 | 방식 | 기능 | Studio 연결 |
 |---|---|---|---|
-| icoFoam | 비정상 | 비압축성 층류 | 초안 저장 |
+| icoFoam | 비정상 | 비압축성 층류 | 양식·프로젝트 저장 |
 | simpleFoam | 정상 | 비압축성 유동·난류 | 기존 사일로 양식 |
 | pimpleFoam | 비정상 | 비압축성 유동·난류, PIMPLE | 기존 사일로 양식 |
-| pisoFoam | 비정상 | 비압축성 유동·난류, PISO | 초안 저장 |
-| buoyantSimpleFoam | 정상 | 부력·열전달 | 초안 저장 |
-| buoyantPimpleFoam | 비정상 | 부력·열전달 | 초안 저장 |
-| chtMultiRegionFoam | 비정상 | 고체·유체 복합 열전달 | 초안 저장 |
-| interFoam | 비정상 | 등온 2상 자유표면, VOF | 초안 저장 |
-| interIsoFoam | 비정상 | 등온 2상 자유표면, isoAdvector | 초안 저장 |
-| rhoPimpleFoam | 비정상 | 압축성 유동·에너지 | 초안 저장 |
+| pisoFoam | 비정상 | 비압축성 유동·난류, PISO | 양식·프로젝트 저장 |
+| buoyantSimpleFoam | 정상 | 부력·열전달 | 양식·프로젝트 저장 |
+| buoyantPimpleFoam | 비정상 | 부력·열전달 | 양식·프로젝트 저장 |
+| chtMultiRegionFoam | 비정상 | 고체·유체 복합 열전달 | 양식·프로젝트 저장 |
+| interFoam | 비정상 | 등온 2상 자유표면, VOF | 양식·프로젝트 저장 |
+| interIsoFoam | 비정상 | 등온 2상 자유표면, isoAdvector | 양식·프로젝트 저장 |
+| rhoPimpleFoam | 비정상 | 압축성 유동·에너지 | 양식·프로젝트 저장 |
 
 ## 기존 전용 구성
 
@@ -66,7 +56,7 @@ OpenCFD OpenFOAM 2312 기준. 인기 순위가 아닌 기능 범주별 선정.
 - JavaScript **61개 통과**: Config·Viewer 회귀 검사.
 - 검토 환경 OpenFOAM v2312에서 12개 실행 파일 발견. 실제 계산 시험은 수행하지 않음.
 - 실제 브라우저에서 12개 선택 항목의 기능 표시 확인.
-- 복합 열전달 FORM 초안 저장·새로고침·입력 계획 복원 확인.
+- 복합 열전달 FORM 양식·프로젝트 저장·새로고침·입력 계획 복원 확인.
 - 비정상 사일로 FORM 저장 시 `pimpleFoam`·`PIMPLE`·물리시간 Config 확인.
 - 프로젝트 선택에서 초안 항목 비활성 확인. 서버에서도 직접 요청 차단.
 - 재시작 후 FORM 보존은 새 Workspace 인스턴스로 검사.
@@ -76,7 +66,7 @@ OpenCFD OpenFOAM 2312 기준. 인기 순위가 아닌 기능 범주별 선정.
 ## 수정 파일
 
 - `solver_catalog.py`: 솔버 기능·입력·결과·연결 상태·실행 파일 확인.
-- `cfd_forms.py`: FORM 초안 저장·복원, 미연결 실행 차단.
+- `cfd_forms.py`: FORM 양식·프로젝트 저장·복원, 미연결 실행 차단.
 - `execution_workspace.py`: 솔버 조회·설치 확인 API, 초안 프리셋 제외.
 - `execution_workspace.js`: 솔버 선택·기능 카드·입력 계획·초안 상태.
 - `app.py`: v188, 도움말 갱신.

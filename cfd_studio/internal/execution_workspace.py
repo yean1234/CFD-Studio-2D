@@ -271,7 +271,7 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
             projects = []
             for p in data['projects']:
                 runs = sorted(({**records[k], 'project_id': p['id']} for k in p['runs'] if k in records), key=lambda r: r['created'], reverse=True)
-                projects.append({'id': p['id'], 'name': p['name'], 'description': p.get('description', ''), 'default_preset': p.get('default_preset'), 'form_id': self.project_form(p, records), 'created': p['created'], 'storage_path': p.get('storage_path', ''), 'storage_available': bool(p.get('storage_path') and project_path(p['storage_path']).is_dir()), 'runs': runs})
+                projects.append({'id': p['id'], 'name': p['name'], 'description': p.get('description', ''), 'default_preset': p.get('default_preset'), 'form_id': self.project_form(p, records), 'initial_config': copy.deepcopy(p.get('initial_config')), 'created': p['created'], 'storage_path': p.get('storage_path', ''), 'storage_available': bool(p.get('storage_path') and project_path(p['storage_path']).is_dir()), 'runs': runs})
             return {'projects': projects, 'queue': self.queue_summary(), 'busy': bool(self.busy()) or any(r['status'] in ('queued', 'running') and not r['id'].startswith('case:') or r['status'] == 'running' for r in records.values())}
 
     def result_progress(self, project_id):
@@ -310,7 +310,7 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
                 rows.append({'id': key, 'percent': None, 'label': '확인 실패', 'active': False, 'error': str(error)})
         return {'project_id': project_id, 'runs': rows}
 
-    def create_project(self, name, description='', default_preset=None, storage_path=None, form_id=None):
+    def create_project(self, name, description='', default_preset=None, storage_path=None, form_id=None, initial_config=None, preset_name=None):
         with self.lock:
             data = self._catalog(self.discover())
             if not isinstance(description, str) or len(description) > 4000:
@@ -320,10 +320,25 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
             if form_id:
                 self.check_form_preset(form_id, default_preset)
             project = {'form_id': form_id, 'id': uuid.uuid4().hex, 'name': label(name), 'description': description, 'default_preset': default_preset, 'created': time.time(), 'runs': []}
-            self.prepare_project_folder(project, storage_path)
-            data['projects'].append(project)
-            self.persist_catalog(data)
-            return project
+            if initial_config is not None:
+                if not form_id:raise ValueError('CFD Template을 선택하세요')
+                self.check_project_config(form_id,initial_config)
+                project['initial_config']=copy.deepcopy(initial_config)
+            elif form_id and self.form(form_id).get('definition_only') and not default_preset:
+                raise ValueError('프로젝트 Config를 입력하세요')
+            saved=None
+            try:
+                if preset_name:
+                    if initial_config is None:raise ValueError('프리셋에 저장할 Config를 입력하세요')
+                    saved=self.save_scoped_preset(preset_name,initial_config,form_id)
+                    project['default_preset']=saved['id']
+                self.prepare_project_folder(project, storage_path)
+                data['projects'].append(project)
+                self.persist_catalog(data)
+                return project
+            except Exception:
+                if saved:self.preset_paths()[saved['id']].unlink(missing_ok=True)
+                raise
 
     def rename_project(self, key, name):
         with self.lock:
@@ -403,7 +418,7 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
             value = read_json(path)
             items.append({'id': key, 'name': value['name'] if key.startswith('scoped:') else '저장고 연결 기본값' if key == 'warehouse' else path.stem,
                 'model': config_kind(self.template(key)), 'form_id': self.preset_form(key)})
-        items.extend({'id': 'form:'+f['id'], 'name': 'FORM 기본값', 'model': f['model'], 'form_id': f['id']} for f in self.forms() if not f.get('definition_only'))
+        items.extend({'id': 'form:'+f['id'], 'name': '기존 입력값', 'model': f['model'], 'form_id': f['id']} for f in self.forms() if not f.get('definition_only'))
         return items
 
     def save_preset(self, name, config, form_id=None):
@@ -558,7 +573,10 @@ def post_route(handler, workspace, body):
     try:
         if not isinstance(body, dict):
             raise ValueError('요청 형식을 확인해 주세요')
-        if path == '/api/executions/form-inspect':
+        if path == '/api/executions/project-config-check':
+            workspace.check_project_config(body.get('form_id'),body.get('config'))
+            result={'valid':True}
+        elif path == '/api/executions/form-inspect':
             from cfd_studio.solver_requirements import inspect_config
             result = inspect_config(body.get('solver'),body.get('config'))
         elif path == '/api/executions/form-generate':
@@ -569,10 +587,10 @@ def post_route(handler, workspace, body):
         elif path == '/api/executions/preset':
             result = workspace.save_preset(body.get('name'), body.get('config'), body.get('form_id'))
         elif path == '/api/executions/form':
-            result = workspace.save_form(body.get('name'), body.get('model'), body.get('solver'), body.get('config'), body.get('id'), body.get('revision'), body.get('description', ''), body.get('sections'), body.get('config_schema'))
+            result = workspace.save_form(body.get('name'), body.get('model'), body.get('solver'), body.get('config'), body.get('id'), body.get('revision'), body.get('description', ''), body.get('sections'), body.get('config_schema'), body.get('input_schema'))
         elif path == '/api/executions/project':
             workspace.form(body.get('form_id'))
-            result = workspace.create_project(body.get('name'), body.get('description', ''), body.get('default_preset'), body.get('storage_path'), body.get('form_id'))
+            result = workspace.create_project(body.get('name'), body.get('description', ''), body.get('default_preset'), body.get('storage_path'), body.get('form_id'), body.get('initial_config'), body.get('preset_name'))
         elif path == '/api/executions/project-open':
             result = workspace.open_project(body.get('storage_path'))
         elif path == '/api/executions/project-pick':

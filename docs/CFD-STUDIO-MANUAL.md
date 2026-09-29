@@ -14,10 +14,10 @@
 
 ## 프로젝트와 실행
 
-- CFD FORM: 해석 대상·솔버·입력 항목 분류·기본 Config 정의
-- 프리셋: 각 FORM에 속한 값 묶음
+- CFD Template: 솔버·해석 조건·Config 항목·자료형·단위 정의
+- 프리셋: 각 Template에 속한 값 묶음
 - 프로젝트 찾기: 기존 프로젝트 폴더의 형식·실행 목록 검증 후 등록
-- 프로젝트: 이름·설명·CFD FORM·기본 프리셋 참조·실행 목록 보관
+- 프로젝트: 이름·설명·CFD Template·기본 프리셋 참조·실행 목록 보관
 - 기본 프리셋 변경: 이후 생성하는 실행에만 적용
 - +CFD Case: 개별 설정·목표·종료 조건을 초안으로 저장
 - 실행 시작: 입력 JSON과 SHA-256 고정, 다른 실행·프리셋에 소급 적용하지 않음
@@ -251,22 +251,16 @@
 ![설정 차이](assets/settings-difference-20260928/panel.png)
 
 
-## CFD FORM
+## CFD Template
 
-- 기본 FORM: 이중액침냉각 / 옥수수 사일로 / 식량 저장고 훈증 시스템
-- 새 FORM: 범용 OpenFOAM 솔버 10개와 기존 전용 구성 2개 선택. [솔버 목록·지원 범위](solver-catalog-20260929.md)
-- 실행 연결: 이중액침 `icoReactingMultiphaseInterFoam`, 옥수수 사일로 `simpleFoam`·`pimpleFoam`, 저장고 `warehouseBuoyantFoam`
-- 미연결 솔버: 입력 계획을 FORM 초안으로 저장. 프로젝트·Case 실행에는 적용 불가
-- 설치 확인: CPU OpenFOAM 실행 파일 존재 여부만 확인. Studio 연결·버전 호환·계산 성공과 구분
-- FORM 생성 후 해석 대상·솔버 고정. 이름·분류 제목·기본 Config 수정 가능
-- 신규 프로젝트: FORM 필수, 다른 FORM의 프리셋 차단
-- 기존 프로젝트: 저장된 프리셋·결과 유형으로 FORM 연결, 원본 Config·결과 보존
-- Case: Config·비교 기준·FORM 버전을 개별 보관
-- FORM·기본 프리셋 수정: 이미 저장된 Case에 소급 적용하지 않음
-- FORM 등록부: `cfd_studio/_runtime/executions/forms.json`
-- FORM별 신규 프리셋: `cfd_studio/_runtime/executions/form_presets`
-- 이전 프리셋: 원본 파일 유지, 해석 유형별 기본 FORM에 연결
-- 백업: 프로젝트 폴더와 위 FORM·프리셋 등록부 보관
+- Template: 솔버·해석 조건·항목·자료형·단위 정의
+- 입력값은 프로젝트 생성 시 작성하거나 Template별 프리셋에서 불러오기
+- 이름 아래에 설명 배치 · 솔버 설명에 원작자·소스 링크 제공
+- 기존 Config Template 선택 항목 제거
+- 기존 연결 Template의 입력값은 별도 프리셋으로 유지
+- 기존 프로젝트·Case·결과와 내부 ID 유지
+- 신규 Template: 프로젝트·Config·프리셋 저장 가능 · 계산은 실행기 연결 필요
+- [사용법](template-inputs.md)
 
 ## 카메라
 
@@ -294,26 +288,16 @@
 
 ## 사용자 정의 Config
 
-- 새 FORM: 솔버와 해석 조건 선택 후 형상·물성·초기장·경계조건·수치·종료·출력 양식 생성
-- 항목: Key·Type·Unit·Value, 중첩 Object·Array 지원
-- 필드 이름: 사용자 입력 그대로 보존. 한글 이름 자동 변환 없음
-- Type·Unit: FORM 스키마로 저장. Unit은 자동 단위 변환 기능이 아닌 메타데이터
-- JSON 가져오기·내보내기: Config 값만 포함. Type·Unit 스키마는 FORM 저장에 포함
-- 기존 연결 템플릿: 솔버별 필수 입력과 지원 형식 유지
-- 사용자 정의 FORM: 입력·결과 어댑터 연결 전까지 정의만 저장. 솔버 설치만으로 임의 Config 계산 불가
-- [Config 편집](generic-config-20260929.md)
+- Template 편집: Key·Type·Unit 구성 · 실제 값 입력 없음
+- 프로젝트 Config: Value 입력 · 중첩 Object·Array·JSON 지원
+- 숫자·정수 입력란의 잘못된 문자·붙여넣기 차단
+- 빈 필수값·미완성 숫자·잘못된 JSON의 저장 차단
+- Template 정의 JSON과 프로젝트 입력값 JSON 구분
+- 단위는 메타데이터 · 자동 단위 환산 미지원
 
-## 양식 구성
+## 솔버별 입력
 
-- 등록 솔버 12개에 해석 조건별 양식 생성 지원
-- 선택 조건에 따라 액체·기체·다상, 정상·비정상, 온도·상분율·고체 열전도 입력 항목 구분
-- 수치값은 미입력 상태. 사용자가 직접 작성
-- JSON에 선택 조건과 물리량 단위 포함
-- [사용법·제한·검사](form-wizard-20260929.md)
-
-## 솔버별 필수 입력
-
-- 솔버 선택 시 주요 용도·필수 Config·선택 Config·계산 범위 확인
-- 자동 생성 양식의 **Required** 항목 입력 후 **입력 검사**
-- 누락 경로 확인·초안 저장 가능. 물리 정확도·실행 연결 검증은 별도
+- 등록 솔버 12개에 조건별 양식 생성 지원
 - [솔버별 입력 정의](solver-input-definitions-20260929.md)
+- [입력 검토 범위](solver-template-audit.md)
+- 사용자 추가 모델의 세부 계수와 실행기 연결은 별도 검토

@@ -37,7 +37,7 @@ class FormWizardTests(unittest.TestCase):
         cht=generate('chtMultiRegionFoam',answers('chtMultiRegionFoam'))['config']
         self.assertIn('solid_regions',cht['geometry']);self.assertIn('solid',cht['materials'])
         frames=generate('pimpleFoam',answers('pimpleFoam',termination='frames'))['config']
-        self.assertIsNone(frames['termination']['saved_frames']);self.assertIs(frames['termination']['include_initial_frame'],False)
+        self.assertIsNone(frames['termination']['saved_frames']);self.assertIsNone(frames['termination']['include_initial_frame'])
 
     def test_invalid_choices_do_not_generate(self):
         for solver,a in [('icoFoam',answers('icoFoam',medium='liquid_gas')),('icoFoam',answers('icoFoam',regime='RAS')),('simpleFoam',answers('simpleFoam',termination='physical_time')),('icoFoam',{}),('invalid',{})]:

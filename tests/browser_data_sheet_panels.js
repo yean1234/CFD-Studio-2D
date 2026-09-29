@@ -1,7 +1,7 @@
 // Run through playwright-cli run-code on the isolated review server (port 18759).
 // Uses synthetic result responses; no CFD run or user project is created.
 async page => {
- const checks=[],errors=[];const check=(value,label)=>{if(!value)throw Error(label);checks.push(label);};
+ const origin=new URL(page.url()).origin;const checks=[],errors=[];const check=(value,label)=>{if(!value)throw Error(label);checks.push(label);};
  const onerror=e=>errors.push(e.message);page.on('pageerror',onerror);
  let releasePressure;const pressureGate=new Promise(resolve=>releasePressure=resolve);
  const metrics=[{id:'temperature',name:'온도',unit:'°C'},{id:'velocity',name:'유속',unit:'m/s'},{id:'pressure',name:'압력',unit:'Pa'}];
@@ -10,7 +10,7 @@ async page => {
  await page.route('**/api/executions/chart?*',async r=>{const q=new URL(r.request().url()).searchParams,metric=q.get('metric').split('.')[0];if(metric==='pressure')await pressureGate;const values=metric==='temperature'?[10,20,30]:metric==='velocity'?[.1,.2,.3]:[100,200,300];try{await r.fulfill({json:{points:values.map((v,i)=>[i,v]),next:3,total:3,errors:[],basis:'UI 검사용 데이터'}});}catch(_){} });
  await page.route('**/api/executions/point-chart?*',r=>{const q=new URL(r.request().url()).searchParams,field=q.get('field'),x=Number(q.get('x')),values=field==='velocity'?[.1,.2,.3]:[11,21,31];return r.fulfill({json:{points:values.map((v,i)=>[i,v*x]),next:3,total:3,errors:[]}});});
  try{
-  await page.setViewportSize({width:1360,height:850});await page.goto('http://127.0.0.1:18759/chart-panel-test');
+  await page.setViewportSize({width:1360,height:850});await page.goto(origin+'/chart-panel-test');
   await page.evaluate(()=>{const run={id:'fixture',name:'검사 데이터'};DataSheetViewer.setSelection({id:'fixture-project',name:'그래프 검사',runs:[run]},[run]);DataSheetViewer.setMode('data');});
   await page.waitForFunction(()=>document.querySelectorAll('#dsField2 option').length===3);
   check(await page.locator('#dsField option').count()===3,'left menu contains means only');
@@ -81,6 +81,8 @@ async page => {
   await page.locator('#dsFieldC').selectOption('pressure.mean|Pa|time');
   await page.waitForFunction(()=>document.getElementById('dsCoverage').textContent.includes('9 / 9'));
   check(await page.locator('#dsPlot path[data-series]').count()===3,'three mean curves are displayed together');
+  const panels=await page.locator('.ds-chart').evaluateAll(nodes=>nodes.map(n=>n.getBoundingClientRect()));check(Math.abs(panels[0].height-panels[1].height)<1,'chart background panels have equal heights with three selected elements');
+  const kindBox=await page.locator('#dsGraphType').boundingBox(),elementBox=await page.locator('#dsField').boundingBox();check(kindBox.y+kindBox.height<elementBox.y,'graph format is on its own row above element selectors');
   check(await page.locator('#dsPlot [data-y-axis]').count()===3,'different units have three separate Y axes');
   check(await page.locator('#dsFieldB option[value="temperature.mean|°C|time"]').evaluate(option=>option.disabled),'duplicate metric selection is disabled');
   await page.locator('#dsPlot').focus();await page.locator('#dsPlot').press('End');

@@ -49,7 +49,7 @@ def writable(path):
 
 def remap(value, mappings):
     if isinstance(value, dict):
-        return {k: (v if k in ('config', 'baseline', 'form_snapshot') else remap(v, mappings)) for k, v in value.items()}
+        return {k: (v if k in ('config', 'initial_config', 'baseline', 'form_snapshot') else remap(v, mappings)) for k, v in value.items()}
     if isinstance(value, list):
         return [remap(v, mappings) for v in value]
     if isinstance(value, str):

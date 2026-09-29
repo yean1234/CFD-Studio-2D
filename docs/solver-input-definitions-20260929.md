@@ -2,18 +2,20 @@
 
 ## 사용법
 
-- FORM에서 솔버 선택 → 주요 용도·필수 Config·선택 Config·계산 범위 확인
-- **양식 구성 → Config 편집**
-- **Required** 표시 항목에 값 입력
+- Template에서 솔버 선택 → 주요 용도·필수 Config·선택 Config·계산 범위 확인
+- **양식 구성 → 양식 편집**으로 입력 구조 정의
+- 프로젝트 생성 시 **Config 입력**에서 **Required** 항목 작성
 - **입력 검사**로 누락 경로·형식·기본 범위 확인
-- 빈 항목이 있어도 초안 저장·JSON 출력 가능
+- Template은 빈 양식으로 저장 · 프로젝트 Config의 필수값은 저장 전 입력
 - 물성·경계조건·난류 모델별 세부 계수는 사용자가 입력
 
 ![솔버 정의](assets/solver-inputs-20260929/solver.png)
 
 ## 솔버 정의
 
-OpenCFD OpenFOAM v2312 소스와 저장소 전용 솔버 기준.
+OpenCFD OpenFOAM v2312 소스와 저장소 전용 솔버 기준
+
+- [최근 검토·보완 항목](solver-template-audit.md)
 
 | 솔버 | 대표 용도 | 필수 입력 | 선택·조건부 |
 |---|---|---|---|

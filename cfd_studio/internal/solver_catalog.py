@@ -11,8 +11,36 @@ import subprocess
 import time
 
 
+UPSTREAM = {'icoFoam': [{'label': 'OpenFOAM Foundation · OpenCFD Ltd · 원본 소스',
+              'url': 'https://api.openfoam.com/2312/icoFoam_8C_source.html'}],
+ 'simpleFoam': [{'label': 'OpenFOAM Foundation · 원본 소스',
+                 'url': 'https://api.openfoam.com/2312/simpleFoam_8C_source.html'}],
+ 'pimpleFoam': [{'label': 'OpenFOAM Foundation · OpenCFD Ltd · 원본 소스',
+                 'url': 'https://api.openfoam.com/2312/pimpleFoam_8C_source.html'}],
+ 'pisoFoam': [{'label': 'OpenFOAM Foundation · OpenCFD Ltd · 원본 소스',
+               'url': 'https://api.openfoam.com/2312/pisoFoam_8C_source.html'}],
+ 'buoyantSimpleFoam': [{'label': 'OpenFOAM Foundation · 원본 소스',
+                        'url': 'https://api.openfoam.com/2312/buoyantSimpleFoam_8C_source.html'}],
+ 'buoyantPimpleFoam': [{'label': 'OpenFOAM Foundation · OpenCFD Ltd · 원본 소스',
+                        'url': 'https://api.openfoam.com/2312/buoyantPimpleFoam_8C_source.html'}],
+ 'chtMultiRegionFoam': [{'label': 'OpenFOAM Foundation · OpenCFD Ltd · 원본 소스',
+                         'url': 'https://api.openfoam.com/2312/chtMultiRegionFoam_8C_source.html'}],
+ 'interFoam': [{'label': 'OpenFOAM Foundation · OpenCFD Ltd · 원본 소스',
+                'url': 'https://api.openfoam.com/2312/interFoam_8C_source.html'}],
+ 'interIsoFoam': [{'label': 'OpenFOAM Foundation · DHI · OpenCFD Ltd · Johan Roenby · DLR · 원본 소스',
+                   'url': 'https://api.openfoam.com/2312/interIsoFoam_8C_source.html'}],
+ 'rhoPimpleFoam': [{'label': 'OpenFOAM Foundation · OpenCFD Ltd · 원본 소스',
+                    'url': 'https://api.openfoam.com/2312/rhoPimpleFoam_8C_source.html'}],
+ 'icoReactingMultiphaseInterFoam': [{'label': 'OpenCFD Ltd · 원본 소스',
+                                     'url': 'https://api.openfoam.com/2312/icoReactingMultiphaseInterFoam_8C_source.html'}],
+ 'warehouseBuoyantFoam': [{'label': 'CFD Studio · 전용 솔버 소스',
+                           'url': 'https://github.com/ReYoungSung/CFD-Studio/blob/main/tracer_transport/coupled_solver/warehouseBuoyantFoam.C'},
+                          {'label': 'OpenFOAM Foundation · OpenCFD · 기반 솔버',
+                           'url': 'https://api.openfoam.com/2312/buoyantBoussinesqPimpleFoam_8C_source.html'}]}
+
+
 def entry(name, category, mode, summary, outputs, inputs, models=(), limitation='', dedicated=False, coupling=None):
-    return dict(id=name, category=category, time_mode=mode, summary=summary,
+    return dict(id=name, upstream=copy.deepcopy(UPSTREAM[name]), category=category, time_mode=mode, summary=summary,
                 outputs=outputs, inputs=inputs, models=list(models), limitation=limitation,
                 dedicated=dedicated, coupling=coupling, integration='connected' if models else 'definition_only')
 
@@ -49,7 +77,8 @@ def definition(solver):
     item=next((x for x in CATALOG if x['id']==solver),None)
     if item is None:
         raise ValueError('등록된 솔버를 선택하세요')
-    return copy.deepcopy(item)
+    result=copy.deepcopy(item);result['limitation']=result['limitation'].rstrip('.')
+    return result
 
 
 def config_solver(config):
@@ -81,7 +110,7 @@ def draft_config(solver):
 def validate_draft(config, solver):
     expected=draft_config(solver)
     if not isinstance(config,dict) or set(config)!=set(expected) or config.get('_해석유형')!='solver_definition' or config.get('solver')!=solver:
-        raise ValueError('솔버 FORM 초안 형식이 일치하지 않습니다')
+        raise ValueError('솔버 Template 형식이 일치하지 않습니다')
     notes=config.get('requirements')
     if not isinstance(notes,dict) or set(notes)!=set(expected['requirements']) or any(not isinstance(x,str) or len(x)>4000 for x in notes.values()):
         raise ValueError('입력 계획은 항목별 4,000자 이내로 입력하세요')
@@ -113,10 +142,10 @@ def probe(settings):
             raise OSError('설치 확인 응답 누락')
         return {'checked_at':time.time(),'version':lines.get('VERSION',''),'status':'checked',
                 'solvers':{x['id']:lines[x['id']] for x in CATALOG},
-                'note':'설정된 CPU OpenFOAM 환경의 실행 파일 존재 여부. 실행·라이브러리 호환성·GPU 지원 검증은 별도.'}
+                'note':'설정된 CPU OpenFOAM 환경의 실행 파일 존재 여부. 실행·라이브러리 호환성·GPU 지원 검증은 별도'}
     except (OSError,subprocess.TimeoutExpired):
         return {'checked_at':time.time(),'version':'','status':'unavailable','solvers':{},
-                'note':'OpenFOAM 환경을 확인하지 못했습니다. 미설치로 확정하지 않습니다.'}
+                'note':'OpenFOAM 환경을 확인하지 못했습니다. 미설치로 확정하지 않습니다'}
 
 
 def catalog(installation=None):

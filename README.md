@@ -9,13 +9,14 @@
 - [사용법](docs/CFD-STUDIO-USER-GUIDE.md)
 - [설명서](docs/CFD-STUDIO-MANUAL.md)
 - [설치 안내](cfd_studio/README.md)
-- [CFD FORM 검토](docs/cfd-form-review-20260928.md)
+- [CFD Template 검토](docs/cfd-form-review-20260928.md)
 - [Case 그래프 검토](docs/case-chart-review-20260928.md)
 
 ## 개발 상태
 
 - 현재 모델: 누출 없는 밀폐 저장고, 균질 다공성 곡물
-- 핵심 기능: CFD FORM·FORM별 프리셋, 프로젝트별 Case·대기열·Config 스냅샷·결과 조회
+- [CFD Template](docs/template-inputs.md)
+- 핵심 기능: CFD Template·Template별 프리셋, 프로젝트별 Case·대기열·Config 스냅샷·결과 조회
 - 저장고 계산: 프로젝트에서 **+CFD Case → 실행 저장 → 대기열 시작**
 - 적용 수준: 가정 조건 기반 연구용 모델
 

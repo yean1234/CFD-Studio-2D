@@ -24,7 +24,7 @@ class FormSchemaTests(unittest.TestCase):
             fresh=ExecutionWorkspace(ROOT,[],folder=Path(folder)/'registry',output=Path(folder)/'output')
             form=fresh.form(saved['id']);self.assertEqual(form['config'],config);self.assertEqual(form['config_schema'],schema)
             self.assertTrue(form['definition_only'])
-            with self.assertRaisesRegex(ValueError,'초안'):fresh.check_form_config(form['id'],config)
+            with self.assertRaisesRegex(ValueError,'연결'):fresh.check_form_config(form['id'],config)
             edited=copy.deepcopy(schema);edited['fields'][0]['fields'][0]['value']=15
             fresh.save_form('User domain','solver_definition','simpleFoam',config_from_schema(edited),saved['id'],1,config_schema=edited)
             self.assertEqual(saved['config']['domain']['length'],12.5)

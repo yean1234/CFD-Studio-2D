@@ -56,10 +56,10 @@ class SolverCatalogTests(unittest.TestCase):
         form=fresh.form(saved['id'])
         self.assertTrue(form['definition_only']);self.assertEqual(form['config'],config)
         self.assertFalse(any(p['form_id']==form['id'] for p in fresh.presets()))
-        with self.assertRaisesRegex(ValueError,'초안'):
+        with self.assertRaisesRegex(ValueError,'Config|양식 구성'):
             fresh.create_project('오류',form_id=form['id'],storage_path=str(self.folder/'project'))
         self.assertFalse((self.folder/'project').exists())
-        with self.assertRaisesRegex(ValueError,'초안'):
+        with self.assertRaisesRegex(ValueError,'Config|양식 구성'):
             fresh.save_scoped_preset('오류',config,form['id'])
 
     def test_cannot_smuggle_an_existing_config_into_an_unconnected_solver(self):

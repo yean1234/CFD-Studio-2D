@@ -90,7 +90,7 @@
     }
     $('ewTitle').textContent=currentProject()?.name||'프로젝트';
     $('ewDescription').textContent=currentProject()?.description||'';
-    $('ewDefault').textContent=(forms.find(f=>f.id===currentProject()?.form_id)?.name||'CFD FORM 미지정')+' · 기본 프리셋: '+(presets.find(p=>p.id===currentProject()?.default_preset)?.name||(currentProject()?'FORM 기본값':'미지정'));
+    $('ewDefault').textContent=(forms.find(f=>f.id===currentProject()?.form_id)?.name||'CFD Template 미지정')+' · 기본 프리셋: '+(presets.find(p=>p.id===currentProject()?.default_preset)?.name||(currentProject()?'직접 입력':'미지정'));
     $('ewRename').disabled=!currentProject();$('ewNewRun').disabled=!currentProject()||pending||currentProject()?.storage_available===false;const path=$('ewStorage');if(path){path.textContent=currentProject()?.storage_available===false?'프로젝트 폴더 연결 필요':'';path.title='';path.classList.toggle('offline',currentProject()?.storage_available===false);}renderSidebarAction();
     $('appContext').textContent='CFD Studio · '+(currentProject()?.name||'프로젝트');renderViewerCases();
     $('stTxt').textContent=data.busy?'계산 중':'실행 대기';$('stDot').className=data.busy?'dot run':'dot ok';
@@ -112,7 +112,7 @@
 마지막 저장 ${r.last_saved==null?'—':r.last_saved+' '+(r.time_unit||'s')} · 수치 검사 ${numericalText(r)}`;rows.append(row);
     }
     $('ewRunCount').textContent=String(p?.runs.length||0);
-    if(!rows.children.length)rows.append(node('div',search?'검색 결과 없음':'아직 실행이 없습니다.','ew-empty'));
+    if(!rows.children.length)rows.append(node('div',search?'검색 결과 없음':'아직 실행이 없습니다','ew-empty'));
   }
 
   async function selectProject(id){
@@ -121,10 +121,10 @@
     try{localStorage.setItem('cfd-project',id);}catch(_){}
     const runs=currentProject()?.runs||[];
     const recent=runs.find(r=>r.id===selectedRuns.get(id))||runs.find(r=>r.status==='running')||runs.find(r=>r.has_results)||runs[0];
-    if(recent)await selectRun(recent.id);else{clearDetail();if(viewMode==='viewer')showEmptyViewer('아직 CFD Case가 없습니다.');else showList();}
+    if(recent)await selectRun(recent.id);else{clearDetail();if(viewMode==='viewer')showEmptyViewer('아직 CFD Case가 없습니다');else showList();}
   }
   function clearDetail(){
-    $('ewRunTitle').textContent='실행 선택';$('ewLog').textContent='목록에서 실행을 선택하세요.';
+    $('ewRunTitle').textContent='실행 선택';$('ewLog').textContent='목록에서 실행을 선택하세요';
     $('ewStatus').replaceChildren();$('ewStats').replaceChildren();$('ewProgress').hidden=true;$('ewRunError').textContent='';$('ewStopLabel').textContent='—';$('ewDifferenceCount').textContent='';$('ewConfigSummary').textContent='';$('ewFacts').textContent='';$('ewView').disabled=true;$('ewSettings').disabled=true;$('ewEnqueue').disabled=true;$('ewFolder').disabled=true;$('ewCSV').disabled=true;$('ewStop').hidden=true;$('ewRecovery').hidden=true;$('ewDifferences').textContent='';$('ewGoals').textContent='';
   }
   function showDetail(value){
@@ -152,12 +152,12 @@
     const token=++generation;runId=id;selectedRuns.set(projectId,id);detail=null;DataSheetViewer.begin(null);cancelViewerLoad();renderRuns();renderViewerCases();suspendWarehouseViewer();setPlay(false,true);
     clearDetail();$('ewRunTitle').textContent='불러오는 중';
     try{const value=await api('/detail?id='+encodeURIComponent(id));if(token!==generation)return;showDetail(value);renderViewerCases();message('');if(viewMode==='viewer')await viewResult();}
-    catch(e){if(token===generation){clearDetail();message(e.message);if(viewMode==='viewer')showEmptyViewer('결과를 불러오지 못했습니다.');}}
+    catch(e){if(token===generation){clearDetail();message(e.message);if(viewMode==='viewer')showEmptyViewer('결과를 불러오지 못했습니다');}}
   }
   async function viewResult(){
-    if(!detail){if(runId){viewMode='viewer';message('실행 정보를 불러오는 중입니다.');}else showEmptyViewer('표시할 CFD Case가 없습니다.');return;}
+    if(!detail){if(runId){viewMode='viewer';message('실행 정보를 불러오는 중입니다');}else showEmptyViewer('표시할 CFD Case가 없습니다');return;}
     if(detail.can_generate&&(!detail.has_results||detail.result_status==='update')){await prepareResult();return;}
-    if(!detail.has_results){showEmptyViewer('선택한 Case의 결과가 아직 없습니다.');return;}
+    if(!detail.has_results){showEmptyViewer('선택한 Case의 결과가 아직 없습니다');return;}
     const selected=detail,token=generation;viewMode='viewer';setPlay(false,true);document.body.classList.remove('case-empty');$('controls').inert=false;
     DataSheetViewer.begin(selected);DataSheetViewer.resume();document.body.classList.add('execution-viewer');renderSidebarAction();
     document.body.classList.toggle('warehouse-viewer',selected.kind==='warehouse');
@@ -193,7 +193,7 @@
   }
   function stopText(t,end){if(!t)return end==null?'—':end+' s';return t.mode==='frames'?t.frames+' 프레임 · 초기 '+(t.include_initial?'포함':'제외'):t.mode==='time'?t.time_s+' s':'수렴 기준';}
   function differenceView(value){
-    if(!Array.isArray(value.differences))return {label:'기준 없음',text:'비교 기준이 저장되지 않은 기존 결과입니다.'};
+    if(!Array.isArray(value.differences))return {label:'기준 없음',text:'비교 기준이 저장되지 않은 기존 결과입니다'};
     const basis=value.preset_id?'Case 생성 당시 프리셋':'Case 최초 저장 설정';
     const rows=value.differences.map(x=>x.path+': '+JSON.stringify(x.before)+' → '+JSON.stringify(x.after));
     return {label:rows.length?rows.length+'개 변경':'변경 없음',text:'기준: '+basis+'\n\n'+(rows.join('\n')||'기준 설정과 차이 없음')};
@@ -208,81 +208,44 @@
     const ordered=[...forms.filter(f=>f.id===activeId),...forms.filter(f=>f.id!==activeId)];
     for(const form of ordered){
       const active=form.id===activeId,row=node('div',null,'ew-form-row'+(active?' selected':'')),text=node('div');
-      row.dataset.formId=form.id;if(active){row.setAttribute('aria-current','true');row.title='선택한 프로젝트의 CFD FORM';}
-      text.append(node('strong',form.name),node('small',form.solver+(form.definition_only?' · 초안':'')));
+      row.dataset.formId=form.id;if(active){row.setAttribute('aria-current','true');row.title='선택한 프로젝트의 CFD Template';}
+      text.append(node('strong',form.name),node('small',form.solver+(form.definition_only?' · 실행 연결 필요':'')));
       const edit=button('수정',()=>formEditor(form.id));edit.setAttribute('aria-label',form.name+' 수정');row.append(text,edit);list.append(row);
     }
     list.scrollTop=changedProject?0:scrollTop;
   }
   async function formEditor(id=null){
     try{
-      const [reply,catalogReply,templateReply,profileReply]=await Promise.all([api('/forms'),api('/solvers'),api('/config-template'),api('/form-profiles')]);
-      const existing=reply.forms.find(f=>f.id===id),engines=reply.templates;
+      const [reply,catalogReply,profileReply]=await Promise.all([api('/forms'),api('/solvers'),api('/form-profiles')]);
+      const existing=reply.forms.find(f=>f.id===id),connected=existing&&!existing.definition_only;
       let solvers=catalogReply.solvers,installation=catalogReply.installation;
-      const d=node('dialog');d.className='ew-dialog ew-form-dialog';
-      d.innerHTML='<form><h2></h2><label>CFD FORM 이름<input name="name" required maxlength="80"></label><div class="ew-form-columns"><label>솔버<select name="solver"></select></label><label>Config Template<select name="model"></select></label></div><section class="ew-solver-card" aria-label="솔버 기능"><div class="ew-solver-heading"><strong data-solver-title></strong><button type="button" class="btn" data-check>설치 확인</button></div><div data-install-result role="status" aria-live="polite"></div><p data-summary></p><div class="ew-solver-tags"></div><dl data-features></dl><p data-connection></p><p data-uses></p><details><summary>필수 Config</summary><ul data-required></ul></details><details><summary>선택·조건부 Config</summary><ul data-optional></ul></details><details><summary>계산 범위</summary><p data-inputs></p></details><small data-environment></small></section><label>설명<textarea name="description" rows="2" maxlength="4000"></textarea></label><div class="ew-form-config"><div><strong>Config</strong><p data-config-count></p></div><div class="ew-bar"><button type="button" class="btn pri" data-wizard>양식 구성</button><button type="button" class="btn" data-config>Config 편집</button></div></div><div class="ew-form-sections" hidden></div><p role="alert"></p><div class="ew-bar"><button type="button" class="btn" data-cancel>취소</button><button type="submit" class="btn pri">FORM 저장</button></div></form>';
-      const f=d.querySelector('form');f.querySelector('h2').textContent=existing?'CFD FORM 수정':'새 CFD FORM';
-      for(const dedicated of [false,true]){const group=node('optgroup');group.label=dedicated?'Studio 전용':'OpenFOAM 범용';for(const solver of solvers.filter(x=>x.dedicated===dedicated))group.append(new Option(solver.id,solver.id));f.elements.solver.append(group);}
-      f.elements.name.value=existing?.name||'';f.elements.description.value=existing?.description||'';
-      f.elements.solver.value=existing?.solver||solvers[0]?.id||'';f.elements.solver.disabled=!!existing;
-      let config,configSchema,activeConfigKey,configured=!!existing,sections={...existing?.sections};const configDrafts=new Map();
-      const selectedSolver=()=>solvers.find(x=>x.id===f.elements.solver.value);
-      const selectedTemplate=()=>engines.find(x=>x.model===f.elements.model.value&&x.solver===f.elements.solver.value);
-      const isDraft=()=>f.elements.model.value==='solver_definition';
-      const outputBox=node('details');outputBox.className='ew-form-outputs';outputBox.append(node('summary','결과 그래프'));f.querySelector('.ew-form-sections').after(outputBox);
-      const drawSolver=()=>{
-        const solver=selectedSolver(),draft=isDraft();
-        f.querySelector('[data-solver-title]').textContent=solver.id;
-        f.querySelector('[data-summary]').textContent=solver.summary;
-        const result=f.querySelector('[data-install-result]');
-        result.style.cssText='padding:10px 12px;margin:12px 0;border:1px solid var(--line);border-radius:9px;font-size:12px;line-height:1.7';
-        result.textContent=installation?.status==='unavailable'?'확인 실패 · '+installation.note:solver.installation==='found'?solver.id+' · 설치 확인됨'+(installation?.version?' · OpenFOAM '+installation.version:'')+' · 실행 파일을 찾았습니다.':solver.installation==='missing'?solver.id+' · 실행 파일 없음 · 설정된 OpenFOAM 환경에 설치하거나 환경 경로를 확인하세요.':'미확인 · 설치 확인을 누르면 OpenFOAM 환경에서 '+solver.id+' 실행 파일을 찾습니다.';
-        f.querySelector('[data-wizard]').style.display=draft?'':'none';
-        f.querySelector('[data-wizard]').textContent=configured?'양식 다시 구성':'양식 구성';
-        f.querySelector('[data-config]').disabled=draft&&!configured;
-        const tags=f.querySelector('.ew-solver-tags');tags.replaceChildren();
-        for(const text of [solver.category,solver.time_mode,{found:'실행 파일 확인',missing:'실행 파일 없음',unchecked:'설치 미확인'}[solver.installation],draft?'Studio 연결 대기':'기존 양식 연결'])tags.append(node('span',text));
-        const fields=f.querySelector('[data-features]');fields.replaceChildren(node('dt','주요 결과'),node('dd',solver.outputs.join(' · ')));
-        f.querySelector('[data-inputs]').textContent=solver.requirements.limit;f.querySelector('[data-uses]').textContent='주요 용도 · '+solver.requirements.uses.join(' / ');for(const [selector,key] of [['[data-required]','required'],['[data-optional]','optional']]){const list=f.querySelector(selector);list.replaceChildren(...solver.requirements[key].map(text=>node('li',text)));}
-        f.querySelector('[data-connection]').textContent=draft?'사용자 정의 Config입니다. 실제 계산에는 솔버 입력 생성·결과 읽기 연결이 필요합니다.':solver.limitation;
-        if(draft&&solver.limitation)fields.append(node('dt','범위'),node('dd',solver.limitation));
-        f.querySelector('[data-environment]').textContent=installation?(installation.version?'OpenFOAM '+installation.version+' · ':'')+installation.note:'설치 확인은 솔버를 실행하지 않습니다.';
-        outputBox.hidden=draft;
-        f.querySelector('[type=submit]').textContent=draft?'FORM 초안 저장':'FORM 저장';
+      let config=structuredClone(existing?.blank_config||{}),schema=existing?.input_schema?structuredClone(existing.input_schema):CFDFormConfig.fromConfig({}),configured=!!existing;
+      const drafts=new Map(),d=node('dialog');d.className='ew-dialog ew-form-dialog';
+      d.innerHTML='<form><h2></h2><label>CFD Template 이름<input name="name" required maxlength="80"></label><label>설명<textarea name="description" rows="2" maxlength="4000"></textarea></label><label>솔버<select name="solver"></select></label><section class="ew-solver-card" aria-label="솔버 기능"><div class="ew-solver-heading"><strong data-solver-title></strong><button type="button" class="btn" data-check>설치 확인</button></div><div data-install-result role="status" aria-live="polite"></div><p data-summary></p><p data-authors></p><div class="ew-solver-tags"></div><dl data-features></dl><p data-connection></p><p data-uses></p><details><summary>필수 Config</summary><ul data-required></ul></details><details><summary>선택·조건부 Config</summary><ul data-optional></ul></details><details><summary>계산 범위</summary><p data-inputs></p></details></section><div class="ew-form-config"><div><strong>Config 양식</strong><p data-config-count></p></div><div class="ew-bar"><button type="button" class="btn pri" data-wizard>양식 구성</button><button type="button" class="btn" data-config>양식 편집</button></div></div><p role="alert"></p><div class="ew-bar"><button type="button" class="btn" data-cancel>취소</button><button type="submit" class="btn pri">Template 저장</button></div></form>';
+      const f=d.querySelector('form');f.querySelector('h2').textContent=existing?'CFD Template 수정':'새 CFD Template';
+      for(const dedicated of [false,true]){const group=node('optgroup');group.label=dedicated?'Studio 연결 솔버':'OpenFOAM 솔버';for(const solver of solvers.filter(x=>x.dedicated===dedicated))group.append(new Option(solver.id,solver.id));f.elements.solver.append(group);}
+      f.elements.name.value=existing?.name||'';f.elements.description.value=existing?.description||'';f.elements.solver.value=existing?.solver||solvers[0].id;f.elements.solver.disabled=!!existing;
+      let active=f.elements.solver.value;const solver=()=>solvers.find(x=>x.id===f.elements.solver.value);
+      const draw=()=>{
+        const item=solver();f.querySelector('[data-solver-title]').textContent=item.id;f.querySelector('[data-summary]').textContent=item.summary;
+        const authors=f.querySelector('[data-authors]');authors.replaceChildren();for(const link of item.upstream||[]){if(authors.children.length)authors.append(' · ');const a=node('a',link.label);a.href=link.url;a.target='_blank';a.rel='noopener noreferrer';authors.append(a);}
+        f.querySelector('[data-install-result]').textContent=installation?.status==='unavailable'?'확인 실패 · '+installation.note:item.installation==='found'?'설치 확인됨 · '+(installation?.version||'OpenFOAM'):item.installation==='missing'?'실행 파일 없음':'설치 미확인';
+        const tags=f.querySelector('.ew-solver-tags');tags.replaceChildren(...[item.category,item.time_mode,connected?'실행 연결됨':'실행 연결 필요'].map(x=>node('span',x)));
+        f.querySelector('[data-features]').replaceChildren(node('dt','주요 결과'),node('dd',item.outputs.join(' · ')));
+        f.querySelector('[data-inputs]').textContent=item.requirements.limit;f.querySelector('[data-uses]').textContent='주요 용도 · '+item.requirements.uses.join(' / ');
+        for(const [selector,key] of [['[data-required]','required'],['[data-optional]','optional']])f.querySelector(selector).replaceChildren(...item.requirements[key].map(x=>node('li',x)));
+        f.querySelector('[data-connection]').textContent=connected?'연결된 실행 양식 · 입력값은 프로젝트와 프리셋에서 관리':'양식·프로젝트·프리셋 저장 가능 · 계산은 실행기 연결 후 사용';
+        f.querySelector('[data-wizard]').hidden=!!connected;f.querySelector('[data-wizard]').textContent=configured?'양식 다시 구성':'양식 구성';f.querySelector('[data-config]').disabled=!configured;
+        const count=fields=>fields.reduce((n,x)=>n+1+(x.type==='object'?count(x.fields):0),0);f.querySelector('[data-config-count]').textContent=configured?count(schema.fields)+' fields · Key / Type / Unit':'해석 조건을 선택해 빈 입력 양식 구성';
       };
-      const drawSections=()=>{
-        drawSolver();
-        const count=fields=>fields.reduce((n,x)=>n+1+(x.type==='object'?count(x.fields):0),0);
-        f.querySelector('[data-config-count]').textContent=isDraft()&&!configured?'유체·해석 조건을 선택해 양식을 구성하세요.':count(configSchema.fields)+' fields · Key / Type / Unit / Value';
-        outputBox.querySelector('div')?.remove();
-        if(!isDraft()){const items=node('div');for(const out of selectedTemplate()?.outputs||[])items.append(node('p',out.name+' ('+out.unit+')'+(out.statistics.length?' · '+out.statistics.join(' / '):'')));outputBox.append(items);}
-      };
-      const rememberConfig=()=>{if(activeConfigKey)configDrafts.set(activeConfigKey,{config:structuredClone(config),schema:structuredClone(configSchema),sections:{...sections},configured});};
-      const setTemplates=(initial=false)=>{
-        f.elements.model.replaceChildren(new Option('솔버별 양식','solver_definition'));
-        for(const engine of engines.filter(x=>x.solver===selectedSolver().id))f.elements.model.append(new Option(engine.name,engine.model));
-        f.elements.model.value=initial&&existing?existing.model:'solver_definition';f.elements.model.disabled=!!existing;
-      };
-      const loadSelection=(initial=false)=>{
-        const solver=selectedSolver();activeConfigKey=isDraft()?'guided:'+solver.id:f.elements.model.value+':'+solver.id;
-        const saved=configDrafts.get(activeConfigKey);
-        if(initial&&existing){config=structuredClone(existing.config);configured=true;configSchema=existing.config_schema?structuredClone(existing.config_schema):null;
-          if(existing.definition_only&&!configSchema&&config._해석유형==='solver_definition')config=structuredClone(config.requirements||{});
-        }else if(saved){configured=saved.configured;config=structuredClone(saved.config);configSchema=structuredClone(saved.schema);sections={...saved.sections};}
-        else{configured=!isDraft();config=structuredClone(isDraft()?templateReply.config:selectedTemplate().config);configSchema=null;sections={};}
-        configSchema=CFDFormConfig.fromConfig(config,configSchema);drawSections();
-      };
-      setTemplates(true);loadSelection(true);
-      f.elements.solver.onchange=()=>{rememberConfig();setTemplates();loadSelection();};
-      f.elements.model.onchange=()=>{rememberConfig();loadSelection();};
-      f.querySelector('[data-check]').onclick=async()=>{const check=f.querySelector('[data-check]'),result=f.querySelector('[data-install-result]');check.disabled=true;check.textContent='확인 중';result.textContent='확인 중 · OpenFOAM 환경과 솔버 실행 파일을 확인하고 있습니다.';try{const response=await api('/solver-check',{});if(!d.isConnected)return;solvers=response.result.solvers;installation=response.result.installation;drawSolver();}catch(error){result.textContent='확인 실패 · '+error.message;}finally{check.disabled=false;check.textContent='설치 확인';}};
-      f.querySelector('[data-config]').onclick=()=>CFDFormConfig.open({config,schema:configSchema,title:'FORM Config',onValidate:isDraft()&&config?.analysis?.form_generator==='solver-questionnaire-v1'?async value=>(await api('/form-inspect',{solver:selectedSolver().id,config:value})).result:null,onSave:async(value,schema)=>{config=value;configSchema=schema;sections=Object.fromEntries(Object.entries(sections).filter(([key])=>config[key]&&typeof config[key]==='object'));drawSections();}});
-      f.querySelector('[data-wizard]').onclick=()=>CFDFormWizard.open({profile:profileReply.profiles.find(x=>x.solver===selectedSolver().id),answers:config?.analysis?.choices||{},replace:configured,generate:async answers=>(await api('/form-generate',{solver:selectedSolver().id,answers})).result,onApply:async result=>{config=result.config;configSchema=result.config_schema;sections={};configured=true;drawSections();}});
-      if(existing&&!existing.definition_only){const area=node('div',null,'ew-form-config'),info=node('div');info.append(node('strong','프리셋'),node('p','이 FORM 전용 값 묶음'));area.append(info,button('새 프리셋',()=>CFDSettings.open({config,purpose:'preset',managed:true,form:existing,name:'',title:'새 프리셋',submitLabel:'프리셋 저장',onRun:async(name,value)=>{await api('/preset',{name,config:value,form_id:existing.id});await refresh();}})));f.querySelector('.ew-form-sections').after(area);}
+      f.elements.solver.onchange=()=>{drafts.set(active,{config,schema,configured});active=f.elements.solver.value;const saved=drafts.get(active);config=saved?.config||{};schema=saved?.schema||CFDFormConfig.fromConfig({});configured=!!saved?.configured;draw();};
+      f.querySelector('[data-check]').onclick=async()=>{const check=f.querySelector('[data-check]');check.disabled=true;f.querySelector('[data-install-result]').textContent='설치 확인 중';try{const r=await api('/solver-check',{});if(!d.isConnected)return;solvers=r.result.solvers;installation=r.result.installation;draw();}catch(e){f.querySelector('[data-install-result]').textContent=e.message;}finally{check.disabled=false;}};
+      f.querySelector('[data-config]').onclick=()=>CFDFormConfig.open({config,schema,schemaOnly:true,title:'Config 양식',onSave:async(value,definition)=>{config=value;schema=definition;draw();}});
+      f.querySelector('[data-wizard]').onclick=()=>CFDFormWizard.open({profile:profileReply.profiles.find(x=>x.solver===solver().id),answers:config?.analysis?.choices||{},replace:configured,generate:async answers=>(await api('/form-generate',{solver:solver().id,answers})).result,onApply:async result=>{config=result.config;schema=result.config_schema;configured=true;draw();}});
       f.querySelector('[data-cancel]').onclick=()=>d.close();d.onclose=()=>d.remove();
-      f.onsubmit=async e=>{e.preventDefault();const submit=f.querySelector('[type=submit]');submit.disabled=true;try{if(isDraft()&&!configured)throw Error('양식 구성에서 해석 조건을 선택해 주세요');await api('/form',{id,revision:existing?.revision,name:f.elements.name.value,model:f.elements.model.value,solver:f.elements.solver.value,description:f.elements.description.value,config,sections,config_schema:configSchema});d.close();await refresh();}catch(error){f.querySelector('[role=alert]').textContent=error.message;}finally{submit.disabled=false;}};
-      document.body.append(d);d.showModal();
-    }catch(error){message(error.message);}
+      f.onsubmit=async e=>{e.preventDefault();const submit=f.querySelector('[type=submit]');submit.disabled=true;try{if(!configured)throw Error('양식 구성에서 해석 조건을 선택하세요');await api('/form',{id,revision:existing?.revision,name:f.elements.name.value,model:existing?.model||'solver_definition',solver:solver().id,description:f.elements.description.value,config:connected?existing.config:config,sections:existing?.sections||{},input_schema:schema});d.close();await refresh();}catch(e){f.querySelector('[role=alert]').textContent=e.message;}finally{submit.disabled=false;}};
+      draw();document.body.append(d);d.showModal();
+    }catch(e){message(e.message);}
   }
   function renderQueue(){const q=data.queue||{},box=$('ewQueue');box.replaceChildren();$('ewQueueCard').hidden=!q.active&&!q.order?.length&&!q.failure&&!q.service_error;const all=data.projects.flatMap(p=>p.runs);$('ewQueueState').textContent=q.failure?'실패 확인 필요':q.paused?(q.active?'현재 실행 후 일시정지':'일시정지'):q.active||q.order?.length?'순차 실행':'대기열 완료';
     for(const [i,id] of (q.order||[]).entries()){const r=all.find(r=>r.id===id),row=node('div',null,'ew-bar ew-queue-row');row.append(node('span',(i+1)+'. '+(data.projects.find(p=>p.id===r?.project_id)?.name||'프로젝트')+' / '+(r?.name||id)));const move=delta=>{const order=[...q.order],j=i+delta;if(j<0||j>=order.length)return;[order[i],order[j]]=[order[j],order[i]];queueAction('reorder',{ids:order});};const up=button('↑',()=>move(-1)),down=button('↓',()=>move(1));up.title='실행 순서 위로';down.title='실행 순서 아래로';up.disabled=i===0;down.disabled=i===q.order.length-1;row.append(up,down,button('제외',()=>queueAction('remove',{id})));box.append(row);}
@@ -293,7 +256,7 @@
   async function exportCaseCSV(){
     const id=runId;if(!id||csvPending.has(id))return;
     csvPending.add(id);if(detail)showDetail(detail);
-    try{const response=await api('/export-csv',{id});const a=node('a');a.href='/api/executions/export-csv-download?token='+encodeURIComponent(response.result.token);a.download='';document.body.append(a);a.click();a.remove();if(runId===id)message('전체 CSV 다운로드를 시작했습니다.');}
+    try{const response=await api('/export-csv',{id});const a=node('a');a.href='/api/executions/export-csv-download?token='+encodeURIComponent(response.result.token);a.download='';document.body.append(a);a.click();a.remove();if(runId===id)message('전체 CSV 다운로드를 시작했습니다');}
     catch(e){if(runId===id)message('CSV 내보내기 실패: '+e.message);}
     finally{csvPending.delete(id);if(detail)showDetail(detail);}
   }
@@ -301,17 +264,17 @@
     if(!id||queuePending)return;
     try{
       const value=await api('/detail?id='+encodeURIComponent(id)),r=value.recovery;
-      if(!r)throw Error('실패하거나 중단된 Case를 선택하세요.');
+      if(!r)throw Error('실패하거나 중단된 Case를 선택하세요');
       const d=node('dialog',null,'ew-dialog'),content=node('div',null,'ew-recovery-body');
       content.append(node('h2',value.status==='stopped'?'중단 Case':'실패 사유'),node('h3',value.name),node('p',r.reason));
       if(r.evidence){const evidence=node('details');evidence.append(node('summary','오류 기록'),node('pre',r.evidence));content.append(evidence);}
       content.append(node('p',r.action));
       if(r.resume)content.append(node('p',r.resume_reason));
       const actions=node('div',null,'ew-bar');
-      const recover=async action=>{for(const b of actions.querySelectorAll('button'))b.disabled=true;try{const response=await api('/recover',{id,action});d.close();await refresh();await selectRun(response.result.id);message('대기열에 추가했습니다. 대기열 시작을 누르면 계산합니다.');}catch(e){error.textContent=e.message;}finally{for(const b of actions.querySelectorAll('button'))b.disabled=b.textContent==='이어하기'&&!r.resume;}};
+      const recover=async action=>{for(const b of actions.querySelectorAll('button'))b.disabled=true;try{const response=await api('/recover',{id,action});d.close();await refresh();await selectRun(response.result.id);message('대기열에 추가했습니다. 대기열 시작을 누르면 계산합니다');}catch(e){error.textContent=e.message;}finally{for(const b of actions.querySelectorAll('button'))b.disabled=b.textContent==='이어하기'&&!r.resume;}};
       if(value.status==='stopped'){const resume=button('이어하기',()=>recover('continue_case'));resume.disabled=!r.resume;resume.title=r.resume_reason||'';actions.append(resume);}
       if(r.retry)actions.append(button('다시하기',()=>recover('retry')));
-      if(r.retry)content.append(node('p','다시하기는 기존 기록을 보존하고 처음부터 계산합니다.'));
+      if(r.retry)content.append(node('p','다시하기는 기존 기록을 보존하고 처음부터 계산합니다'));
       const error=node('p');error.setAttribute('role','alert');actions.append(button('닫기',()=>d.close()));content.append(error,actions);d.append(content);d.onclose=()=>d.remove();document.body.append(d);d.showModal();
     }catch(e){message(e.message);}
   }
@@ -320,9 +283,10 @@
     if(pending)return;
     try{
       const targetProject=projectId,projectName=currentProject()?.name;
-      const form=forms.find(f=>f.id===currentProject()?.form_id);if(!form)throw Error('프로젝트에서 CFD FORM을 선택하세요');
-      let sourceId=editing?.preset_id||currentProject()?.default_preset||'form:'+form.id;
-      const [presetData,result]=await Promise.all([api('/presets'),source?Promise.resolve({config:structuredClone(source)}):api('/template?id='+encodeURIComponent(sourceId))]);
+      const form=forms.find(f=>f.id===currentProject()?.form_id);if(!form)throw Error('프로젝트에서 CFD Template을 선택하세요');
+      if(form.definition_only)throw Error('이 Template은 Config 저장만 지원합니다 · Case 계산에는 실행기 연결 필요');
+      let sourceId=editing?editing.preset_id:currentProject()?.default_preset||(currentProject()?.initial_config?null:'form:'+form.id);
+      const [presetData,result]=await Promise.all([api('/presets'),source?Promise.resolve({config:structuredClone(source)}):currentProject()?.initial_config&&!editing?Promise.resolve({config:structuredClone(currentProject().initial_config)}):api('/template?id='+encodeURIComponent(sourceId))]);
       const activeForm={...form,...editing?.form_snapshot,capabilities:editing?.form_snapshot?.capabilities||form.capabilities};
       const prepare=config=>CFDSettings.prepareConfig(config,activeForm);
       CFDSettings.open({config:prepare(result.config),managed:true,submitLabel:'실행 저장',name:editing?.name,title:editing?'Case Config':'CFD Case · '+projectName,form:activeForm,presets:presetData.presets.filter(p=>p.form_id===form.id),
@@ -338,11 +302,11 @@
   }
   async function findProject(){
     const d=node('dialog');d.className='ew-dialog';
-    d.innerHTML='<form><h2>프로젝트 찾기</h2><label>프로젝트 폴더<div class="ew-path"><input name="storage_path" required spellcheck="false" placeholder="D:\\CFD Projects\\프로젝트 이름"><button class="btn" type="button" data-pick>찾기</button></div></label><p class="ew-path-note">CFD Studio에서 생성한 프로젝트 폴더를 선택하세요. 파일 형식과 실행 목록을 검증한 후 등록합니다.</p><p role="status" aria-live="polite"></p><div class="ew-bar"><button class="btn pri" type="submit">추가</button><button class="btn" type="button" data-cancel>취소</button></div></form>';
+    d.innerHTML='<form><h2>프로젝트 찾기</h2><label>프로젝트 폴더<div class="ew-path"><input name="storage_path" required spellcheck="false" placeholder="D:\\CFD Projects\\프로젝트 이름"><button class="btn" type="button" data-pick>찾기</button></div></label><p class="ew-path-note">CFD Studio에서 생성한 프로젝트 폴더를 선택하세요. 파일 형식과 실행 목록을 검증한 후 등록합니다</p><p role="status" aria-live="polite"></p><div class="ew-bar"><button class="btn pri" type="submit">추가</button><button class="btn" type="button" data-cancel>취소</button></div></form>';
     const f=d.querySelector('form'),path=f.elements.storage_path,pick=f.querySelector('[data-pick]'),submit=f.querySelector('[type=submit]'),cancel=f.querySelector('[data-cancel]'),notice=f.querySelector('[role=status]');
     let working=false;
     const busy=value=>{working=value;path.disabled=value;pick.disabled=value;submit.disabled=value;cancel.disabled=value;};
-    pick.onclick=async()=>{busy(true);notice.textContent='폴더 선택 창에서 폴더를 선택하거나 취소하세요.';try{const reply=await api('/project-pick',{path:path.value});if(!reply.result.cancelled)path.value=reply.result.path;notice.textContent='';}catch(e){notice.textContent=e.message;}finally{busy(false);}};
+    pick.onclick=async()=>{busy(true);notice.textContent='폴더 선택 창에서 폴더를 선택하거나 취소하세요';try{const reply=await api('/project-pick',{path:path.value});if(!reply.result.cancelled)path.value=reply.result.path;notice.textContent='';}catch(e){notice.textContent=e.message;}finally{busy(false);}};
     cancel.onclick=()=>d.close();d.oncancel=e=>{if(working)e.preventDefault();};d.onclose=()=>d.remove();
     f.onsubmit=async e=>{e.preventDefault();if(working||pending)return;const location=path.value;busy(true);pending=true;renderSidebarAction();notice.textContent='프로젝트 검증 중…';
       try{const reply=await api('/project-open',{storage_path:location});showList();await refresh();await selectProject(reply.result.id);message('프로젝트 등록 완료');d.close();}
@@ -354,7 +318,7 @@
     try {
       const [presetReply,defaults]=await Promise.all([api('/presets'),api('/storage-defaults')]);
       const p=edit?currentProject():null,d=node('dialog');d.className='ew-dialog';
-      d.innerHTML='<form><h2></h2><label>프로젝트 이름<input name="name" required maxlength="80"></label><label>프로젝트 폴더<div class="ew-path"><input name="storage_path" required spellcheck="false" placeholder="D:\\CFD Projects\\프로젝트 이름"><button class="btn" type="button" data-pick>찾기</button></div></label><p class="ew-path-note"></p><label>프로젝트 설명<textarea name="description" maxlength="4000" rows="3"></textarea></label><div class="ew-form-choice"><label>CFD FORM<select name="form_id" required><option value="">해석 대상 선택</option></select></label><label>기본 프리셋<select name="preset" required disabled><option value="">FORM 선택 후 선택</option></select></label></div><p role="alert"></p><div class="ew-bar"><button class="btn pri" type="submit">저장</button><button class="btn" type="button" data-cancel>취소</button></div></form>';
+      d.innerHTML='<form><h2></h2><label>프로젝트 이름<input name="name" required maxlength="80"></label><label>프로젝트 폴더<div class="ew-path"><input name="storage_path" required spellcheck="false" placeholder="D:\\CFD Projects\\프로젝트 이름"><button class="btn" type="button" data-pick>찾기</button></div></label><p class="ew-path-note"></p><label>프로젝트 설명<textarea name="description" maxlength="4000" rows="3"></textarea></label><div class="ew-form-choice"><label>CFD Template<select name="form_id" required><option value="">해석 대상 선택</option></select></label><label>기본 프리셋<select name="preset" disabled><option value="">FORM 선택 후 선택</option></select></label></div><p role="alert"></p><div class="ew-bar"><button class="btn pri" type="submit">저장</button><button class="btn" type="button" data-cancel>취소</button></div></form>';
       d.querySelector('h2').textContent=edit?'프로젝트 관리':'새 프로젝트';
       const f=d.querySelector('form'),path=f.elements.storage_path;
       f.elements.name.value=p?.name||'';f.elements.description.value=p?.description||'';
@@ -362,16 +326,29 @@
       let customPath=edit;
       path.oninput=()=>{customPath=true;};
       f.elements.name.oninput=()=>{if(!customPath){const name=f.elements.name.value.trim().replace(/[\\/:*?"<>|]/g,'_');path.value=name?defaults.base_path.replace(/[\\/]$/,'')+(defaults.base_path.includes('\\')?'\\':'/')+name:'';}};
-      f.querySelector('.ew-path-note').textContent=edit?'위치 변경 시 기존 데이터를 복사·검증합니다. 원본은 보존됩니다.':'이 폴더에 설정·Case·원본·시각화 데이터를 저장합니다.';
-      for(const item of forms){const option=new Option(item.name+(item.definition_only?' · 연결 대기':''),item.id);option.disabled=!!item.definition_only;f.elements.form_id.append(option);}
-      const filterPresets=()=>{f.elements.preset.replaceChildren(new Option('프리셋 선택',''));for(const item of presetReply.presets.filter(x=>x.form_id===f.elements.form_id.value))f.elements.preset.append(new Option(item.name,item.id));f.elements.preset.disabled=!f.elements.form_id.value;};
-      f.elements.form_id.value=p?.form_id||'';f.elements.form_id.disabled=edit;filterPresets();f.elements.preset.value=p?.default_preset||(p?'form:'+p.form_id:'');f.elements.form_id.onchange=filterPresets;
-      const pick=f.querySelector('[data-pick]');pick.onclick=async()=>{pick.disabled=true;f.querySelector('[role=alert]').textContent='폴더 선택 창에서 폴더를 선택하거나 취소하세요.';try{const r=await api('/project-pick',{path:path.value||defaults.base_path});if(!r.result.cancelled){path.value=r.result.path;customPath=true;}f.querySelector('[role=alert]').textContent='';}catch(e){f.querySelector('[role=alert]').textContent=e.message;}finally{pick.disabled=false;}};
+      f.querySelector('.ew-path-note').textContent=edit?'위치 변경 시 기존 데이터를 복사·검증합니다. 원본은 보존됩니다':'이 폴더에 설정·Case·원본·시각화 데이터를 저장합니다';
+      for(const item of forms){const option=new Option(item.name+(item.definition_only?' · 실행 연결 필요':''),item.id);f.elements.form_id.append(option);}
+      let projectConfig=null,configEpoch=0;
+      const configArea=node('div',null,'ew-form-config'),configStatus=node('p','Config 입력 필요'),configButton=button('Config 입력',async()=>{
+        try{const selected=forms.find(x=>x.id===f.elements.form_id.value);if(!selected)throw Error('CFD Template을 선택하세요');const token=++configEpoch;
+          const value=projectConfig|| (f.elements.preset.value?(await api('/template?id='+encodeURIComponent(f.elements.preset.value))).config:selected.blank_config);
+          if(token!==configEpoch||!d.isConnected)return;
+          const editorSchema=CFDFormConfig.fromConfig(value,selected.input_schema);
+          CFDFormConfig.open({config:value,schema:editorSchema,valuesOnly:true,title:'프로젝트 Config',onValidate:selected.definition_only?async c=>(await api('/form-inspect',{solver:selected.solver,config:c})).result:null,onSave:async c=>{
+            await api('/project-config-check',{form_id:selected.id,config:c});if(token!==configEpoch||f.elements.form_id.value!==selected.id)return;projectConfig=structuredClone(c);configStatus.textContent='Config 입력 완료';configButton.textContent='Config 편집';
+          }});
+        }catch(e){f.querySelector('[role=alert]').textContent=e.message;}
+      });configArea.append(configStatus,configButton);
+      const presetSave=node('label'),presetCheck=node('input'),presetName=node('input');presetSave.className='ew-preset-save';presetCheck.type='checkbox';presetCheck.checked=false;presetName.placeholder='새 프리셋 이름';presetName.setAttribute('aria-label','새 프리셋 이름');presetName.hidden=true;presetCheck.onchange=()=>{presetName.hidden=!presetCheck.checked;};presetSave.append(presetCheck,node('span','프리셋에 저장'));
+      if(!edit)f.querySelector('.ew-form-choice').after(configArea,presetSave,presetName);
+      const filterPresets=()=>{f.elements.preset.replaceChildren(new Option('직접 입력',''));projectConfig=null;configButton.disabled=!f.elements.form_id.value;configStatus.textContent='Config 입력 필요';for(const item of presetReply.presets.filter(x=>x.form_id===f.elements.form_id.value))f.elements.preset.append(new Option(item.name,item.id));f.elements.preset.disabled=!f.elements.form_id.value;};
+      f.elements.form_id.value=p?.form_id||'';f.elements.form_id.disabled=edit;filterPresets();f.elements.preset.value=p?.default_preset||(p?'form:'+p.form_id:'');f.elements.form_id.onchange=()=>{configEpoch++;filterPresets();};f.elements.preset.onchange=()=>{configEpoch++;projectConfig=null;configStatus.textContent=f.elements.preset.value?'선택한 프리셋 적용':'Config 입력 필요';configButton.textContent='Config 입력';};
+      const pick=f.querySelector('[data-pick]');pick.onclick=async()=>{pick.disabled=true;f.querySelector('[role=alert]').textContent='폴더 선택 창에서 폴더를 선택하거나 취소하세요';try{const r=await api('/project-pick',{path:path.value||defaults.base_path});if(!r.result.cancelled){path.value=r.result.path;customPath=true;}f.querySelector('[role=alert]').textContent='';}catch(e){f.querySelector('[role=alert]').textContent=e.message;}finally{pick.disabled=false;}};
       f.querySelector('[data-cancel]').onclick=()=>d.close();d.onclose=()=>d.remove();
       f.onsubmit=async e=>{e.preventDefault();if(pending)return;pending=true;renderProjects();
         const submit=f.querySelector('[type=submit]');submit.disabled=true;pick.disabled=true;
         f.querySelector('[role=alert]').textContent=edit&&path.value!==p.storage_path?'프로젝트 복사·검증 중…':'';
-        try{const result=await api(edit?'/project-edit':'/project',{id:p?.id,name:f.elements.name.value,description:f.elements.description.value,default_preset:f.elements.preset.value||null,form_id:f.elements.form_id.value,storage_path:path.value});await refresh();await selectProject(result.result.id);d.close();}
+        try{if(!edit&&!projectConfig){if(!f.elements.preset.value)throw Error('Config 입력을 완료하세요');projectConfig=(await api('/template?id='+encodeURIComponent(f.elements.preset.value))).config;}if(!edit&&presetCheck.checked&&!presetName.value.trim())throw Error('새 프리셋 이름을 입력하세요');const result=await api(edit?'/project-edit':'/project',{id:p?.id,name:f.elements.name.value,description:f.elements.description.value,default_preset:f.elements.preset.value||null,form_id:f.elements.form_id.value,storage_path:path.value,...(!edit?{initial_config:projectConfig,preset_name:presetCheck.checked?presetName.value.trim():null}:{})});await refresh();await selectProject(result.result.id);d.close();}
         catch(err){f.querySelector('[role=alert]').textContent=err.message;}
         finally{pending=false;renderProjects();submit.disabled=false;pick.disabled=false;}
       };
@@ -392,9 +369,9 @@ body.grouped #side>section{flex:0 0 auto;min-height:auto}body.grouped #secRun,bo
 .ew-layout{display:grid;grid-template-columns:minmax(260px,.8fr) minmax(340px,1.25fr);gap:14px;align-items:start}.ew-list-panel,.ew-detail-panel,.ew-queue-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:0}.ew-list-heading{padding:16px 16px 12px}.ew-list-heading .ew-bar{margin-bottom:12px}#ewRunCount{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}#ewSearch{width:100%;height:34px;padding:0 11px;border:1px solid var(--line);border-radius:7px;color:var(--ink);background:var(--page);font:inherit;font-size:12px}#ewRows{grid-template-columns:minmax(0,1fr);grid-auto-rows:max-content;align-content:start;box-sizing:border-box;height:clamp(280px,calc(100vh - 340px),680px);overflow-y:scroll;overflow-x:hidden;scrollbar-gutter:stable;overscroll-behavior:contain;padding:0 8px 8px;display:grid;gap:5px}.ew-run-card{min-width:0;display:block;width:100%;padding:12px;text-align:left;background:transparent;border:1px solid transparent;border-radius:8px;color:var(--ink);cursor:pointer;font:inherit}.ew-run-card:hover{background:var(--surface2)}.ew-run-card.selected{background:rgba(57,135,229,.09);border-color:rgba(57,135,229,.6)}.ew-run-top{display:flex;align-items:center;gap:8px;margin-bottom:9px}.ew-run-top strong{min-width:0;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}.ew-run-meta{display:flex;justify-content:space-between;gap:8px;font-size:10.5px;color:var(--muted);margin-top:5px}.ew-run-meta span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ew-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap;color:var(--ink2)}.ew-badge::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--muted)}.ew-badge[data-state=complete],.ew-badge[data-state=ready],.ew-badge[data-state=passed]{color:#70ce9d}.ew-badge[data-state=complete]::before,.ew-badge[data-state=ready]::before,.ew-badge[data-state=passed]::before{background:#70ce9d}.ew-badge[data-state=failed]{color:#ed9288}.ew-badge[data-state=failed]::before{background:#ed9288}.ew-badge[data-state=running],.ew-badge[data-state=queued]{color:#88bafd}.ew-badge[data-state=running]::before,.ew-badge[data-state=queued]::before{background:#88bafd}
 .ew-detail-head{padding:20px;border-bottom:1px solid var(--line)}#ewRunTitle{font-size:16px!important;line-height:1.5;overflow-wrap:anywhere;margin:10px 0 14px!important}#ewFacts{font-size:11px;color:var(--muted)}.ew-detail-head>.ew-bar:first-child{justify-content:space-between}.ew-detail-actions{display:flex;gap:8px;flex-wrap:wrap}.ew-detail-actions .pri{margin-left:auto}#ewStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin:18px 0 0}.ew-stat{display:grid;gap:8px;padding:0 12px;border-left:1px solid var(--line);min-width:0}.ew-stat:first-child{padding-left:0;border:0}.ew-stat>span:first-child{font-size:10px;color:var(--muted)}.ew-stat .ew-badge{font-size:13px}.ew-stat .ew-badge[data-state='']::before{display:none}#ewProgress{margin-top:18px}#ewProgress .ew-bar{justify-content:space-between;margin-bottom:7px;color:var(--muted);font-size:10px}#ewProgress .pbar{height:5px}
-.ew-detail-body{padding:16px 20px}.ew-setting-line{display:flex;justify-content:space-between;gap:12px;font-size:11px;color:var(--muted);margin-bottom:12px}#ewStopLabel{color:var(--ink2)}#ewGoals{font-size:12px;line-height:1.6;color:var(--ink2);white-space:pre-wrap;margin-bottom:12px!important}#ewConfigSummary{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:12px!important}#ewDifferenceBox{border-top:1px solid var(--line);padding:12px 0 0;font-size:11px;color:var(--muted)}#ewDifferenceCount{float:right}#ewPanel #ewDifferences{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.8;min-height:96px;max-height:320px;overflow:auto;margin:0;padding:16px;box-sizing:border-box}#ewLogBox{border-top:1px solid var(--line);padding:14px 20px}#ewLogBox summary{font-size:11px;color:var(--ink2)}#ewLog{height:180px;max-height:35vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:10px/1.6 monospace;color:var(--muted);padding:12px;background:var(--page);border-radius:6px;margin:12px 0 0}
+.ew-detail-body{padding:16px 20px}.ew-setting-line{display:flex;justify-content:space-between;gap:12px;font-size:11px;color:var(--muted);margin-bottom:12px}#ewStopLabel{color:var(--ink2)}#ewGoals{font-size:12px;line-height:1.6;color:var(--ink2);white-space:pre-wrap;margin-bottom:12px!important}#ewConfigSummary{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:12px!important}#ewDifferenceBox{border-top:1px solid var(--line);padding:12px 0 0;font-size:11px;color:var(--muted)}#ewDifferenceCount{float:right}#ewPanel #ewDifferences{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.8;min-height:96px;max-height:320px;overflow:auto;margin:0;padding:16px;box-sizing:border-box}#ewLogBox{border-top:1px solid var(--line);padding:14px 20px}#ewDifferenceBox h3,#ewLogBox h3{display:flex;align-items:center;margin:0;padding:12px;background:var(--surface2);font-weight:500;font-size:11px;color:var(--ink2)}#ewLog{height:180px;max-height:35vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:10px/1.6 monospace;color:var(--muted);padding:12px;background:var(--page);border-radius:6px;margin:12px 0 0}
 .ew-recovery-body{padding:24px;max-width:560px}.ew-recovery-body p{line-height:1.6;margin:14px 0!important}.ew-recovery-body pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto}.ew-recovery-body .ew-bar{margin-top:20px}#ewMessage,#ewRunError,#ewQueueError{font-size:12px;color:#e0ac77;line-height:1.6;overflow-wrap:anywhere}#ewMessage:not(:empty){margin-bottom:14px!important}#ewRunError:not(:empty){margin-top:12px!important}.ew-queue-card{margin-top:14px;padding:14px 18px}.ew-queue-card>summary{list-style:none}.ew-queue-card>summary::-webkit-details-marker{display:none}#ewQueueState{font-size:11px;color:var(--muted)}.ew-queue-actions{margin:14px 0 8px}#ewQueue .ew-bar span{flex:1;font-size:12px}.ew-queue-row{border-top:1px solid var(--line);padding:9px 0}.ew-queue-row .btn{height:28px;padding:0 9px;font-size:11px}.ew-empty{padding:26px 12px;text-align:center;color:var(--muted);font-size:12px}
-.ew-dialog{width:min(500px,90vw);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:22px}.ew-dialog::backdrop{background:#000a}.ew-dialog label{display:grid;gap:6px;margin:14px 0;font-size:12px}.ew-dialog input,.ew-dialog textarea,.ew-dialog select{width:100%;box-sizing:border-box;background:var(--page);color:var(--ink);border:1px solid var(--line);padding:8px;border-radius:7px}.ew-dialog .ew-bar{justify-content:flex-end}
+.ew-dialog{max-height:90vh;overflow:auto;box-sizing:border-box;width:min(500px,90vw);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:22px}.ew-dialog::backdrop{background:#000a}.ew-dialog label{display:grid;gap:6px;margin:14px 0;font-size:12px}.ew-dialog input,.ew-dialog textarea,.ew-dialog select{width:100%;box-sizing:border-box;background:var(--page);color:var(--ink);border:1px solid var(--line);padding:8px;border-radius:7px}.ew-dialog .ew-bar{justify-content:flex-end}.ew-dialog label.ew-preset-save{display:flex;align-items:center;gap:8px}.ew-dialog .ew-preset-save input{width:16px;margin:0}.ew-solver-card a{color:var(--s1);text-underline-offset:3px}
 @media(max-width:1100px){.ew-layout{grid-template-columns:1fr}#ewRows{height:250px}.ew-heading{align-items:flex-start}body.grouped #dash{padding:14px}}@media(max-width:720px){.ew-heading{display:block}.ew-heading>.ew-bar{margin-top:12px}#ewStats{grid-template-columns:1fr;gap:12px}.ew-stat{border:0;padding:0}}
 
 #ewRunCount{margin-left:6px}
@@ -432,14 +409,14 @@ body.grouped #warehouseDetails details{margin-top:8px}body.grouped #warehouseDet
 
 `;document.head.append(style);
     const sidebar=node('section',null);sidebar.id='ewSidebar';const create=button('새 프로젝트',createProject);create.id='ewCreateProject';const find=button('프로젝트 찾기',findProject);find.id='ewFindProject';const actions=node('div');actions.id='ewSidebarActions';actions.append(find,create);const projectHeading=node('div',null,'ew-project-heading');projectHeading.append(node('h2','프로젝트'));sidebar.append(projectHeading,actions);
-    const projects=node('div');projects.id='ewProjects';projects.setAttribute('aria-label','프로젝트 목록');projects.tabIndex=0;sidebar.append(projects);const presetBox=node('section');presetBox.id='ewPresets';const heading=node('div',null,'ew-project-heading');heading.append(node('h2','CFD FORM 리스트'),button('',()=>formEditor(),'btn ew-heading-action'));heading.lastChild.id='ewCreateForm';heading.lastChild.setAttribute('aria-label','새 CFD FORM');heading.lastChild.title='새 CFD FORM';const formList=node('div');formList.id='ewFormList';formList.setAttribute('aria-label','CFD FORM 목록');formList.tabIndex=0;presetBox.append(heading,formList);sidebar.append(presetBox);const viewerCases=node('section');viewerCases.id='ewViewerCases';const caseHeading=node('div',null,'ew-project-heading'),reload=$('btnRun');reload.className='btn ew-heading-action';reload.removeAttribute('style');reload.title='다시 읽기';reload.setAttribute('aria-label','다시 읽기');$('btnRunTxt').textContent='다시 읽기';caseHeading.append(node('h2','CFD Case'),reload);viewerCases.append(caseHeading);const caseList=node('div');caseList.id='ewViewerCaseList';caseList.setAttribute('aria-label','CFD Case 목록');caseList.tabIndex=0;viewerCases.append(caseList);sidebar.append(viewerCases);$('side').prepend(sidebar);
+    const projects=node('div');projects.id='ewProjects';projects.setAttribute('aria-label','프로젝트 목록');projects.tabIndex=0;sidebar.append(projects);const presetBox=node('section');presetBox.id='ewPresets';const heading=node('div',null,'ew-project-heading');heading.append(node('h2','CFD Template 리스트'),button('',()=>formEditor(),'btn ew-heading-action'));heading.lastChild.id='ewCreateForm';heading.lastChild.setAttribute('aria-label','새 CFD Template');heading.lastChild.title='새 CFD Template';const formList=node('div');formList.id='ewFormList';formList.setAttribute('aria-label','CFD Template 목록');formList.tabIndex=0;presetBox.append(heading,formList);sidebar.append(presetBox);const viewerCases=node('section');viewerCases.id='ewViewerCases';const caseHeading=node('div',null,'ew-project-heading'),reload=$('btnRun');reload.className='btn ew-heading-action';reload.removeAttribute('style');reload.title='다시 읽기';reload.setAttribute('aria-label','다시 읽기');$('btnRunTxt').textContent='다시 읽기';caseHeading.append(node('h2','CFD Case'),reload);viewerCases.append(caseHeading);const caseList=node('div');caseList.id='ewViewerCaseList';caseList.setAttribute('aria-label','CFD Case 목록');caseList.tabIndex=0;viewerCases.append(caseList);sidebar.append(viewerCases);$('side').prepend(sidebar);
     const emptyViewer=node('div');emptyViewer.id='ewViewerEmpty';emptyViewer.setAttribute('role','status');$('viz').append(emptyViewer);
     const panel=node('section');panel.id='ewPanel';panel.innerHTML=`
 <header class="ew-heading"><div><h2 id="ewTitle">프로젝트</h2><p id="ewDescription"></p><p id="ewDefault"></p><p id="ewStorage"></p></div><div class="ew-bar"><button id="ewRename" class="btn">프로젝트 관리</button><button id="ewNewRun" class="btn pri">+CFD Case</button></div></header>
 <p id="ewMessage" role="status"></p>
 <div class="ew-layout"><div class="ew-list-panel"><div class="ew-list-heading"><div class="ew-bar"><h3>실행 목록 <span id="ewRunCount"></span></h3></div><input id="ewSearch" aria-label="실행 검색" placeholder="실행 검색"></div><div id="ewRows" role="group" aria-label="CFD 실행 목록"></div></div>
 <div class="ew-detail-panel"><div class="ew-detail-head"><div class="ew-bar"><p id="ewFacts"></p><div id="ewStatus"></div></div><h3 id="ewRunTitle">실행 선택</h3><div class="ew-detail-actions"><button id="ewSettings" class="btn" disabled>Config 보기</button><button id="ewFolder" class="btn" disabled>결과 폴더</button><button id="ewCSV" class="btn" disabled title="전체 시계열·저장 공간 데이터를 CSV 묶음으로 내보내기">전체 CSV</button><button id="ewView" class="btn pri" disabled>열기</button><button id="ewEnqueue" class="btn" disabled>대기열에 추가</button><button id="ewRecovery" class="btn" hidden>다시하기</button><button id="ewStop" class="btn dng" hidden>실행 중단</button></div><div id="ewStats"></div><div id="ewProgress" hidden><div class="ew-bar"><span id="ewProgressLabel"></span><span id="ewProgressValue"></span></div><div class="pbar"><div id="ewProgressFill"></div></div></div><p id="ewRunError" role="alert"></p></div>
-<div class="ew-detail-body"><div class="ew-setting-line"><span>종료 조건</span><span id="ewStopLabel">—</span></div><p id="ewConfigSummary"></p><p id="ewGoals"></p><details id="ewDifferenceBox"><summary>Config 차이 <span id="ewDifferenceCount"></span></summary><pre id="ewDifferences"></pre></details></div><details id="ewLogBox"><summary>솔버 로그</summary><pre id="ewLog"></pre></details></div></div>
+<div class="ew-detail-body"><div class="ew-setting-line"><span>종료 조건</span><span id="ewStopLabel">—</span></div><p id="ewConfigSummary"></p><p id="ewGoals"></p><section id="ewDifferenceBox"><h3>Config 차이 <span id="ewDifferenceCount"></span></h3><pre id="ewDifferences"></pre></section></div><section id="ewLogBox"><h3>솔버 로그</h3><pre id="ewLog"></pre></section></div></div>
 <details id="ewQueueCard" class="ew-queue-card" open><summary class="ew-bar"><h3>대기열</h3><span id="ewQueueState"></span></summary><div class="ew-bar ew-queue-actions"><button id="ewQueueStart" class="btn pri">대기열 시작</button><button id="ewQueuePause" class="btn">다음 실행부터 일시정지</button></div><div id="ewQueue"></div><p id="ewQueueError"></p><div id="ewFailures" class="ew-bar" hidden><button id="ewRetry" class="btn" hidden>실패 사유 및 복구</button><button id="ewSkip" class="btn" hidden>건너뛰기</button></div></details>`;
     document.querySelector('#dash .dlog').append(panel);
     for(const group of panel.querySelectorAll('details')){const summary=group.querySelector('summary'),hint=node('span',null,'ew-disclosure-state');summary.append(hint);const sync=()=>{hint.textContent=group.open?'접기':'펼치기';summary.setAttribute('aria-expanded',String(group.open));};group.addEventListener('toggle',sync);sync();}

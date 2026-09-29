@@ -79,7 +79,7 @@ def generate(solver,answers):
     else:
         stop['max_time']=quantity('s')
         if a['termination']=='physical_time':stop['end_time']=quantity('s')
-        if a['termination']=='frames':stop.update(saved_frames=None,include_initial_frame=False)
+        if a['termination']=='frames':stop.update(saved_frames=None,include_initial_frame=None)
     config={'analysis':{'form_generator':'solver-questionnaire-v1','solver':solver,'time_mode':p['time_mode'],'choices':a},
             'geometry':{'source':'','fluid_regions':[]},'mesh':mesh,'materials':{'fluids':fluids},
             'physics':{'flow_regime':a['regime']},'initial_conditions':{'fields':initial},
@@ -102,19 +102,23 @@ def generate(solver,answers):
     from cfd_studio.solver_requirements import refine,annotate
     config=refine(solver,config)
     schema=annotate(solver,config,make_schema(config))
+    from cfd_studio.form_schema import blank_schema,config_from_schema
+    schema=blank_schema(config,schema)
+    config=config_from_schema(schema)
     return {'config':config,'config_schema':schema,'sections':list(config),
             'summary':{'solver':solver,'choices':{key:LABELS[key][value] for key,value in a.items()},'fields':list(field_units)},
             'definition_only':True}
 
 def make_schema(config):
-    integers={'correctors','sustain_steps','max_iterations','saved_frames','subcycles'}
+    integers={'correctors','sustain_steps','max_iterations','saved_frames','subcycles','cell','nCorrectors','nOuterCorrectors','nNonOrthogonalCorrectors','nAlphaCorr','nAlphaSubCycles'}
     def fields(obj):
         result=[]
         for key,value in obj.items():
             field={'key':key,'unit':obj.get('unit','') if key in ('value','x','y','z') else ''}
             if isinstance(value,dict):field.update(type='object',fields=fields(value))
-            elif value is None:field.update(type='integer' if key in integers else 'number',nullable=True,value=None)
+            elif value is None:field.update(type='boolean' if key in ('include_initial_frame','adjust_time_step') else 'integer' if key in integers else 'number',nullable=True,value=None)
             elif isinstance(value,bool):field.update(type='boolean',value=value)
+            elif isinstance(value,(int,float)):field.update(type='integer' if key in integers else 'number',value=value)
             elif isinstance(value,list):field.update(type='array',value=copy.deepcopy(value))
             else:field.update(type='string',value=value)
             result.append(field)

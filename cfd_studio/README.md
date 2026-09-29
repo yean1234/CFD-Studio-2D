@@ -58,7 +58,7 @@ wsl -l -v
 - sudo 요청 시 Ubuntu 사용자 비밀번호 입력
 - 완료 메시지 확인 → `cfd_studio/실행.bat` 더블클릭
 - 기본 접속 주소: `http://127.0.0.1:8712`. 실제 주소는 실행창에서 확인
-- 프로젝트 생성 → CFD FORM·프리셋 선택 → +CFD Case
+- 프로젝트 생성 → CFD Template·프리셋 선택 → +CFD Case
 
 ## 설치 범위
 
@@ -69,7 +69,7 @@ wsl -l -v
 - `warehouseBuoyantFoam` 등 저장소의 전용 솔버: 별도 빌드 필요. BAT가 모든 전용 솔버를 빌드하지 않음
 - GPU 전용 환경·라이브러리: 별도 설치·검증 필요. 기본 설치는 CPU 환경
 - `tracer_transport/requirements.txt`: 별도 Python 연구·그림 생성 도구의 의존성. Studio 일반 실행용 필수 설치 목록과 구분
-- FORM의 **설치 확인**: 실행 파일 존재 여부 확인. 패키지 설치 버튼이 아님
+- Template의 **설치 확인**: 실행 파일 존재 여부 확인. 패키지 설치 버튼이 아님
 - 솔버 설치와 Studio의 입력 생성·실행·결과 연결 지원은 별도
 
 ## 문제 해결
@@ -84,9 +84,9 @@ wsl -l -v
 
 ## 배포 구성
 
-- 기본 CFD FORM 정의: `templates/cfd-forms.json`
+- 기본 CFD Template 정의: `templates/cfd-forms.json`
 - 기본 Config: `configs/immersion.json`, `configs/grain_silo.json`, `tracer_transport`의 저장고 입력 템플릿
 - 솔버별 입력 정의·양식 생성·결과 항목: `internal`의 FORM 및 솔버 모듈
 - 사용자 프로젝트·Case·원본 결과·캐시·PC별 등록 정보: Git 업로드 제외
-- 사용자 정의 FORM과 프리셋: 로컬 등록부에 보관. 배포용 기본 정의와 별도
+- 사용자 정의 Template과 프리셋: 로컬 등록부에 보관. 배포용 기본 정의와 별도
 - 다른 위치의 프로젝트 사용: **CFD → 프로젝트 찾기 → 폴더 지정 → 추가**

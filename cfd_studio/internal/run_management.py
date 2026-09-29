@@ -202,7 +202,7 @@ class RunManagement:
             if form_id:
                 self.check_form_config(form_id, config)
                 self.check_form_preset(form_id, preset_id)
-            source = old.get('baseline', {}) if old else self.template(preset_id) if preset_id else copy.deepcopy(config)
+            source = old.get('baseline', {}) if old else self.template(preset_id) if preset_id else copy.deepcopy(project.get('initial_config') or config)
             key = case_id or 'case:'+uuid.uuid4().hex
             case = {**(old or {}), 'id': key, 'project_id': project_id, 'name': name, 'config': config,
                     'form_id': form_id, 'form_snapshot': copy.deepcopy(old.get('form_snapshot') if old else self.form(form_id)) if form_id else None,
@@ -429,12 +429,13 @@ class RunManagement:
             selected_form = form_id or p.get('form_id')
             if selected_form:
                 if selected_form != self.project_form(p, self.discover()):
-                    raise ValueError('프로젝트의 CFD FORM은 고정됩니다. 새 프로젝트를 만드세요.')
+                    raise ValueError('프로젝트의 CFD Template은 고정됩니다. 새 프로젝트를 만드세요.')
                 self.check_form_preset(selected_form, default_preset)
             if storage_path and project_path(storage_path) != project_path(p['storage_path']):
                 self.relocate_project(key, storage_path)
                 data = self._catalog(self.discover())
                 p = next(p for p in data['projects'] if p['id'] == key)
+            if default_preset!=p.get('default_preset'):p.pop('initial_config',None)
             p.update(name=name, description=description, default_preset=default_preset, form_id=selected_form)
             self.persist_catalog(data)
             return p
