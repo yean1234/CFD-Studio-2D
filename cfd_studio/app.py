@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v197"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v198"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -5343,7 +5343,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <h4>상태 읽기</h4>
    <ul><li><b>설치 확인</b>: 현재 OpenFOAM 환경에 실행 파일이 존재하는지 확인</li><li><b>입력 검사</b>: 정의한 필수값·자료형·기본 범위 확인. 물리 정확도 보증은 별도</li><li><b>실행 연결</b>: Config를 솔버 입력으로 변환하고 결과를 읽는 어댑터. 새 FORM의 JSON만으로 자동 연결되지 않음</li><li><b>실행 상태 / 수치 검사 / 시각화</b>: 계산 진행, 수치 점검, Viewer 준비 상태를 각각 표시</li></ul>
    <h4>결과와 시간</h4>
-   <ul><li>3D Virtual Viewer: 저장된 장·형상·시간별 변화 탐색</li><li>Data Sheet Viewer: 여러 Case의 시계열·수치 비교</li><li>계산 시간간격·저장 간격·재생 속도·종료 조건은 서로 독립</li><li>파일 검사·입력 검사 통과와 격자 수렴·실험 검증은 각각 별도 판단</li></ul>
+   <ul><li>3D Virtual Viewer: 저장된 장·형상·시간별 변화 탐색</li><li>Data Sheet Viewer: 선택한 Case의 시계열·수치 조회</li><li>계산 시간간격·저장 간격·재생 속도·종료 조건은 서로 독립</li><li>파일 검사·입력 검사 통과와 격자 수렴·실험 검증은 각각 별도 판단</li></ul>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/solver-input-definitions-20260929.md" target="_blank" rel="noopener noreferrer">솔버별 입력 정의</a></p>
   </div>
   <div class="ibx" id="ifB1" style="display:none">
@@ -5358,7 +5358,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <h4>Config</h4>
    <ul><li>CFD 실행 카드의 <b>Config 보기</b>: 실행에 사용한 원본 입력 조회</li><li><b>이 Config로 새 Case</b>: 기존 입력을 가져와 수정, 앞선 실행 보존</li><li>형상·격자 / 물성·경계조건 / 솔버·계산 / 관측·비교로 구분. 출처는 마지막 항목</li></ul>
    <h4>결과 보기</h4>
-   <ul><li>Viewer 왼쪽 CFD Case: 이름을 눌러 3D 결과 전환, 체크박스로 그래프 비교 대상 선택</li><li>3D 아래 시간 막대·재생·배속: 저장 프레임 탐색</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>저장고 속도장 아래 표시 밀도: 표준·세밀·매우 세밀. 범례에 표시 벡터 수, 상단에 표시 셀 / 전체 셀 확인</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>왼쪽 <b>3D Virtual Viewer</b> 버튼: <b>Data Sheet Viewer</b>로 전환, 다시 누르면 3D 복귀</li><li>Data Sheet: 여러 Case의 결과 항목 비교·CSV 저장. 그래프 클릭·드래그 또는 좌우 화살표로 저장 시점의 X·Y 확인</li><li><b>전체 구간 읽기</b>: 아직 읽지 않은 저장값부터 읽기. Case별 200개 이하 자동 읽기. 정상 해석의 X축은 반복 횟수</li><li>재생 바 오른쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
+   <ul><li>Viewer 왼쪽 CFD Case: 하나를 선택해 3D·그래프 결과 전환. 제목 오른쪽 다시 읽기로 선택한 결과 갱신</li><li>3D 아래 시간 막대·재생·배속: 저장 프레임 탐색</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>저장고 속도장 아래 표시 밀도: 표준·세밀·매우 세밀. 범례에 표시 벡터 수, 상단에 표시 셀 / 전체 셀 확인</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>왼쪽 <b>3D Virtual Viewer</b> 버튼: <b>Data Sheet Viewer</b>로 전환, 다시 누르면 3D 복귀</li><li>Data Sheet: 선택한 Case의 결과 항목 조회·CSV 저장. 그래프 클릭·드래그 또는 좌우 화살표로 저장 시점의 X·Y 확인</li><li><b>전체 구간 읽기</b>: 아직 읽지 않은 저장값부터 읽기. Case별 200개 이하 자동 읽기. 정상 해석의 X축은 반복 횟수</li><li>재생 바 오른쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
    <p class="mhint">저장고 애니메이션: 저장 프레임 사이 선형 보간. 흐름 마커: 유속 방향 표시. 1×는 물리시간 1초를 화면 1초로 재생합니다.</p>
    <h4>프로젝트 저장</h4>
    <ul><li>새 프로젝트·프로젝트 관리에서 저장 폴더 지정. C·D 등 드라이브 선택 가능</li><li>설정·Case별 실행 기록·원본·시각화·캐시를 프로젝트 폴더에 저장</li><li>기존 결과는 원래 경로를 유지. 프로젝트 위치 변경 시 복사·검증 후 연결 전환, 원본 보존</li><li>실행 중에는 위치 변경 불가. 독립 프리셋은 Studio에 보관</li></ul>
@@ -6045,7 +6045,7 @@ function updateSlots(){
   set('slFlow',want.flow?cnt(Object.keys(FLOWMAP).length,SRV.flow):'선택 안 함',nf>0);
   set('slTherm','해당 없음',false);
   const ready=npr>0||ntr>0||nf>0,cached=hasCachedViz(),action=cached?'업데이트':'생성';
-  const bt=document.getElementById('btnRunTxt'),br=document.getElementById('btnRunReadyTxt');if(bt)bt.textContent=action;if(br)br.textContent=action;
+  const bt=document.getElementById('btnRunTxt'),br=document.getElementById('btnRunReadyTxt');if(bt)bt.textContent=document.body.classList.contains('grouped')?'다시 읽기':action;if(br)br.textContent=action;
   const bg=document.getElementById('btnRun');if(bg)bg.disabled=isWatching();
   const pn=document.getElementById('projDataName'),pr=LASTPROJS.find(p=>p.rid===(vzrid()||CURC));if(pn)pn.textContent=pr?(pr.name||pr.rid):'';
   const ei=document.getElementById('emptyIntro'),er=document.getElementById('emptyReady');if(ei&&er){ei.style.display=ready?'none':'';er.style.display=ready?'':'none';}
@@ -6064,7 +6064,7 @@ function updateSlots(){
  // 선택/Viewer 진입 시 자동 복원되므로 별도 '실행' 명령을 둘 필요가 없다.
  const action=cached?'업데이트':'생성';
  const bt=document.getElementById('btnRunTxt'),br=document.getElementById('btnRunReadyTxt');
- if(bt)bt.textContent=action;if(br)br.textContent=action;
+ if(bt)bt.textContent=document.body.classList.contains('grouped')?'다시 읽기':action;if(br)br.textContent=action;
  const bg=document.getElementById('btnRun');if(bg)bg.disabled=isWatching();
  const bu=document.getElementById('btnUpdateViz');
  if(bu){bu.style.display='none';bu.disabled=isWatching();}

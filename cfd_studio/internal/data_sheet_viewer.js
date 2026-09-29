@@ -33,7 +33,7 @@ const DataSheetViewer=(()=>{
  function stopRead(){epoch++;controller?.abort();controller=null;reading=false;refresh();}
  function metricOptions(){const options=new Map();for(const r of selected){const c=catalogs.get(r.id);if(!c)continue;for(const m of c.metrics)options.set(sheetMetricKey(m,c.axis),{...m,axis:c.axis});}return options;}
  function dataset(){const metric=metricOptions().get($('dsField')?.value);if(!metric)return {series:[],name:'',unit:'',axis:'time'};return {...metric,series:selected.flatMap((r,i)=>{const c=catalogs.get(r.id);if(!c||!c.metrics.some(m=>sheetMetricKey(m,c.axis)===$('dsField').value))return [];return [{name:r.name,color:colors[Math.max(0,project?.runs.findIndex(item=>item.id===r.id)??i)%colors.length],pts:cache.get(r.id+'|'+$('dsField').value)?.points||[],id:r.id}];})};}
- function refresh(){mount();$('dsName').textContent=project?.name||context?.name||'Data Sheet';$('dsSelection').textContent=selected.length?`${selected.length}개 Case 비교`:'왼쪽에서 비교할 Case를 선택하세요';
+ function refresh(){mount();$('dsName').textContent=project?.name||context?.name||'Data Sheet';$('dsSelection').textContent=selected.length?selected[0].name:'왼쪽에서 Case를 선택하세요';
  const options=metricOptions(),select=$('dsField'),old=select.value,key=JSON.stringify([...options.keys()]);if(select.dataset.key!==key){select.replaceChildren(...[...options].map(([id,m])=>new Option(m.name+' ('+m.unit+')'+(m.axis==='iteration'?' · 반복 횟수':''),id)));if(options.has(old))select.value=old;select.dataset.key=key;}
  const d=dataset(),rows=sheetRows(d.series);select.disabled=!options.size;$('dsExport').disabled=!rows.length;$('dsRead').disabled=!options.size;$('dsRead').textContent=reading?'읽기 중지':d.series.length&&d.series.every(s=>{const c=cache.get(s.id+'|'+select.value);return c&&c.next>=c.total;})?'다시 읽기':'전체 구간 읽기';
  const counts=d.series.map(s=>cache.get(s.id+'|'+select.value));$('dsCoverage').textContent=counts.length?'읽음 '+counts.reduce((n,c)=>n+(c?.points.length||0),0)+' / '+counts.reduce((n,c)=>n+(c?.total||0),0)+' 시점':'';
@@ -57,6 +57,7 @@ const DataSheetViewer=(()=>{
  function setMode(value){mount();mode=value;stopRead();document.body.classList.toggle('data-sheet-viewer',mode==='data');setPlay(false,true);if(mode==='data'){if(typeof VPREFETCHTOKEN!=='undefined'){VPREFETCHTOKEN++;VPREFETCHBUSY=false;}refresh();if(!catalogsReady)loadCatalogs();else read(false);}return mode;}
  return {get mode(){return mode;},toggle(){return setMode(mode==='3d'?'data':'3d');},
  setSelection(p,runs){mount();project=p;const key=JSON.stringify([p?.id,runs.map(r=>[r.id,r.last_saved,r.frames,r.result_status])]);selected=runs;if(key===selectionKey){refresh();return;}selectionKey=key;stopRead();cache.clear();cursor=null;loadCatalogs();},
+ reload(){stopRead();cache.clear();cursor=null;loadCatalogs();},
  begin(value){mount();context=value;$('dsTools').replaceChildren();refresh();},loaded(){refresh();},
  suspend(){stopRead();document.body.classList.remove('data-sheet-viewer');},resume(){document.body.classList.toggle('data-sheet-viewer',mode==='data');if(mode==='data'&&!catalogsReady)loadCatalogs();else if(mode==='data')read(false);},mount};
 })();

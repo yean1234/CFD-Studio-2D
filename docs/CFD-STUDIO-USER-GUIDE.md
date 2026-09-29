@@ -145,7 +145,7 @@
 ## Data Sheet Viewer
 
 - 왼쪽 **3D Virtual Viewer** 클릭 → **Data Sheet Viewer**
-- 왼쪽 **CFD Case** 체크박스: 비교할 실행 여러 개 선택
+- 왼쪽 **CFD Case**: 실행 하나를 선택. 제목 오른쪽 **다시 읽기**로 결과 갱신
 - Case 이름 버튼: 3D에 표시할 실행 선택
 - 상단 **결과 항목**: 온도·유속·농도 등 저장된 물리량 선택
 - 그래프 클릭·드래그: 가장 가까운 저장 X에 점선 표시, 각 Case의 정확한 Y 확인
@@ -196,13 +196,13 @@
 - 농도·온도: 셀 표본의 부드러운 체적 표현
 - 화살표: 흐름 방향과 상대 크기
 - 색 범위: 보간하는 두 저장 프레임의 범위, 범례 숫자 확인
-- **Data Sheet Viewer**: 여러 Case의 물리량별 그래프 비교
+- **Data Sheet Viewer**: 선택한 Case의 물리량별 그래프 조회
 
 ![유속](assets/warehouse-guide/velocity.png)
 
 ## 위치 조회
 
-- 저장고 Case 하나만 체크하고 같은 Case 이름 선택
+- 조회할 저장고 Case 이름 선택
 - **Data Sheet Viewer** → 아래 **위치·시간 조회** 펼치기
 - X·Y·Z·시간·검색 반경 입력 → **조회**
 - 예제: X=39 m, Y=12.5 m, Z=3 m, 시간=270 s, 최대 거리=3 m
