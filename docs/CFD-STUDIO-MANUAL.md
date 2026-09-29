@@ -234,8 +234,10 @@
 ## CFD FORM
 
 - 기본 FORM: 이중액침냉각 / 옥수수 사일로 / 식량 저장고 훈증 시스템
-- 새 FORM: 기존 해석 엔진의 입력 양식 생성. 새 물리 모델·솔버 실행 파일 생성 기능은 아님
-- 지원 솔버: 이중액침 `icoReactingMultiphaseInterFoam`, 옥수수 사일로 `simpleFoam`·`pimpleFoam`, 저장고 `warehouseBuoyantFoam`
+- 새 FORM: 범용 OpenFOAM 솔버 10개와 기존 전용 구성 2개 선택. [솔버 목록·지원 범위](solver-catalog-20260929.md)
+- 실행 연결: 이중액침 `icoReactingMultiphaseInterFoam`, 옥수수 사일로 `simpleFoam`·`pimpleFoam`, 저장고 `warehouseBuoyantFoam`
+- 미연결 솔버: 입력 계획을 FORM 초안으로 저장. 프로젝트·Case 실행에는 적용 불가
+- 설치 확인: CPU OpenFOAM 실행 파일 존재 여부만 확인. Studio 연결·버전 호환·계산 성공과 구분
 - FORM 생성 후 해석 대상·솔버 고정. 이름·파트 제목·기본 Config 수정 가능
 - 신규 프로젝트: FORM 필수, 다른 FORM의 프리셋 차단
 - 기존 프로젝트: 저장된 프리셋·결과 유형으로 FORM 연결, 원본 Config·결과 보존

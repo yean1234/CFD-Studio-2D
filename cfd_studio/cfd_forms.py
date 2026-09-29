@@ -23,7 +23,16 @@ class CFDForms:
                 'description': '', 'solver': solvers[0], 'config': config, 'revision': 1, 'sections': {}}))
         items.extend(overrides.values())
         from cfd_studio.result_series import output_definitions
-        return [{**item, 'outputs': output_definitions(item['model']), 'solvers': next(b[3] for b in BUILTINS if b[0] == item['model'])} for item in items]
+        return [{**item, 'outputs': output_definitions(item['model']),
+                 'definition_only':item['model']=='solver_definition',
+                 'solvers':next((b[3] for b in BUILTINS if b[0] == item['model']),[item['solver']])} for item in items]
+
+    def solver_catalog(self, check=False):
+        from cfd_studio.solver_catalog import catalog, probe
+        if check:
+            self._solver_installation=probe(self.settings)
+        installation=getattr(self,'_solver_installation',None)
+        return {'solvers':catalog(installation),'installation':installation}
 
     def form(self, key):
         found = next((f for f in self.forms() if f['id'] == key), None)
@@ -57,6 +66,8 @@ class CFDForms:
     def check_form_config(self, form_id, config):
         from cfd_studio.execution_workspace import config_kind
         form = self.form(form_id)
+        if form.get('definition_only'):
+            raise ValueError('솔버 FORM 초안입니다. 입력 생성·실행·결과 읽기 연결 후 Case를 만들 수 있습니다.')
         if config_kind(config) != form['model']:
             raise ValueError('프로젝트의 CFD FORM과 Config 해석 대상이 다릅니다')
         if form['model'] == 'grain_silo' and config.get('openfoam_mapping', {}).get('solver') != form['solver']:
@@ -64,7 +75,8 @@ class CFDForms:
         return form
 
     def check_form_preset(self, form_id, preset_id):
-        self.form(form_id)
+        if self.form(form_id).get('definition_only'):
+            raise ValueError('솔버 FORM 초안은 프로젝트에 적용할 수 없습니다. Studio 연결이 필요합니다.')
         if preset_id and self.preset_form(preset_id) != form_id:
             raise ValueError('선택한 CFD FORM에 속한 프리셋을 선택하세요')
         if preset_id:
@@ -75,11 +87,18 @@ class CFDForms:
         name = label(name)
         json.dumps(config, allow_nan=False)
         from cfd_studio.execution_workspace import validate_settings
-        validate_settings(config)
+        from cfd_studio.solver_catalog import definition as solver_definition, validate_draft
+        selected_solver=solver_definition(solver)
+        if model=='solver_definition':
+            if selected_solver['models']:
+                raise ValueError('이 솔버는 연결된 입력 양식을 선택하세요')
+            validate_draft(config,solver)
+        else:
+            validate_settings(config)
         if not isinstance(description, str) or len(description) > 4000:
             raise ValueError('FORM 설명은 4,000자 이내로 입력하세요')
         definition = next((b for b in BUILTINS if b[0] == model), None)
-        if not definition or solver not in definition[3] or config_kind(config) != model:
+        if model!='solver_definition' and (not definition or solver not in definition[3] or config_kind(config) != model):
             raise ValueError('지원되는 해석 대상·솔버·Config를 선택하세요')
         if model == 'grain_silo' and config.get('openfoam_mapping', {}).get('solver') != solver:
             raise ValueError('솔버와 Config가 일치하지 않습니다')

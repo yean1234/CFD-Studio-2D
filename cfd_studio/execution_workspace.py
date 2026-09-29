@@ -351,7 +351,7 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
             value = read_json(path)
             items.append({'id': key, 'name': value['name'] if key.startswith('scoped:') else '저장고 연결 기본값' if key == 'warehouse' else path.stem,
                 'model': config_kind(self.template(key)), 'form_id': self.preset_form(key)})
-        items.extend({'id': 'form:'+f['id'], 'name': 'FORM 기본값', 'model': f['model'], 'form_id': f['id']} for f in self.forms())
+        items.extend({'id': 'form:'+f['id'], 'name': 'FORM 기본값', 'model': f['model'], 'form_id': f['id']} for f in self.forms() if not f.get('definition_only'))
         return items
 
     def save_preset(self, name, config, form_id=None):
@@ -471,6 +471,8 @@ def get_route(handler, workspace):
             result = workspace.series.page(q.get('id', [''])[0], q.get('metric', [''])[0], int(q.get('offset', ['0'])[0]), int(q.get('limit', ['16'])[0]))
         elif url.path == '/api/executions/forms':
             result = {'forms': workspace.forms()}
+        elif url.path == '/api/executions/solvers':
+            result = workspace.solver_catalog()
         elif url.path == '/api/executions/presets':
             result = {'presets': workspace.presets()}
         elif url.path == '/api/executions/detail':
@@ -490,7 +492,9 @@ def post_route(handler, workspace, body):
     try:
         if not isinstance(body, dict):
             raise ValueError('요청 형식을 확인해 주세요')
-        if path == '/api/executions/preset':
+        if path == '/api/executions/solver-check':
+            result = workspace.solver_catalog(check=True)
+        elif path == '/api/executions/preset':
             result = workspace.save_preset(body.get('name'), body.get('config'), body.get('form_id'))
         elif path == '/api/executions/form':
             result = workspace.save_form(body.get('name'), body.get('model'), body.get('solver'), body.get('config'), body.get('id'), body.get('revision'), body.get('description', ''), body.get('sections'))
