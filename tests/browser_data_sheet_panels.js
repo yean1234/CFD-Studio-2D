@@ -6,11 +6,19 @@ async page => {
  let releasePressure;const pressureGate=new Promise(resolve=>releasePressure=resolve);
  const metrics=[{id:'temperature',name:'온도',unit:'°C'},{id:'velocity',name:'유속',unit:'m/s'},{id:'pressure',name:'압력',unit:'Pa'}];
  await page.route('**/chart-panel-test',r=>r.fulfill({contentType:'text/html',body:`<!doctype html><html><head><style>:root{--page:#10100f;--surface:#1b1b19;--surface2:#252523;--line:#383835;--ink:#e5e5df;--muted:#a4a49b;--s1:#3987e5;--s3:#ef776d}body{margin:0;font-family:Arial,sans-serif;background:var(--page);color:var(--ink)}#viz{position:absolute;inset:0}.btn{background:var(--surface2);color:var(--ink);border:1px solid var(--line);border-radius:6px}button,select{cursor:pointer}</style></head><body class="grouped execution-viewer"><div id="viz"></div><script>function setPlay(){};window.downloads=[];function exportDownload(blob,name){window.downloads.push({blob,name});}</script><script src="/data_sheet_viewer.js"></script></body></html>`}));
- await page.route('**/api/executions/chart-catalog?*',r=>r.fulfill({json:{axis:'time',metrics}}));
- await page.route('**/api/executions/chart?*',async r=>{const q=new URL(r.request().url()).searchParams,metric=q.get('metric');if(metric==='pressure')await pressureGate;const values=metric==='temperature'?[10,20,30]:metric==='velocity'?[.1,.2,.3]:[100,200,300];try{await r.fulfill({json:{points:values.map((v,i)=>[i,v]),next:3,total:3,errors:[],basis:'UI 검사용 데이터'}});}catch(_){} });
+ await page.route('**/api/executions/chart-catalog?*',r=>r.fulfill({json:{axis:'time',metrics:metrics.flatMap(m=>['mean','min','max'].map(stat=>({...m,id:m.id+'.'+stat,scope:'global'}))),point_metrics:metrics}}));
+ await page.route('**/api/executions/chart?*',async r=>{const q=new URL(r.request().url()).searchParams,metric=q.get('metric').split('.')[0];if(metric==='pressure')await pressureGate;const values=metric==='temperature'?[10,20,30]:metric==='velocity'?[.1,.2,.3]:[100,200,300];try{await r.fulfill({json:{points:values.map((v,i)=>[i,v]),next:3,total:3,errors:[],basis:'UI 검사용 데이터'}});}catch(_){} });
+ await page.route('**/api/executions/point-chart?*',r=>{const q=new URL(r.request().url()).searchParams,field=q.get('field'),x=Number(q.get('x')),values=field==='velocity'?[.1,.2,.3]:[11,21,31];return r.fulfill({json:{points:values.map((v,i)=>[i,v*x]),next:3,total:3,errors:[]}});});
  try{
   await page.setViewportSize({width:1360,height:850});await page.goto('http://127.0.0.1:18759/chart-panel-test');
   await page.evaluate(()=>{const run={id:'fixture',name:'검사 데이터'};DataSheetViewer.setSelection({id:'fixture-project',name:'그래프 검사',runs:[run]},[run]);DataSheetViewer.setMode('data');});
+  await page.waitForFunction(()=>document.querySelectorAll('#dsField2 option').length===3);
+  check(await page.locator('#dsField option').count()===3,'left menu contains means only');
+  check(await page.locator('#dsNotice,#dsTools,#warehouseDetails').count()===0,'secondary notes and lower coordinate panel are removed');
+  check(await page.locator('#dsRead2').isDisabled(),'point graph waits for coordinates');
+  await page.locator('#dsField2').selectOption('velocity|m/s|time');
+  for(const axis of ['x','y','z'])await page.locator('#dsCoordinates input[name='+axis+']').fill('1');
+  await page.locator('#dsCoordinates button').click();
   await page.waitForFunction(()=>document.getElementById('dsCoverage').textContent.includes('3 / 3')&&document.getElementById('dsCoverage2').textContent.includes('3 / 3'));
   const left=await page.locator('#dsPlot').boundingBox(),right=await page.locator('#dsPlot2').boundingBox();
   check(left.x+left.width<right.x&&Math.abs(left.y-right.y)<2,'two charts are side by side');
@@ -29,6 +37,7 @@ async page => {
   check((await page.locator('#dsX').innerText()).includes('X = 1'),'right navigation preserves left cursor');
   await page.locator('#dsExport').click();await page.getByRole('button',{name:'CSV 데이터',exact:true}).click();await page.locator('dialog').waitFor({state:'detached'});await page.locator('#dsExport2').click();await page.getByRole('button',{name:'CSV 데이터',exact:true}).click();await page.locator('dialog').waitFor({state:'detached'});
   const csv=await page.evaluate(async()=>Promise.all(window.downloads.map(async x=>({name:x.name,text:await x.blob.text()}))));
+  check(csv[1].text.includes('(1, 1, 1) m')&&csv[1].text.includes('최근접 저장 셀'),'point CSV identifies the queried coordinate and sampling method');
   check(csv[0].name!==csv[1].name&&csv[0].text.includes('°C')&&csv[1].text.includes('m/s'),'each CSV uses its own metric and filename');
   await page.evaluate(()=>{window.exportDownload=(blob,name)=>{window.downloads.push({blob,name});if(blob.type==='image/png'){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);}};});
   await page.locator('#dsExport').click();
@@ -39,23 +48,37 @@ async page => {
   const image=await page.evaluate(async()=>{const d=window.downloads.at(-1),bitmap=await createImageBitmap(d.blob),c=document.createElement('canvas');c.width=bitmap.width;c.height=bitmap.height;const x=c.getContext('2d');x.drawImage(bitmap,0,0);const rgba=x.getImageData(0,0,c.width,c.height).data;let colored=0;for(let i=0;i<rgba.length;i+=4)if(rgba[i+2]>150&&rgba[i+2]>rgba[i]+30)colored++;return {width:c.width,height:c.height,bytes:d.blob.size,colored};});
   check(image.width===1280&&image.height>720&&image.bytes>1000&&image.colored>100,'PNG is decodable and contains the plotted series');
   await page.locator('#dsExport2').click();check((await page.locator('dialog').innerText()).includes('유속'),'right Export identifies its independent metric');await page.getByRole('button',{name:'닫기',exact:true}).click();
-  await page.locator('#dsField').selectOption('pressure|Pa|time');
+  await page.locator('#dsField').selectOption('pressure.mean|Pa|time');
   await page.waitForFunction(()=>document.getElementById('dsRead').textContent==='읽기 중지');
   check((await page.locator('#dsX2').innerText()).includes('X = 2'),'changing left metric preserves right cursor');
-  await page.locator('#dsField').selectOption('temperature|°C|time');releasePressure();
+  await page.locator('#dsField').selectOption('temperature.mean|°C|time');releasePressure();
   await page.waitForFunction(()=>document.getElementById('dsRead').textContent==='다시 읽기');
   check((await page.locator('#dsCoverage2').innerText()).includes('3 / 3'),'cancelling left request preserves right data');
-  check(await page.locator('#dsField').inputValue()==='temperature|°C|time','late response cannot replace the current metric');
+  check(await page.locator('#dsField').inputValue()==='temperature.mean|°C|time','late response cannot replace the current metric');
   // Explicit pointer cancellation must also restore normal text selection.
   await page.mouse.move(left.x+left.width*.5,left.y+left.height*.5);await page.mouse.down();
   await page.locator('#dsPlot').dispatchEvent('pointercancel',{pointerId:1});await page.mouse.up();
   check(!await page.evaluate(()=>document.body.classList.contains('ds-dragging')),'pointer cancellation removes selection guard');
+  await page.locator('#dsCoordinates input[name=x]').fill('2');
+  check(await page.locator('#dsRead2').isDisabled()&&await page.locator('#dsPlot2 path').count()===0,'edited coordinate invalidates old point curve');
+  await page.locator('#dsCoordinates button').click();
+  await page.waitForFunction(()=>document.getElementById('dsCoverage2').textContent.includes('3 / 3'));
+  await page.locator('#dsPlot2').focus();await page.locator('#dsPlot2').press('End');
+  check((await page.locator('#dsValues2').innerText()).includes('0.6 m/s'),'coordinate change changes the point curve');
+  check((await page.locator('#dsCoverage').innerText()).includes('3 / 3'),'coordinate change preserves whole-field data');
+  await page.evaluate(()=>DataSheetViewer.setMode('3d'));
+  check(await page.locator('#viewerHeading').isVisible()&&(await page.locator('#viewerHeading').innerText()).includes('검사 데이터'),'3D displays project and Case heading');
+  await page.evaluate(()=>DataSheetViewer.setMode('data'));
+  check(!await page.locator('#viewerHeading').isVisible(),'Data Sheet does not duplicate its heading');
   await page.screenshot({path:'output/playwright/two-chart-desktop.png'});
   await page.setViewportSize({width:780,height:850});
   const narrowLeft=await page.locator('#dsPlot').boundingBox(),narrowRight=await page.locator('#dsPlot2').boundingBox();
   check(narrowRight.y>narrowLeft.y+narrowLeft.height,'narrow screen stacks charts');
   check(await page.evaluate(()=>document.getElementById('dataSheet').scrollWidth<=document.getElementById('dataSheet').clientWidth),'narrow charts do not overflow horizontally');
   await page.screenshot({path:'output/playwright/two-chart-narrow.png'});
+  await page.evaluate(()=>{const run={id:'second-fixture',name:'두 번째 Case'};DataSheetViewer.setSelection({id:'fixture-project',name:'그래프 검사',runs:[run]},[run]);});
+  await page.waitForFunction(()=>document.querySelectorAll('#dsField2 option').length===3);
+  check(await page.locator('#dsCoordinates input[name=x]').inputValue()===''&&await page.locator('#dsPlot2 path').count()===0,'Case change clears previous point coordinates and data');
   check(errors.length===0,'no browser runtime errors');return {checks};
  }finally{releasePressure();page.off('pageerror',onerror);await page.unrouteAll({behavior:'ignoreErrors'});}
 }

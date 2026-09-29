@@ -71,3 +71,47 @@ class SeriesTests(unittest.TestCase):
         coil['flow_LPM']=0
         (self.root/'case_config.json').write_text(json.dumps({'coil':coil}))
         self.assertNotIn('t6',{m['id'] for m in self.series.catalog('case:a')['metrics']})
+
+    def test_point_series_reads_specific_cells_in_time_order_without_mutation(self):
+        a=self.packed('therm_10.bin',b'THM1',[300,310]);b=self.packed('therm_2.bin',b'THM1',[280,290])
+        before=[a.read_bytes(),b.read_bytes()]
+        first=self.series.point_page('case:a','temperature',[.25,.5,.5],0,1)
+        second=self.series.point_page('case:a','temperature',[.75,.5,.5],1,1)
+        self.assertEqual(first['points'][0][0],2)
+        self.assertAlmostEqual(first['points'][0][1],6.85)
+        self.assertAlmostEqual(second['points'][0][1],36.85)
+        self.assertEqual(first['samples'][0]['cell_centre_m'],[.25,.5,.5])
+        self.assertEqual(first['total'],2);self.assertEqual(first['next'],1)
+        self.assertEqual([a.read_bytes(),b.read_bytes()],before)
+        self.assertEqual(self.series.catalog('case:a')['point_metrics'],[{'id':'temperature','name':'온도','unit':'°C'}])
+        self.assertTrue(all(m['scope']=='global' for m in self.series.catalog('case:a')['metrics']))
+
+    def test_point_vector_planar_channels_pressure_and_mask(self):
+        (self.root/'case_config.json').write_text(json.dumps({'openfoam_mapping':{'solver':'simpleFoam'},'published':{'rho_kg_m3':2}}))
+        self.packed('flow_1.bin',b'FLW1',[3,4,0,0,0,12],3)
+        self.packed('turbulence_1.bin',b'TRB1',[1,3,10,20],2)
+        self.packed('pressure_1.bin',b'PRS1',[2,4])
+        for field,value in [('speed',12),('ux',0),('uz',12),('k',3),('epsilon',20),('pressure',8)]:
+            result=self.series.point_page('case:a',field,[.75,.5,.5])
+            self.assertEqual(result['points'],[[1,value]]);self.assertEqual(result['axis'],'iteration')
+        (self.root/'phase_1.bin').write_bytes(b'PHS2'+struct.pack('<3I6f',2,1,1,0,0,0,1,1,1)+bytes([51,255,102,255,1,0]))
+        self.assertAlmostEqual(self.series.point_page('case:a','liquid',[.25,.5,.5])['points'][0][1],.4)
+        self.assertIsNone(self.series.point_page('case:a','liquid',[.75,.5,.5])['points'][0][1])
+
+    def test_point_rejects_invalid_input_and_corrupt_or_outside_frames(self):
+        self.packed('therm_1.bin',b'THM1',[0,300])
+        self.assertIsNone(self.series.point_page('case:a','temperature',[0,.5,.5])['points'][0][1])
+        outside=self.series.point_page('case:a','temperature',[2,.5,.5])
+        self.assertTrue(outside['errors']);self.assertIsNone(outside['points'][0][1])
+        for xyz in ([float('nan'),0,0],[0,0],[float('inf'),0,0]):
+            with self.assertRaises(ValueError):self.series.point_page('case:a','temperature',xyz)
+        with self.assertRaises(ValueError):self.series.point_page('case:a','probe1',[0,0,0])
+        with self.assertRaises(ValueError):self.series.point_page('case:a','temperature',[0,0,0],0,33)
+        self.packed('therm_1.bin',b'THM1',[300,float('nan')])
+        self.assertTrue(self.series.point_page('case:a','temperature',[.25,.5,.5])['errors'])
+
+    def test_point_preserves_empty_planes_as_gaps(self):
+        values=[1,0,0,0,5]
+        (self.root/'pressure_1.bin').write_bytes(b'PRS1'+struct.pack('<3I6f',1,1,5,0,0,0,1,1,1)+struct.pack('<5f',*values))
+        self.assertIsNone(self.series.point_page('case:a','pressure',[.5,.5,.5])['points'][0][1])
+        self.assertEqual(self.series.point_page('case:a','pressure',[.5,.5,.9])['points'],[[1,5]])

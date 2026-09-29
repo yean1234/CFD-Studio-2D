@@ -517,6 +517,10 @@ def get_route(handler, workspace):
         elif url.path == '/api/executions/chart':
             q = parse_qs(url.query)
             result = workspace.series.page(q.get('id', [''])[0], q.get('metric', [''])[0], int(q.get('offset', ['0'])[0]), int(q.get('limit', ['16'])[0]))
+        elif url.path == '/api/executions/point-chart':
+            q = parse_qs(url.query)
+            result = workspace.series.point_page(q.get('id', [''])[0], q.get('field', [''])[0],
+                [float(q.get(k, [''])[0]) for k in ('x','y','z')], int(q.get('offset', ['0'])[0]), int(q.get('limit', ['16'])[0]))
         elif url.path == '/api/executions/forms':
             result = {'forms': workspace.forms(), 'templates': workspace.form_templates()}
         elif url.path == '/api/executions/form-profiles':

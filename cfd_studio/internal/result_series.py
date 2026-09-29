@@ -76,7 +76,7 @@ class ResultSeries:
         with self.lock:
             if cache_key in self.catalog_cache: return self.catalog_cache[cache_key]
         axis = result_axis(config)
-        fields, metrics = [], []
+        fields, metrics, point_metrics = [], [], []
         if record['kind']=='warehouse':
             model = read(root/'model_contract.json', {})
             fields = ['concentration'] + (['temperature','speed','ux','uy','uz'] if model.get('kind')=='clo2_coupled_scenario' else [])
@@ -93,18 +93,20 @@ class ResultSeries:
             name,unit,*_ = FIELDS[k]
             if k=='concentration' and record['kind']=='warehouse' and model.get('kind')!='normalized_gable_verification': unit='mg/m³'
             if k=='pressure' and config.get('published',{}).get('rho_kg_m3'): unit='Pa'
-            metrics += [{'id': k+'.'+stat,'name':name+' · '+label,'unit':unit} for stat,label in STATS.items()]
-        result={'id':key,'name':record['name'],'axis':axis,'metrics':metrics}
+            scope = 'region' if k in ('lower_temperature','upper_temperature') else 'global'
+            metrics += [{'id': k+'.'+stat,'name':name+' · '+label,'unit':unit,'scope':scope} for stat,label in STATS.items()]
+            if scope == 'global': point_metrics.append({'id':k,'name':name,'unit':unit})
+        result={'id':key,'name':record['name'],'axis':axis,'metrics':metrics,'point_metrics':point_metrics,'coordinate_unit':'m'}
         with self.lock:
             self.catalog_cache[cache_key]=result
             while len(self.catalog_cache)>32: self.catalog_cache.popitem(last=False)
         return result
 
-    def frame_stat(self, path, field, config):
+    def frame_stat(self, path, field, config, *, raw=None):
         stamp=path.stat(); cache_key=(str(path),stamp.st_mtime_ns,stamp.st_size,field,config.get('published',{}).get('rho_kg_m3'),config.get('layers',{}).get('dielectric_mm'))
         with self.lock:
-            if cache_key in self.cache: self.cache.move_to_end(cache_key); return self.cache[cache_key]
-        raw=path.read_bytes()
+            if raw is None and cache_key in self.cache: self.cache.move_to_end(cache_key); return self.cache[cache_key]
+        if raw is None: raw=path.read_bytes()
         if field=='bubble_count':
             if len(raw)<12 or raw[:4]!=b'BUB1': raise ValueError('기포 파일 형식 오류')
             n,total=struct.unpack_from('<2I',raw,4)
@@ -198,6 +200,84 @@ class ResultSeries:
                 except (ValueError,OSError,struct.error) as error: points.append([t,None]); errors.append(path.name+': '+str(error))
             basis='저장 시각화 격자 · 빈 온도 셀 제외 · 상분율 마스크·구형 빈 평면 보정 적용'
         return {'id':key,'metric':metric,'axis':catalog['axis'],'points':points,'total':total,'next':min(total,offset+limit),'errors':errors,'basis':basis}
+
+    def frame_point(self, path, field, config, xyz):
+        # Use the same integrity checks and units as whole-field statistics.
+        raw = path.read_bytes()
+        self.frame_stat(path, field, config, raw=raw)
+        dims = struct.unpack_from('<3I', raw, 4)
+        bbox = struct.unpack_from('<6f', raw, 16)
+        if any(xyz[k] < bbox[k] or xyz[k] > bbox[k+3] for k in range(3)):
+            raise ValueError('좌표가 저장 격자 영역 밖입니다')
+        ijk = [min(dims[k]-1, int((xyz[k]-bbox[k])*dims[k]/(bbox[k+3]-bbox[k]))) for k in range(3)]
+        nx, ny, nz = dims
+        n = nx*ny*nz
+        cell = (ijk[2]*ny+ijk[1])*nx+ijk[0]
+        centre = [bbox[k]+(ijk[k]+.5)*(bbox[k+3]-bbox[k])/dims[k] for k in range(3)]
+        value = None
+        if field in ('water','vapour','liquid'):
+            if raw[:4] != b'PHS2' or raw[40+2*n+cell]:
+                water, vapour = raw[40+cell], raw[40+n+cell]
+                value = (water if field=='water' else vapour if field=='vapour' else max(0,255-water-vapour))/255
+        else:
+            channels = FIELDS[field][4]
+            values = array('f'); values.frombytes(raw[40:])
+            if sys.byteorder != 'little': values.byteswap()
+            empty_plane = False
+            if field in ('speed','ux','uy','uz','pressure','k','epsilon'):
+                plane = nx*ny
+                keep = [z for z in range(nz) if (
+                    any(abs(v)>1e-30 for v in values[z*plane*3:(z+1)*plane*3]) if channels==3 else
+                    any(abs(values[c*n+i])>1e-30 for c in range(channels) for i in range(z*plane,(z+1)*plane)))]
+                missing = nz-len(keep)
+                empty_plane = (len(keep)>=2 and missing>=3 and missing>=nz*.05
+                               and any(b>a+1 for a,b in zip(keep,keep[1:])) and ijk[2] not in keep)
+            if not empty_plane:
+                if field == 'speed': value = math.hypot(*values[cell*3:cell*3+3])
+                elif field in ('ux','uy','uz'): value = values[cell*3+('ux','uy','uz').index(field)]
+                elif field in ('k','epsilon'): value = values[cell+(n if field=='epsilon' else 0)]
+                elif field == 'temperature': value = values[cell]-273.15 if values[cell]>0 else None
+                elif field == 'pressure': value = values[cell]*config.get('published',{}).get('rho_kg_m3',1)
+                else: value = values[cell]
+        return value, {'cell_index':cell,'cell_centre_m':centre,'cell_centre_distance_m':math.dist(centre,xyz)}
+
+    def point_page(self, key, field, xyz, offset=0, limit=16):
+        if len(xyz)!=3 or not all(math.isfinite(v) for v in xyz): raise ValueError('유한한 X·Y·Z 좌표를 입력하세요')
+        if offset<0 or not 1<=limit<=32: raise ValueError('조회 범위 오류')
+        catalog = self.catalog(key)
+        if field not in {m['id'] for m in catalog['point_metrics']}: raise ValueError('좌표 조회를 지원하지 않는 결과 항목입니다')
+        record, root, config = self.record(key)
+        points, samples, errors = [], [], []
+        if record['kind']=='warehouse':
+            from cfd_studio.warehouse_results import WarehouseResults
+            reader = WarehouseResults(self.workspace.output, lambda _:root)
+            _, _, _, _, times, _, centres, _ = reader._load(record['rid'])
+            # A finite bound derived from the saved cells; sample() checks the domain.
+            radius = max(math.dist(xyz, centres[i:i+3]) for i in range(0,len(centres),3))+1
+            total = len(times)
+            for index in range(offset,min(total,offset+limit)):
+                t = times[index]
+                try:
+                    sample = reader.sample(record['rid'], xyz, t, radius)
+                    if field in ('ux','uy','uz'): value = sample['velocity_m_s'][('ux','uy','uz').index(field)]
+                    else: value = sample[{'concentration':'concentration','temperature':'temperature','speed':'speed_m_s'}[field]]
+                    points.append([t,value])
+                    samples.append({'x':t, **{k:sample[k] for k in ('cell_index','cell_centre_m','cell_centre_distance_m')}})
+                except (ValueError,OSError,KeyError,BadZipFile,EOFError,struct.error) as error:
+                    points.append([t,None]); errors.append(str(error))
+        else:
+            prefix = FIELDS[field][2]
+            files = self.index_files(root,prefix,(str(root),tuple(sorted(p.name for p in root.glob(prefix+'_*.bin')))))
+            total = len(files)
+            for t,path in files[offset:offset+limit]:
+                try:
+                    value, sample = self.frame_point(path,field,config,xyz)
+                    points.append([t,value]); samples.append({'x':t,**sample})
+                except (ValueError,OSError,struct.error) as error:
+                    points.append([t,None]); errors.append(path.name+': '+str(error))
+        return {'id':key,'metric':field,'axis':catalog['axis'],'requested_xyz_m':list(xyz),
+                'sampling':'nearest_saved_cell','samples':samples,'points':points,'total':total,
+                'next':min(total,offset+limit),'errors':errors}
 
     @staticmethod
     def coil_factor(config,metric):

@@ -83,6 +83,23 @@ class WarehouseResultTests(unittest.TestCase):
         (self.case/'concentration.npz').write_bytes(b'not-an-array')
         self.assertEqual(self.reader.list(), [])
 
+    def test_point_chart_saved_times_units_domain_and_raw_integrity(self):
+        from types import SimpleNamespace
+        from cfd_studio.result_series import ResultSeries
+        workspace=SimpleNamespace(output=self.root,discover=lambda:{'warehouse:test':{
+            'kind':'warehouse','rid':self.case.name,'path':str(self.case),'name':'Test'}})
+        series=ResultSeries(workspace)
+        result=series.point_page('warehouse:test','concentration',[.5,.5,.5])
+        self.assertEqual(result['points'],[[0.,1.],[1.,2.]])
+        self.assertEqual(series.point_page('warehouse:test','concentration',[1.5,1.5,.5])['points'],[[0.,2.],[1.,3.]])
+        self.assertEqual(series.catalog('warehouse:test')['point_metrics'][0]['unit'],'C/C_ref')
+        self.assertEqual(result['samples'][0]['cell_centre_distance_m'],0)
+        self.assertTrue(series.point_page('warehouse:test','concentration',[3,0,0])['errors'])
+        (self.case/'1/C').write_text('internalField uniform 99; boundaryField {}')
+        corrupt=series.point_page('warehouse:test','concentration',[.5,.5,.5])
+        self.assertEqual(corrupt['points'],[[0.,1.],[1.,None]])
+        self.assertTrue(corrupt['errors'])
+
 
 if __name__ == '__main__':
     unittest.main()
