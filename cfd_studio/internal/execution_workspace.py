@@ -452,7 +452,7 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
 
 def get_route(handler, workspace):
     url = urlparse(handler.path)
-    if url.path in ('/execution_workspace.js', '/config_editor.js', '/warehouse_viewer.js', '/data_sheet_viewer.js'):
+    if url.path in ('/execution_workspace.js', '/config_editor.js', '/form_config_editor.js', '/warehouse_viewer.js', '/data_sheet_viewer.js'):
         handler._send(200, Path(__file__).with_name(url.path[1:]).read_bytes(), 'text/javascript; charset=utf-8')
         return True
     if not url.path.startswith('/api/executions'):
@@ -497,7 +497,7 @@ def post_route(handler, workspace, body):
         elif path == '/api/executions/preset':
             result = workspace.save_preset(body.get('name'), body.get('config'), body.get('form_id'))
         elif path == '/api/executions/form':
-            result = workspace.save_form(body.get('name'), body.get('model'), body.get('solver'), body.get('config'), body.get('id'), body.get('revision'), body.get('description', ''), body.get('sections'))
+            result = workspace.save_form(body.get('name'), body.get('model'), body.get('solver'), body.get('config'), body.get('id'), body.get('revision'), body.get('description', ''), body.get('sections'), body.get('config_schema'))
         elif path == '/api/executions/project':
             workspace.form(body.get('form_id'))
             result = workspace.create_project(body.get('name'), body.get('description', ''), body.get('default_preset'), body.get('storage_path'), body.get('form_id'))

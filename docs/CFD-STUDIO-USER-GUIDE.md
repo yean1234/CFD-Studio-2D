@@ -42,13 +42,18 @@
 ## CFD FORM
 
 - 왼쪽 **CFD FORM 리스트**: 이중액침냉각 / 옥수수 사일로 / 식량 저장고 훈증 시스템
-- **새로 만들기**: FORM 이름 → 해석 대상·솔버 선택 → 입력 파트 이름·기본 Config 편집 → **FORM 저장**
+- **새로 만들기**: FORM 이름 → 솔버 선택 → **Blank Config → Config 편집**
+- **+ Field**: Key·Type·Unit·Value 직접 입력. Object 안에 하위 항목 추가 가능
+- **JSON / Import JSON / Export JSON**: 값 구조 직접 편집·가져오기·내보내기
+- **Apply → FORM 초안 저장**: Config와 항목별 Type·Unit 보존
+- 기존 양식 필요 시 **Config Template**에서 직접 선택 → **FORM 저장**
+- 사용자 정의 Config: 대상·형상·필드 이름 자동 지정 없음. 실제 계산에는 솔버 입력·결과 연결 구현 필요
 - 각 FORM 오른쪽 **수정**: 이름·설명·입력 양식·기본값 수정
 - 기존 FORM의 해석 대상·솔버: 고정. 다른 대상·솔버는 새 FORM으로 생성
 - 프로젝트: 생성 시 선택한 FORM 유지
 - 기존 Case: FORM 수정 후에도 저장된 Config·비교 기준 유지
 
-![CFD FORM](assets/cfd-form-20260928/form-editor.png)
+![Config 편집](assets/generic-config-20260929/editor.png)
 
 ## 프리셋
 
@@ -240,7 +245,7 @@
 - 솔버 선택 시 해석 기능·주요 결과·연결 양식 표시
 - **설치 확인**: 실행 파일 확인. Studio 연결 상태는 별도 표시
 - 연결된 양식: **Config 편집 → FORM 저장**
-- 연결 대기: **입력 계획 → FORM 초안 저장**. 실행 연결 후 프로젝트에 적용 가능
+- 사용자 정의: **Blank Config → Config 편집 → FORM 초안 저장**. 실행 연결 후 프로젝트에 적용 가능
 - [솔버별 설명과 화면](solver-catalog-20260929.md)
 
 ## 문제 해결

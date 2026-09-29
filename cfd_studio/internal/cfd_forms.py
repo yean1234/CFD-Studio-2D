@@ -82,17 +82,19 @@ class CFDForms:
         if preset_id:
             self.check_form_config(form_id, self.template(preset_id))
 
-    def save_form(self, name, model, solver, config, form_id=None, revision=None, description='', sections=None):
+    def save_form(self, name, model, solver, config, form_id=None, revision=None, description='', sections=None, config_schema=None):
         from cfd_studio.execution_workspace import label, config_kind, read_json, atomic_json
         name = label(name)
         json.dumps(config, allow_nan=False)
         from cfd_studio.execution_workspace import validate_settings
         from cfd_studio.solver_catalog import definition as solver_definition, validate_draft
-        selected_solver=solver_definition(solver)
+        solver_definition(solver)
+        if config_schema is not None:
+            from cfd_studio.form_schema import validate_schema
+            validate_schema(config_schema,config)
         if model=='solver_definition':
-            if selected_solver['models']:
-                raise ValueError('이 솔버는 연결된 입력 양식을 선택하세요')
-            validate_draft(config,solver)
+            if config_schema is None:
+                validate_draft(config,solver)  # Preserve older input-plan drafts.
         else:
             validate_settings(config)
         if not isinstance(description, str) or len(description) > 4000:
@@ -118,6 +120,8 @@ class CFDForms:
             item = {'id': key, 'name': name, 'model': model, 'solver': solver,
                 'config': copy.deepcopy(config), 'description': description, 'sections': sections,
                 'revision': old['revision']+1 if old else 1}
+            if config_schema is not None:
+                item['config_schema']=copy.deepcopy(config_schema)
             data = read_json(self.folder/'forms.json', {})
             data[key] = item
             atomic_json(self.folder/'forms.json', data)
