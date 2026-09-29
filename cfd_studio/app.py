@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v211"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v212"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -4804,6 +4804,9 @@ INDEX_HTML = r'''<!DOCTYPE html>
  .hgeo{margin-top:8px;padding-top:7px;border-top:1px solid var(--grid);font-size:10px;color:var(--muted)}
  #vlegend{background:rgba(26,26,25,.85);backdrop-filter:blur(8px);overflow-y:auto;
   border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:11px;color:var(--ink2);min-width:186px}
+ #flowControls{display:flex;align-items:center;gap:8px;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--line)}
+ #flowControls label{flex:none;color:var(--muted)}
+ #flowDensity{flex:1;min-width:0;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:var(--surface2);color:var(--ink);font:inherit}
  #vlegend .ltit{font-size:10px;letter-spacing:.8px;color:var(--muted);margin-bottom:6px;font-weight:700}
  #vlegend label{display:flex;align-items:center;gap:6px;padding:2.5px 0;cursor:pointer;user-select:none}
  #vlegend label:hover{color:var(--ink)}
@@ -4987,7 +4990,10 @@ INDEX_HTML = r'''<!DOCTYPE html>
   body:is(.tracerView,.grouped.execution-viewer) #lcol{min-width:0;flex:1;gap:5px}
   body:is(.tracerView,.grouped.execution-viewer) #hud,body:is(.tracerView,.grouped.execution-viewer) #vlegend{min-width:0;border-radius:6px;padding:7px}
   body:is(.tracerView,.grouped.execution-viewer) #vlegend{display:grid;grid-template-columns:1fr 1fr;gap:3px}
-  body:is(.tracerView,.grouped.execution-viewer) #vlegend .ltit{grid-column:1 / -1;margin:2px 0}
+  body:is(.tracerView,.grouped.execution-viewer) #flowControls{display:flex;align-items:center;gap:8px;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--line)}
+ #flowControls label{flex:none;color:var(--muted)}
+ #flowDensity{flex:1;min-width:0;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:var(--surface2);color:var(--ink);font:inherit}
+ #vlegend .ltit{grid-column:1 / -1;margin:2px 0}
   body:is(.tracerView,.grouped.execution-viewer) #vlegend label{min-width:0;font-size:10px}
   body:is(.tracerView,.grouped.execution-viewer) #tcbar{max-width:88px;padding:7px;border-radius:6px}
   body:is(.tracerView,.grouped.execution-viewer) #tcbar .grad{height:94px}
@@ -5132,6 +5138,10 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <div class="hgeo" id="hGeo">config.json 연결 대기</div>
   </div>
   <div id="vlegend">
+    <div id="flowControls" title="속도 벡터 표시 개수. 계산 격자와 결과값은 변경하지 않습니다." >
+      <label for="flowDensity">표시 밀도</label>
+      <select id="flowDensity" aria-label="속도장 표시 밀도"><option value="1500">표준</option><option value="6000" selected>세밀</option><option value="18000">매우 세밀</option></select>
+    </div>
     <div class="ltit">결과 데이터</div>
     <label id="lbBub" title="TMC-49 액체에서 발생한 증기 · 밝을수록 증기율 높음"><input type="checkbox" id="lyBub" checked><span class="sw" style="background:#ffe36a"></span>TMC-49 증기 기포</label>
     <label id="lbPhase" title="실제 alpha.water와 alpha.liquid 분포 · 초기 계면을 넘은 액체와 혼합 계면 표시"><input type="checkbox" id="lyPhase" checked><span class="sw" style="background:linear-gradient(90deg,#f59a38,#8c75ba,#4a9ef5)"></span>액체 상분율</label>
@@ -5355,7 +5365,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <p>화면 상단 <b>Viewer</b> 탭 또는 Case의 <b>열기</b>. Case 선택 → 시각화율 확인 → 3D·그래프 조회</p>
    <details><summary>프로젝트 및 CFD Case 선택</summary><ul><li>왼쪽 프로젝트 이름 클릭 → 아래 <b>CFD Case</b> 목록에서 Case 선택</li><li>선택 항목은 파란 테두리. 3D·그래프 모두 선택한 Case의 결과 표시</li><li>다른 Case 비교: 목록에서 다른 항목 선택. 한 번에 한 Case 표시</li><li>계산 화면 복귀: 상단 <b>CFD</b> 탭</li></ul></details>
    <details><summary>데이터 시각화율 확인 및 업데이트</summary><ul><li>왼쪽 <b>CFD Case</b> 목록의 각 항목 안 게이지에서 현재 시각화 준비 상태 확인</li><li>갱신: <b>CFD Case</b> 제목 오른쪽 둥근 사각형의 <b>원형 화살표</b> 클릭. 포인터를 올리면 <b>다시 읽기</b> 표시</li><li>프로젝트 내 Case들의 준비 상태 확인 및 선택한 Case의 결과 다시 읽기</li><li><b>100%</b>: 시각화 준비 완료. CFD 계산 진행률·수렴·실험 검증과 별도</li><li>새 원본의 변환이 필요하면 <b>CFD</b> 탭 → Case 선택 → <b>생성 / 업데이트</b> → <b>열기</b></li></ul></details>
-   <details><summary>3D Virtual Viewer 조작</summary><ul><li>왼쪽 상단 <b>3D Virtual</b> 버튼 클릭 → 중앙 3D 화면 표시. 선택한 모드는 파란 테두리와 배경으로 표시</li><li>아래 파란 <b>▶</b>: 재생·일시정지. 시간 막대: 시점 선택. 오른쪽 <b>1×</b>: 재생 배속</li><li>시간 표시: <b>0.00s (전체 프레임 수)</b></li><li>드래그: 회전. 휠: 확대·축소. 더블클릭: 기본 시점 복원</li><li>오른쪽 <b>결과 데이터 / 설계 레이어</b>: 물리량·형상 표시. 항목은 Case의 저장 데이터에 따라 변경</li></ul></details>
+   <details><summary>3D Virtual Viewer 조작</summary><ul><li>왼쪽 상단 <b>3D Virtual</b> 버튼 클릭 → 중앙 3D 화면 표시. 선택한 모드는 파란 테두리와 배경으로 표시</li><li>아래 파란 <b>▶</b>: 재생·일시정지. 시간 막대: 시점 선택. 오른쪽 <b>1×</b>: 재생 배속</li><li>시간 표시: <b>0.00s (전체 프레임 수)</b></li><li>드래그: 회전. 휠: 확대·축소. 더블클릭: 기본 시점 복원</li><li>오른쪽 패널 맨 위 <b>표시 밀도</b>: <b>표준 / 세밀 / 매우 세밀</b> 선택. 속도 벡터 표시 개수 조절</li><li>오른쪽 <b>결과 데이터 / 설계 레이어</b>: 물리량·형상 표시. 항목은 Case의 저장 데이터에 따라 변경</li></ul></details>
    <details><summary>Data Sheet Viewer 전환 및 수치 조회</summary><ul><li>왼쪽 상단 <b>Data Sheet</b> 버튼 클릭 → 그래프 화면 표시. <b>3D Virtual</b> 버튼으로 3D 화면 전환</li><li>왼쪽 <b>전체 평균</b>: 결과 항목 선택 → 전체 평균값의 시간별 변화 확인. 그래프 클릭·드래그 → 세로 점선과 X·Y 수치 확인</li><li>그래프에 초점을 둔 뒤 <b>← / →</b>로 시점 이동. 이 화면에는 재생 버튼 없음</li><li>전체 저장 구간을 조회하려면 그래프 위 <b>전체 구간 읽기</b>. 그래프 저장: 각 그래프 상단 <b>Export</b> → <b>PNG 이미지 / CSV 데이터</b></li><li>오른쪽 <b>좌표 조회</b>: 결과 항목 선택 → <b>X·Y·Z</b>(m) 입력 → <b>조회</b>. 가장 가까운 저장 셀의 시간별 값 표시</li><li>3D 화면 전환: 왼쪽 상단 <b>3D Virtual</b> 버튼 클릭</li></ul></details>
    <details><summary>영상·이미지·CSV 내보내기</summary><ul><li><b>3D Virtual</b>: 하단 재생 바 오른쪽 <b>Export</b> → <b>영상 내보내기</b> 또는 <b>현재 화면 PNG</b></li><li>영상 녹화 종료: 재생 바의 <b>녹화 종료</b></li><li><b>Data Sheet</b>: 저장할 그래프 상단 <b>Export</b> → <b>PNG 이미지</b> 또는 <b>CSV 데이터</b></li><li>그래프 이미지는 현재 축·곡선·조회 위치를 포함하며, CSV는 해당 그래프에 읽어온 구간의 수치를 저장</li><li>전체 저장 구간이 필요한 경우 해당 그래프의 <b>전체 구간 읽기</b> 완료 후 Export</li></ul></details>
    <h4>설치 및 프로그램 실행</h4>
@@ -6880,13 +6890,23 @@ function drawTSlice(T,M){
  gl.disableVertexAttribArray(lt);
 }
 let sliceBuf=gl.createBuffer();
-let arrBuf=gl.createBuffer(),arrN=0,lastArrF=null,arrSeeds=[],arrScale=.15;
+let arrBuf=gl.createBuffer(),arrN=0,lastArrF=null,lastArrBudget=0,arrSeeds=[],arrScale=.15;
 let flowDotBuf=gl.createBuffer(),flowDotSpeedBuf=gl.createBuffer(),flowDotN=0,FLOWPHASE=0;
+function viewerFlowBudget(){const value=Number(document.getElementById('flowDensity')?.value);return [1500,6000,18000].includes(value)?value:6000;}
+function flowGridSamples(F,budget){
+ const dims=[F.nx,F.ny,F.nz],width=dims.map((n,k)=>(F.bb[k+3]-F.bb[k])/n);
+ const spacing=Math.cbrt(width.reduce((a,b)=>a*b,1)*dims.reduce((a,b)=>a*b,1)/budget);
+ const steps=width.map((v,k)=>Math.min(dims[k],Math.max(1,Math.ceil(spacing/v))));
+ const counts=()=>dims.map((n,k)=>Math.ceil(n/steps[k]));
+ while(counts().reduce((a,b)=>a*b,1)>budget){const axes=[0,1,2].filter(k=>steps[k]<dims[k]);const axis=axes.reduce((a,b)=>steps[a]*width[a]<=steps[b]*width[b]?a:b);steps[axis]++;}
+ const result=[];
+ for(let k=0;k<dims[2];k+=steps[2])for(let j=0;j<dims[1];j+=steps[1])for(let i=0;i<dims[0];i+=steps[0])result.push([i,j,k].map((v,a)=>v+Math.floor((Math.min(steps[a],dims[a]-v)-1)/2)));
+ return result;
+}
 function buildArrows(F){ // 3D 벡터장 — 전체 깊이의 화살표 (속도→길이·진하기, 층→색)
- if(F===lastArrF)return; lastArrF=F;
+ const budget=viewerFlowBudget();if(F===lastArrF&&budget===lastArrBudget)return;lastArrF=F;lastArrBudget=budget;
  const silo=isSiloConfig(VIZCFG||CFG),raw=[];
- const sx=silo?7:3,sy=silo?7:4,sz=silo?7:2;
- for(let k=1;k<F.nz;k+=sz)for(let j=1;j<F.ny;j+=sy)for(let i=1;i<F.nx;i+=sx){
+ for(const [i,j,k] of flowGridSamples(F,budget)){
   const b=((k*F.ny+j)*F.nx+i)*3,u=F.u[b],v=F.u[b+1],w=F.u[b+2],sp=Math.hypot(u,v,w);
   if(sp>1e-8)raw.push({i,j,k,u,v,w,sp});
  }
@@ -6932,7 +6952,7 @@ function drawArrows(M){
 }
 function drawFlowDots(M,phase){
  if(!arrSeeds.length)return;
- const cap=760,stride=Math.max(1,Math.ceil(arrSeeds.length/cap)),n=Math.ceil(arrSeeds.length/stride);
+ const cap=viewerFlowBudget(),stride=Math.max(1,Math.ceil(arrSeeds.length/cap)),n=Math.ceil(arrSeeds.length/stride);
  const pos=new Float32Array(n*3),spd=new Float32Array(n);let o=0;
  for(let i=0;i<arrSeeds.length;i+=stride){const s=arrSeeds[i],q=(s.h+phase*(.32+.72*s.sv))%1;
   pos[o*3]=s.x+s.dx*s.L*q;pos[o*3+1]=s.y+s.dy*s.L*q;pos[o*3+2]=s.z+s.dz*s.L*q;spd[o]=s.sv;o++;}
