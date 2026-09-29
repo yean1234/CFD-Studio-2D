@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v206"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v207"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -5348,27 +5348,27 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/solver-input-definitions-20260929.md" target="_blank" rel="noopener noreferrer">솔버별 입력 정의</a></p>
   </div>
   <div class="ibx" id="ifB1" style="display:none">
-   <p><b>CFD 파트</b>: 입력·계산·결과 준비. <b>Viewer 파트</b>: 저장 결과 조회·내보내기.</p>
-   <p>프로젝트는 여러 Case를 묶는 공간이며, CFD Case는 입력과 결과를 따로 보관하는 계산 한 건입니다. 아래 항목을 눌러 조작 순서를 확인하세요.</p>
-   <h4>CFD 파트</h4>
-   <p>화면 맨 위 <b>CFD</b> 탭. 프로젝트 생성 → Case 저장 → 대기열 실행 → 결과 준비</p>
-   <details><summary>프로젝트 생성</summary><ul><li>왼쪽 <b>프로젝트</b> 제목 아래 <b>새 프로젝트</b> 클릭</li><li><b>프로젝트 이름</b> 입력 → <b>프로젝트 폴더</b> 옆 <b>찾기</b>로 저장 폴더 지정</li><li><b>프로젝트 설명</b> 입력 → <b>CFD FORM</b>·<b>기본 프리셋</b> 선택 → 창 아래 <b>저장</b></li><li>저장한 프로젝트는 왼쪽 목록에서 이름을 클릭해 선택</li></ul></details>
-   <details><summary>프로젝트 정보 및 저장 폴더 변경</summary><ul><li>프로젝트 선택 → 화면 오른쪽 위 <b>프로젝트 관리</b></li><li>이름·설명·폴더·기본 프리셋 수정 → <b>저장</b>. C·D 등 드라이브 선택 가능</li><li>기본 프리셋 변경은 이후 새로 만드는 Case에 적용</li><li>폴더 변경은 복사·검증 후 연결 전환. 원본 보존. 계산·결과 저장 중에는 변경 불가</li></ul></details>
-   <details><summary>CFD FORM 생성 및 편집</summary><ul><li>왼쪽 아래 <b>CFD FORM 리스트</b> 제목 오른쪽 둥근 정사각형 <b>+</b> 클릭. 기존 항목은 이름 오른쪽 <b>수정</b></li><li><b>CFD FORM 이름</b> 입력 → <b>솔버</b> 선택</li><li><b>양식 구성</b>에서 유체·해석 조건 선택 → <b>양식 생성</b></li><li><b>Config 편집</b>에서 값 입력 → <b>Apply</b> → <b>FORM 초안 저장</b></li><li>기존 연결 양식은 <b>Config Template</b>에서 선택 → <b>FORM 저장</b>. 사용자 정의 초안은 실행 연결 후 프로젝트에 사용 가능</li><li>파일 편집: <b>Download JSON / Import JSON</b>. 항목 추가: <b>+ Field</b></li><li><b>설치 확인</b>: 솔버 설치 여부를 버튼 아래에 표시. 설치 실행 기능은 아님</li></ul></details>
-   <details><summary>CFD Case 생성 및 Config 입력</summary><ul><li>프로젝트 선택 → 화면 오른쪽 위 파란 <b>+CFD Case</b></li><li><b>Case 이름</b> 입력 → 왼쪽 Config 항목 선택 → 오른쪽 값 입력</li><li><b>종료 조건·목표</b>에서 <b>특정 물리시간</b> 또는 <b>저장 프레임 수</b> 선택 → 목표값 입력</li><li>프레임 수 선택 시 <b>0초 초기 프레임 포함</b> 여부 확인. <b>수렴 기준</b>은 현재 선택 불가</li><li>창 아래 파란 <b>실행 저장</b> → 실행 목록에 Case 추가. 계산 시작은 대기열에서 진행</li></ul></details>
+   <p><b>CFD</b>: 입력·계산·결과 준비. <b>Viewer</b>: 저장 결과 조회·내보내기.</p>
+   <p>프로젝트는 여러 Case를 묶는 공간이며, CFD Case는 입력과 결과를 독립적으로 보관하는 계산 단위입니다. 항목을 펼치면 조작 순서가 표시됩니다.</p>
+   <h4>CFD</h4>
+   <p>화면 상단 <b>CFD</b> 탭. 프로젝트 생성 → Case 저장 → 대기열 실행 → 결과 준비</p>
+   <details><summary>프로젝트 생성</summary><ul><li>왼쪽 <b>프로젝트</b> 제목 아래 <b>새 프로젝트</b> 클릭</li><li><b>프로젝트 이름</b> 입력 → <b>프로젝트 폴더</b> 옆 <b>찾기</b>로 저장 폴더 지정</li><li><b>프로젝트 설명</b> 입력 → <b>CFD FORM</b>·<b>기본 프리셋</b> 선택 → 창 하단 <b>저장</b></li><li>저장한 프로젝트는 왼쪽 목록에서 이름을 클릭해 선택</li></ul></details>
+   <details><summary>프로젝트 정보 및 저장 폴더 변경</summary><ul><li>프로젝트 선택 → 화면 오른쪽 상단 <b>프로젝트 관리</b></li><li>이름·설명·폴더·기본 프리셋 수정 → <b>저장</b>. C·D 등 드라이브 선택 가능</li><li>기본 프리셋 변경은 이후 생성하는 Case에 적용</li><li>폴더 변경은 복사·검증 후 연결 전환. 원본 보존. 계산·결과 저장 중에는 변경 불가</li></ul></details>
+   <details><summary>CFD FORM 생성 및 편집</summary><ul><li>왼쪽 하단 <b>CFD FORM 리스트</b> 제목 오른쪽 둥근 정사각형 <b>+</b> 클릭. 기존 항목은 이름 오른쪽 <b>수정</b></li><li><b>CFD FORM 이름</b> 입력 → <b>솔버</b> 선택</li><li><b>양식 구성</b>에서 유체·해석 조건 선택 → <b>양식 생성</b></li><li><b>Config 편집</b>에서 값 입력 → <b>Apply</b> → <b>FORM 초안 저장</b></li><li>기존 연결 양식은 <b>Config Template</b>에서 선택 → <b>FORM 저장</b>. 사용자 정의 초안은 실행 연결 후 프로젝트에 사용 가능</li><li>파일 편집: <b>Download JSON / Import JSON</b>. 항목 추가: <b>+ Field</b></li><li><b>설치 확인</b>: 솔버 설치 여부를 버튼 아래에 표시. 자동 설치 기능 미제공</li></ul></details>
+   <details><summary>CFD Case 생성 및 Config 입력</summary><ul><li>프로젝트 선택 → 화면 오른쪽 상단 파란 <b>+CFD Case</b></li><li><b>Case 이름</b> 입력 → 왼쪽 Config 항목 선택 → 오른쪽 값 입력</li><li><b>종료 조건·목표</b>에서 <b>특정 물리시간</b> 또는 <b>저장 프레임 수</b> 선택 → 목표값 입력</li><li>프레임 수 선택 시 <b>0초 초기 프레임 포함</b> 여부 확인. <b>수렴 기준</b>은 현재 선택 불가</li><li>창 하단 파란 <b>실행 저장</b> → 실행 목록에 Case 추가. 계산 시작은 대기열에서 진행</li></ul></details>
    <details><summary>프리셋 저장 및 불러오기</summary><ul><li>Case의 Config 편집창 상단 <b>프리셋에 저장</b> 체크박스</li><li>체크 해제: 해당 Case에만 저장. 체크: 새 프리셋 이름 입력 → <b>실행 저장</b> 시 별도 프리셋 저장</li><li>기존 값 사용: <b>프리셋 불러오기</b>에서 선택 → <b>불러오기</b></li></ul></details>
    <details><summary>대기열 구성 및 CFD 실행</summary><ul><li>가운데 <b>실행 목록</b>에서 Case 선택 → 오른쪽 <b>대기열에 추가</b></li><li>아래 <b>대기열</b> 영역의 파란 <b>대기열 시작</b> → <b>계산 중</b> 상태 확인</li><li>여러 Case는 각각 추가. 대기열 행의 <b>↑ / ↓</b>로 순서 변경, <b>제외</b>로 대기열에서 제거</li><li><b>다음 실행부터 일시정지</b>: 현재 Case 계산 유지. <b>실행 중단</b>: 선택한 실행 중 Case 중단</li><li>진행 내용: 오른쪽 <b>솔버 로그</b> 제목 끝 아래 화살표 클릭</li><li>실패: 원인 확인 → <b>재시도 / 건너뛰기</b> → <b>대기열 시작</b>. 앱 재시작 후에도 대기열을 확인하고 시작</li></ul></details>
-   <details><summary>실행 Config 조회 및 비교</summary><ul><li>실행 목록에서 Case 선택 → 오른쪽 <b>Config 편집</b> 또는 <b>Config 보기</b></li><li>계산 전: 입력 수정 → <b>실행 저장</b>. 시작한 Case: 실행 당시 입력 조회</li><li>조건을 바꿔 별도 계산: <b>Config 보기 → 이 Config로 새 Case</b></li><li><b>Config 차이</b> 제목 끝 화살표: Case 생성 시 저장한 기준 Config와 비교</li><li>항목 찾기: 편집창 왼쪽 <b>Config 검색</b></li></ul></details>
+   <details><summary>실행 Config 조회 및 비교</summary><ul><li>실행 목록에서 Case 선택 → 오른쪽 <b>Config 편집</b> 또는 <b>Config 보기</b></li><li>계산 전: 입력 수정 → <b>실행 저장</b>. 시작한 Case: 실행 당시 입력 조회</li><li>입력을 변경하여 새 Case 생성: <b>Config 보기 → 이 Config로 새 Case</b></li><li><b>Config 차이</b> 제목 끝 화살표: Case 생성 시 저장한 기준 Config와 비교</li><li>항목 찾기: 편집창 왼쪽 <b>Config 검색</b></li></ul></details>
    <details><summary>결과 생성 및 Viewer 열기</summary><ul><li>실행 목록에서 Case 선택 → 오른쪽 파란 결과 버튼</li><li><b>생성</b>: 계산 결과를 시각화용으로 준비. <b>업데이트</b>: 새 결과 반영. <b>열기</b>: 준비된 Viewer 열기</li><li><b>생성 / 업데이트</b> 완료 후 <b>열기</b>. 회색 버튼이면 실행 상태·솔버 로그 확인</li><li>원본 확인: 같은 영역의 <b>결과 폴더</b></li></ul></details>
-   <h4>Viewer 파트</h4>
-   <p>화면 맨 위 <b>Viewer</b> 탭 또는 Case의 <b>열기</b>. Case 선택 → 시각화율 확인 → 3D·그래프 조회</p>
-   <details><summary>프로젝트 및 CFD Case 선택</summary><ul><li>왼쪽 프로젝트 이름 클릭 → 아래 <b>CFD Case</b> 목록에서 Case 선택</li><li>선택 항목은 파란 테두리. 3D·그래프 모두 선택한 Case의 결과 표시</li><li>다른 Case 비교: 목록에서 다른 항목 선택. 한 번에 한 Case 표시</li><li>계산 화면 복귀: 맨 위 <b>CFD</b> 탭</li></ul></details>
-   <details><summary>데이터 시각화율 확인 및 업데이트</summary><ul><li>왼쪽 <b>CFD Case</b> 목록의 각 항목 안 게이지에서 현재 시각화 준비 상태 확인</li><li>갱신: <b>CFD Case</b> 제목 오른쪽 둥근 사각형의 <b>원형 화살표</b> 클릭. 마우스를 올리면 <b>다시 읽기</b> 표시</li><li>프로젝트 내 Case들의 준비 상태 확인 및 선택한 Case의 결과 다시 읽기</li><li><b>100%</b>: 시각화 준비 완료. CFD 계산 진행률·수렴·실험 검증과 별도</li><li>새 원본의 변환이 필요하면 <b>CFD</b> 탭 → Case 선택 → <b>생성 / 업데이트</b> → <b>열기</b></li></ul></details>
-   <details><summary>3D Virtual Viewer 조작</summary><ul><li>중앙 3D 화면. 그래프 화면이면 왼쪽 <b>Data Sheet Viewer</b> 버튼을 눌러 3D로 전환</li><li>아래 파란 <b>▶</b>: 재생·일시정지. 옆 긴 시간 막대: 시점 선택. 오른쪽 <b>1×</b>: 재생 배속</li><li>시간 표시: <b>0.00s (전체 프레임 수)</b></li><li>드래그: 회전. 휠: 확대·축소. 더블클릭: 기본 시점 복원</li><li>오른쪽 <b>결과 데이터 / 설계 레이어</b>: 물리량·형상 표시. 항목은 Case의 저장 데이터에 따라 변경</li></ul></details>
-   <details><summary>Data Sheet Viewer 전환 및 수치 조회</summary><ul><li>왼쪽 넓은 <b>3D Virtual Viewer</b> 버튼 클릭 → <b>Data Sheet Viewer</b></li><li>그래프 위 <b>결과 항목</b> 선택 → 그래프 클릭·드래그 → 세로 점선과 X·Y 수치 확인</li><li>그래프에 초점을 둔 뒤 <b>← / →</b>로 시점 이동. 이 화면에는 재생 버튼 없음</li><li>뒷부분 데이터가 없으면 그래프 위 <b>전체 구간 읽기</b>. 수치 저장: 오른쪽 위 <b>CSV 저장</b></li><li>위치 조회를 지원하는 결과: 그래프 아래 <b>위치·시간 조회</b> → 좌표·시간 입력 → <b>조회</b></li><li>3D 복귀: 왼쪽 <b>Data Sheet Viewer</b> 버튼 클릭</li></ul></details>
-   <details><summary>영상·이미지·CSV 내보내기</summary><ul><li>3D 화면 아래 재생 바 맨 오른쪽 <b>Export</b></li><li>영상: <b>영상 내보내기</b> → 종료할 때 재생 바의 <b>녹화 종료</b></li><li>3D 화면: <b>현재 화면 PNG</b>. 그래프: 항목 선택 → <b>PNG 사진 / CSV 데이터</b></li><li>그래프 수치만 저장: <b>Data Sheet Viewer</b> 오른쪽 위 <b>CSV 저장</b></li></ul></details>
+   <h4>Viewer</h4>
+   <p>화면 상단 <b>Viewer</b> 탭 또는 Case의 <b>열기</b>. Case 선택 → 시각화율 확인 → 3D·그래프 조회</p>
+   <details><summary>프로젝트 및 CFD Case 선택</summary><ul><li>왼쪽 프로젝트 이름 클릭 → 아래 <b>CFD Case</b> 목록에서 Case 선택</li><li>선택 항목은 파란 테두리. 3D·그래프 모두 선택한 Case의 결과 표시</li><li>다른 Case 비교: 목록에서 다른 항목 선택. 한 번에 한 Case 표시</li><li>계산 화면 복귀: 상단 <b>CFD</b> 탭</li></ul></details>
+   <details><summary>데이터 시각화율 확인 및 업데이트</summary><ul><li>왼쪽 <b>CFD Case</b> 목록의 각 항목 안 게이지에서 현재 시각화 준비 상태 확인</li><li>갱신: <b>CFD Case</b> 제목 오른쪽 둥근 사각형의 <b>원형 화살표</b> 클릭. 포인터를 올리면 <b>다시 읽기</b> 표시</li><li>프로젝트 내 Case들의 준비 상태 확인 및 선택한 Case의 결과 다시 읽기</li><li><b>100%</b>: 시각화 준비 완료. CFD 계산 진행률·수렴·실험 검증과 별도</li><li>새 원본의 변환이 필요하면 <b>CFD</b> 탭 → Case 선택 → <b>생성 / 업데이트</b> → <b>열기</b></li></ul></details>
+   <details><summary>3D Virtual Viewer 조작</summary><ul><li>중앙 3D 화면. 그래프 화면에서 왼쪽 <b>Data Sheet Viewer</b> 버튼을 눌러 3D로 전환</li><li>아래 파란 <b>▶</b>: 재생·일시정지. 시간 막대: 시점 선택. 오른쪽 <b>1×</b>: 재생 배속</li><li>시간 표시: <b>0.00s (전체 프레임 수)</b></li><li>드래그: 회전. 휠: 확대·축소. 더블클릭: 기본 시점 복원</li><li>오른쪽 <b>결과 데이터 / 설계 레이어</b>: 물리량·형상 표시. 항목은 Case의 저장 데이터에 따라 변경</li></ul></details>
+   <details><summary>Data Sheet Viewer 전환 및 수치 조회</summary><ul><li>왼쪽 넓은 <b>3D Virtual Viewer</b> 버튼 클릭 → <b>Data Sheet Viewer</b></li><li>그래프 위 <b>결과 항목</b> 선택 → 그래프 클릭·드래그 → 세로 점선과 X·Y 수치 확인</li><li>그래프에 초점을 둔 뒤 <b>← / →</b>로 시점 이동. 이 화면에는 재생 버튼 없음</li><li>전체 저장 구간을 조회하려면 그래프 위 <b>전체 구간 읽기</b>. 수치 저장: 오른쪽 상단 <b>CSV 저장</b></li><li>위치 조회를 지원하는 결과: 그래프 아래 <b>위치·시간 조회</b> → 좌표·시간 입력 → <b>조회</b></li><li>3D 화면 전환: 왼쪽 <b>Data Sheet Viewer</b> 버튼 클릭</li></ul></details>
+   <details><summary>영상·이미지·CSV 내보내기</summary><ul><li>3D 화면 하단 재생 바 오른쪽 끝 <b>Export</b></li><li>영상: <b>영상 내보내기</b> → 종료할 때 재생 바의 <b>녹화 종료</b></li><li>3D 화면: <b>현재 화면 PNG</b>. 그래프: 항목 선택 → <b>PNG 사진 / CSV 데이터</b></li><li>그래프 수치만 저장: <b>Data Sheet Viewer</b> 오른쪽 상단 <b>CSV 저장</b></li></ul></details>
    <h4>설치 및 프로그램 실행</h4>
-   <ul><li>처음 사용하는 PC: WSL2 Ubuntu 설치·사용자 초기화 → <b>cfd_studio/설치.bat</b> → <b>cfd_studio/실행.bat</b></li><li>이미 설치된 PC: <b>실행.bat</b> 더블클릭. Windows Python 포함. 전용 솔버·GPU 환경은 별도 준비</li></ul>
+   <ul><li>최초 설치: WSL2 Ubuntu 설치·사용자 초기화 → <b>cfd_studio/설치.bat</b> → <b>cfd_studio/실행.bat</b></li><li>설치 완료 후 실행: <b>실행.bat</b> 더블클릭. Windows Python 포함. 전용 솔버·GPU 환경은 별도 준비</li></ul>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>사용법</b></a> · <a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/cfd_studio/README.md" target="_blank" rel="noopener noreferrer">설치</a> · 모델·단위·검증 범위는 위 <b>설명서</b> 탭</p>
   </div>
   <div class="ibx" id="ifB2" style="display:none">
