@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import struct
 import subprocess
 import threading
 import time
@@ -116,6 +117,8 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
         self.processes = {}
         from cfd_studio.result_series import ResultSeries
         self.series = ResultSeries(self)
+        from cfd_studio.csv_export import CSVExports
+        self.csv_exports = CSVExports(self.series)
 
     def external_entries(self):
         """Explicitly linked result folders; never scan or relocate their siblings."""
@@ -513,6 +516,9 @@ def get_route(handler, workspace):
             result = {'config': workspace.template(parse_qs(url.query).get('id', ['warehouse'])[0])}
         elif url.path == '/api/executions/storage-defaults':
             result = workspace.project_defaults()
+        elif url.path == '/api/executions/export-csv-download':
+            workspace.csv_exports.download(handler, parse_qs(url.query).get('token', [''])[0])
+            return True
         elif url.path == '/api/executions/chart-catalog':
             result = workspace.series.catalog(parse_qs(url.query).get('id', [''])[0])
         elif url.path == '/api/executions/chart':
@@ -580,6 +586,8 @@ def post_route(handler, workspace, body):
             result = workspace.rename_preset(body.get('id'), body.get('name'))
         elif path == '/api/executions/case':
             result = workspace.save_case(body.get('project_id'), body.get('name'), body.get('config'), body.get('id'), body.get('revision'), body.get('preset_id'), body.get('preset_name'))
+        elif path == '/api/executions/export-csv':
+            result = workspace.csv_exports.prepare(body.get('id'))
         elif path == '/api/executions/recover':
             result = workspace.recover_case(body.get('id'), body.get('action'))
         elif path == '/api/executions/queue':
@@ -595,6 +603,6 @@ def post_route(handler, workspace, body):
         else:
             raise ValueError('알 수 없는 요청입니다')
         handler._json({'ok': True, 'result': result})
-    except (ValueError, OSError, KeyError, TypeError) as error:
+    except (ValueError, OSError, KeyError, TypeError, BadZipFile, EOFError, struct.error) as error:
         handler._json({'ok': False, 'msg': str(error)}, 400)
     return True

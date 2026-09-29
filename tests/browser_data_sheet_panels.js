@@ -26,7 +26,7 @@ async page => {
   const left=await page.locator('#dsPlot').boundingBox(),right=await page.locator('#dsPlot2').boundingBox();
   check(left.x+left.width<right.x&&Math.abs(left.y-right.y)<2,'two charts are side by side');
   check(left.height<=370&&right.height<=370,'chart height is bounded');
-  check(await page.evaluate(()=>{const box=document.getElementById('dataSheet'),s=getComputedStyle(box),content=box.clientWidth-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight);return Math.abs(box.querySelector('.ds-grid').getBoundingClientRect().width/content-.8)<.01;}),'graphs occupy eighty percent of the available width');
+  check(await page.evaluate(()=>{const box=document.getElementById('dataSheet'),s=getComputedStyle(box),content=box.clientWidth-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight);const panel=box.querySelector('.ds-chart'),plot=box.querySelector('.ds-plot');return Math.abs(box.querySelector('.ds-grid').getBoundingClientRect().width/content-1)<.01&&Math.abs(plot.getBoundingClientRect().width/panel.clientWidth-.8)<.01;}),'panels use full width and only inner plots use eighty percent');
   check(await page.locator('#dsField').inputValue()!==await page.locator('#dsField2').inputValue(),'initial panels show different available metrics');
   await page.mouse.move(left.x+left.width*.2,left.y+left.height*.5);await page.mouse.down();await page.mouse.move(left.x+left.width*.54,left.y+left.height*.6,{steps:8});
   check(await page.evaluate(()=>window.getSelection().toString()===''),'drag does not select text');

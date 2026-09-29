@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v215"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v216"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -4695,6 +4695,8 @@ INDEX_HTML = r'''<!DOCTYPE html>
  .slot b{font-size:11.5px;color:var(--ink)}
  .sst{font-size:10px;color:var(--muted)}
  .sst.ok{color:#31c46a;font-weight:700}
+ body,body *{user-select:none;-webkit-user-select:none}
+ body input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=button]):not([type=submit]),body textarea,body [contenteditable=true],body .settings-row output,body .ds-cursor,body .ds-cursor *,body.execution-viewer #tlab{user-select:text;-webkit-user-select:text}
  summary{cursor:pointer;user-select:none;outline:none}
  input.num{background:var(--surface2);color:var(--ink);border:1px solid var(--line);border-radius:8px;
   height:31px;padding:0 9px;font-size:12.5px;width:100%;outline:none;font-family:inherit}
@@ -5361,12 +5363,13 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <details><summary>대기열 구성 및 CFD 실행</summary><ul><li>가운데 <b>실행 목록</b>에서 Case 선택 → 오른쪽 <b>대기열에 추가</b></li><li>아래 <b>대기열</b> 영역의 파란 <b>대기열 시작</b> → <b>계산 중</b> 상태 확인</li><li>여러 Case는 각각 추가. 대기열 행의 <b>↑ / ↓</b>로 순서 변경, <b>제외</b>로 대기열에서 제거</li><li><b>다음 실행부터 일시정지</b>: 현재 Case 계산 유지. <b>실행 중단</b>: 선택한 실행 중 Case 중단</li><li>진행 내용: 오른쪽 <b>솔버 로그</b> 제목 끝 아래 화살표 클릭</li><li>실패: 원인 확인 → <b>실패 사유 및 복구</b> → <b>다시하기 / 이어하기 / 건너뛰기</b> → <b>대기열 시작</b>. 앱 재시작 후에도 대기열을 확인하고 시작</li><li><b>다시하기</b>: 기존 기록을 보존하고 처음부터 계산. Config 검증 실패 시 입력 수정 필요</li><li><b>이어하기</b>: 확인된 재시작 저장 지점부터 계산. 재시작 데이터가 없거나 실행기가 지원하지 않으면 사유 표시. 저장고 실행기는 현재 재개 미지원</li></ul></details>
    <details><summary>실행 Config 조회 및 비교</summary><ul><li>실행 목록에서 Case 선택 → 오른쪽 <b>Config 편집</b> 또는 <b>Config 보기</b></li><li>계산 전: 입력 수정 → <b>실행 저장</b>. 시작한 Case: 실행 당시 입력 조회</li><li>입력을 변경하여 새 Case 생성: <b>Config 보기 → 이 Config로 새 Case</b></li><li><b>Config 차이</b> 제목 끝 화살표: Case 생성 시 저장한 기준 Config와 비교</li><li>항목 찾기: 편집창 왼쪽 <b>Config 검색</b></li></ul></details>
    <details><summary>결과 생성 및 Viewer 열기</summary><ul><li>실행 목록에서 Case 선택 → 오른쪽 파란 결과 버튼</li><li><b>생성</b>: 계산 결과를 시각화용으로 준비. <b>업데이트</b>: 새 결과 반영. <b>열기</b>: 준비된 Viewer 열기</li><li><b>생성 / 업데이트</b> 완료 후 <b>열기</b>. 회색 버튼이면 실행 상태·솔버 로그 확인</li><li>원본 확인: 같은 영역의 <b>결과 폴더</b></li></ul></details>
+   <details><summary>전체 CSV 내보내기</summary><ul><li><b>CFD → 실행 목록에서 Case 선택 → 오른쪽 전체 CSV</b></li><li>모든 저장 시점의 시계열과 공간 데이터를 CSV로 묶어 ZIP 다운로드. 그래프 선택·표시 밀도와 무관</li><li><b>time_series.csv</b>: 전체 결과 항목·통계·단위. <b>fields/</b>: 저장된 공간 배열. <b>manifest.json</b>: Case·Config·행 수</li><li>시각화 격자로 저장된 Case는 해당 격자를 내보냅니다. 저장되지 않은 원본 셀은 복원하지 않습니다.</li></ul></details>
    <h4>Viewer</h4>
    <p>화면 상단 <b>Viewer</b> 탭 또는 Case의 <b>열기</b>. Case 선택 → 시각화율 확인 → 3D·그래프 조회</p>
    <details><summary>프로젝트 및 CFD Case 선택</summary><ul><li>왼쪽 프로젝트 이름 클릭 → 아래 <b>CFD Case</b> 목록에서 Case 선택</li><li>선택 항목은 파란 테두리. 3D·그래프 모두 선택한 Case의 결과 표시</li><li>다른 Case 비교: 목록에서 다른 항목 선택. 한 번에 한 Case 표시</li><li>계산 화면 복귀: 상단 <b>CFD</b> 탭</li></ul></details>
    <details><summary>데이터 시각화율 확인 및 업데이트</summary><ul><li>왼쪽 <b>CFD Case</b> 목록의 각 항목 안 게이지에서 현재 시각화 준비 상태 확인</li><li>갱신: <b>CFD Case</b> 제목 오른쪽 둥근 사각형의 <b>원형 화살표</b> 클릭. 포인터를 올리면 <b>다시 읽기</b> 표시</li><li>프로젝트 내 Case들의 준비 상태 확인 및 선택한 Case의 결과 다시 읽기</li><li><b>100%</b>: 시각화 준비 완료. CFD 계산 진행률·수렴·실험 검증과 별도</li><li>새 원본의 변환이 필요하면 <b>CFD</b> 탭 → Case 선택 → <b>생성 / 업데이트</b> → <b>열기</b></li></ul></details>
    <details><summary>3D Virtual Viewer 조작</summary><ul><li>왼쪽 상단 <b>3D Virtual</b> 버튼 클릭 → 중앙 3D 화면 표시. 선택한 모드는 파란 테두리와 배경으로 표시</li><li>아래 파란 <b>▶</b>: 재생·일시정지. 시간 막대: 시점 선택. 오른쪽 <b>1×</b>: 재생 배속</li><li>시간 표시: <b>0.00s (전체 프레임 수)</b></li><li>드래그: 회전. 휠: 확대·축소. 더블클릭: 기본 시점 복원</li><li>오른쪽 패널 맨 위 <b>표시 밀도</b>: <b>표준 / 세밀 / 매우 세밀</b> 선택. 속도 벡터 표시 개수 조절</li><li>오른쪽 <b>결과 데이터 / 설계 레이어</b>: 물리량·형상 표시. 항목은 Case의 저장 데이터에 따라 변경</li></ul></details>
-   <details><summary>Data Sheet Viewer 전환 및 수치 조회</summary><ul><li>왼쪽 상단 <b>Data Sheet</b> 버튼 클릭 → 그래프 화면 표시. <b>3D Virtual</b> 버튼으로 3D 화면 전환</li><li>왼쪽 <b>전체 평균</b>: <b>Y1 / Y2 / Y3</b>에서 최대 3개 항목 선택. 단위별 Y축으로 평균 곡선 표시. <b>Y2 / Y3 → 선택 안 함</b>으로 해제. 그래프 클릭·드래그 → 세로 점선과 X·Y 수치 확인</li><li>그래프에 초점을 둔 뒤 <b>← / →</b>로 시점 이동. 이 화면에는 재생 버튼 없음</li><li>전체 저장 구간을 조회하려면 그래프 위 <b>전체 구간 읽기</b>. 그래프 저장: 각 그래프 상단 <b>Export</b> → <b>PNG 이미지 / CSV 데이터</b></li><li>오른쪽 <b>좌표 조회</b>: 결과 항목 선택 → 입력란의 <b>최소값 ~ 최대값</b> 확인 → <b>X·Y·Z</b>(m) 입력 → <b>조회</b>. 범위 밖 입력은 확정·조회 불가. 가장 가까운 저장 셀의 시간별 값 표시</li><li>3D 화면 전환: 왼쪽 상단 <b>3D Virtual</b> 버튼 클릭</li></ul></details>
+   <details><summary>Data Sheet Viewer 전환 및 수치 조회</summary><ul><li>왼쪽 상단 <b>Data Sheet</b> 버튼 클릭 → 그래프 화면 표시. <b>3D Virtual</b> 버튼으로 3D 화면 전환</li><li>왼쪽 <b>전체 평균</b>: <b>Y1 / Y2 / Y3</b>에서 최대 3개 항목 선택. 단위별 Y축으로 평균 곡선 표시. <b>Y2 / Y3 → 선택 안 함</b>으로 해제. 그래프 클릭·드래그 → 세로 점선과 X·Y 수치 확인</li><li>일반 문구는 선택 방지. Config 입력값·조회값과 Viewer 하단 상세 수치는 선택·복사 가능</li><li>그래프에 초점을 둔 뒤 <b>← / →</b>로 시점 이동. 이 화면에는 재생 버튼 없음</li><li>전체 저장 구간을 조회하려면 그래프 위 <b>전체 구간 읽기</b>. 그래프 저장: 각 그래프 상단 <b>Export</b> → <b>PNG 이미지 / CSV 데이터</b></li><li>오른쪽 <b>좌표 조회</b>: 결과 항목 선택 → 입력란의 <b>최소값 ~ 최대값</b> 확인 → <b>X·Y·Z</b>(m) 입력 → <b>조회</b>. 범위 밖 입력은 확정·조회 불가. 가장 가까운 저장 셀의 시간별 값 표시</li><li>3D 화면 전환: 왼쪽 상단 <b>3D Virtual</b> 버튼 클릭</li></ul></details>
    <details><summary>영상·이미지·CSV 내보내기</summary><ul><li><b>3D Virtual</b>: 하단 재생 바 오른쪽 <b>Export</b> → <b>영상 내보내기</b> 또는 <b>현재 화면 PNG</b></li><li>영상 녹화 종료: 재생 바의 <b>녹화 종료</b></li><li><b>Data Sheet</b>: 저장할 그래프 상단 <b>Export</b> → <b>PNG 이미지</b> 또는 <b>CSV 데이터</b></li><li>그래프 이미지는 현재 축·곡선·조회 위치를 포함하며, CSV는 해당 그래프에 읽어온 구간의 수치를 저장</li><li>전체 저장 구간이 필요한 경우 해당 그래프의 <b>전체 구간 읽기</b> 완료 후 Export</li></ul></details>
    <h4>설치 및 프로그램 실행</h4>
    <ul><li>최초 설치: WSL2 Ubuntu 설치·사용자 초기화 → <b>cfd_studio/설치.bat</b> → <b>cfd_studio/실행.bat</b></li><li>설치 완료 후 실행: <b>실행.bat</b> 더블클릭. Windows Python 포함. 전용 솔버·GPU 환경은 별도 준비</li></ul>

@@ -4,7 +4,7 @@
   const selectedRuns=new Map(),caseProgress=new Map();
   let progressProject=null,progressBusy=false,reloadBusy=false;
   let data = {projects: []}, projectId = '', runId = '', generation = 0, detail = null;
-  let queuePending=false;let pending=false, refreshing=false, projectSignature='',runSignature='',viewMode='cfd',presets=[],forms=[];
+  const csvPending=new Set();let queuePending=false;let pending=false, refreshing=false, projectSignature='',runSignature='',viewMode='cfd',presets=[],forms=[];
   const status = {complete:'완료', failed:'실패', running:'계산 중', queued:'대기', draft:'대기', stopped:'중단', preparing:'준비 중', saved:'보관'};
   const stateText=r=>(status[r.status]||r.status)+(r.completion_reason==='limit'?' · 한계 도달':'');
   const modelName = run => run.form_snapshot?.name || forms.find(f=>f.id===run.form_id)?.name || forms.find(f=>f.model===run.model)?.name || run.model || '모델 미확인';
@@ -125,7 +125,7 @@
   }
   function clearDetail(){
     $('ewRunTitle').textContent='실행 선택';$('ewLog').textContent='목록에서 실행을 선택하세요.';
-    $('ewStatus').replaceChildren();$('ewStats').replaceChildren();$('ewProgress').hidden=true;$('ewRunError').textContent='';$('ewStopLabel').textContent='—';$('ewDifferenceCount').textContent='';$('ewConfigSummary').textContent='';$('ewFacts').textContent='';$('ewView').disabled=true;$('ewSettings').disabled=true;$('ewEnqueue').disabled=true;$('ewFolder').disabled=true;$('ewStop').hidden=true;$('ewRecovery').hidden=true;$('ewDifferences').textContent='';$('ewGoals').textContent='';
+    $('ewStatus').replaceChildren();$('ewStats').replaceChildren();$('ewProgress').hidden=true;$('ewRunError').textContent='';$('ewStopLabel').textContent='—';$('ewDifferenceCount').textContent='';$('ewConfigSummary').textContent='';$('ewFacts').textContent='';$('ewView').disabled=true;$('ewSettings').disabled=true;$('ewEnqueue').disabled=true;$('ewFolder').disabled=true;$('ewCSV').disabled=true;$('ewStop').hidden=true;$('ewRecovery').hidden=true;$('ewDifferences').textContent='';$('ewGoals').textContent='';
   }
   function showDetail(value){
     detail=value;const row=currentProject()?.runs.find(r=>r.id===value.id);if(row){for(const k of ['result_status','last_saved','numerical_status','has_results','frame_counts'])if(k in value)row[k]=value[k];renderRuns();renderSidebarAction();}$('ewRunTitle').textContent=value.name;$('ewLog').textContent=value.log||'보존된 솔버 로그 없음';
@@ -144,6 +144,7 @@
     $('ewView').textContent=value.result_status==='update'?'업데이트':value.has_results?'열기':'생성';$('ewView').disabled=!value.has_results&&!value.can_generate;
     $('ewSettings').lastChild.textContent=value.editable?'Config 편집':'Config 보기';
     $('ewEnqueue').disabled=value.status!=='draft';$('ewEnqueue').hidden=!value.editable;$('ewStop').hidden=value.status!=='running';$('ewFolder').disabled=!value.path;
+    $('ewCSV').disabled=!value.path||csvPending.has(value.id);$('ewCSV').textContent=csvPending.has(value.id)?'CSV 생성 중…':'전체 CSV';
     const comparison=differenceView(value);$('ewDifferences').textContent=comparison.text;
     $('ewGoals').textContent=value.goals||'';$('ewDifferenceCount').textContent=comparison.label;
   }
@@ -289,6 +290,13 @@
     if(queuePending)for(const b of document.querySelectorAll('#ewQueue button,#ewQueueStart,#ewQueuePause,#ewRetry,#ewSkip,#ewEnqueue,#ewStop'))b.disabled=true;
     $('ewQueueError').textContent=q.failure?(all.find(r=>r.id===q.failure)?.error||'중단한 실행을 확인하세요'):q.service_error||'';
   }
+  async function exportCaseCSV(){
+    const id=runId;if(!id||csvPending.has(id))return;
+    csvPending.add(id);if(detail)showDetail(detail);
+    try{const response=await api('/export-csv',{id});const a=node('a');a.href='/api/executions/export-csv-download?token='+encodeURIComponent(response.result.token);a.download='';document.body.append(a);a.click();a.remove();if(runId===id)message('전체 CSV 다운로드를 시작했습니다.');}
+    catch(e){if(runId===id)message('CSV 내보내기 실패: '+e.message);}
+    finally{csvPending.delete(id);if(detail)showDetail(detail);}
+  }
   async function recoveryDialog(id){
     if(!id||queuePending)return;
     try{
@@ -430,7 +438,7 @@ body.grouped #warehouseDetails details{margin-top:8px}body.grouped #warehouseDet
 <header class="ew-heading"><div><h2 id="ewTitle">프로젝트</h2><p id="ewDescription"></p><p id="ewDefault"></p><p id="ewStorage"></p></div><div class="ew-bar"><button id="ewRename" class="btn">프로젝트 관리</button><button id="ewNewRun" class="btn pri">+CFD Case</button></div></header>
 <p id="ewMessage" role="status"></p>
 <div class="ew-layout"><div class="ew-list-panel"><div class="ew-list-heading"><div class="ew-bar"><h3>실행 목록 <span id="ewRunCount"></span></h3></div><input id="ewSearch" aria-label="실행 검색" placeholder="실행 검색"></div><div id="ewRows" role="group" aria-label="CFD 실행 목록"></div></div>
-<div class="ew-detail-panel"><div class="ew-detail-head"><div class="ew-bar"><p id="ewFacts"></p><div id="ewStatus"></div></div><h3 id="ewRunTitle">실행 선택</h3><div class="ew-detail-actions"><button id="ewSettings" class="btn" disabled>Config 보기</button><button id="ewFolder" class="btn" disabled>결과 폴더</button><button id="ewView" class="btn pri" disabled>열기</button><button id="ewEnqueue" class="btn" disabled>대기열에 추가</button><button id="ewRecovery" class="btn" hidden>다시하기</button><button id="ewStop" class="btn dng" hidden>실행 중단</button></div><div id="ewStats"></div><div id="ewProgress" hidden><div class="ew-bar"><span id="ewProgressLabel"></span><span id="ewProgressValue"></span></div><div class="pbar"><div id="ewProgressFill"></div></div></div><p id="ewRunError" role="alert"></p></div>
+<div class="ew-detail-panel"><div class="ew-detail-head"><div class="ew-bar"><p id="ewFacts"></p><div id="ewStatus"></div></div><h3 id="ewRunTitle">실행 선택</h3><div class="ew-detail-actions"><button id="ewSettings" class="btn" disabled>Config 보기</button><button id="ewFolder" class="btn" disabled>결과 폴더</button><button id="ewCSV" class="btn" disabled title="전체 시계열·저장 공간 데이터를 CSV 묶음으로 내보내기">전체 CSV</button><button id="ewView" class="btn pri" disabled>열기</button><button id="ewEnqueue" class="btn" disabled>대기열에 추가</button><button id="ewRecovery" class="btn" hidden>다시하기</button><button id="ewStop" class="btn dng" hidden>실행 중단</button></div><div id="ewStats"></div><div id="ewProgress" hidden><div class="ew-bar"><span id="ewProgressLabel"></span><span id="ewProgressValue"></span></div><div class="pbar"><div id="ewProgressFill"></div></div></div><p id="ewRunError" role="alert"></p></div>
 <div class="ew-detail-body"><div class="ew-setting-line"><span>종료 조건</span><span id="ewStopLabel">—</span></div><p id="ewConfigSummary"></p><p id="ewGoals"></p><details id="ewDifferenceBox"><summary>Config 차이 <span id="ewDifferenceCount"></span></summary><pre id="ewDifferences"></pre></details></div><details id="ewLogBox"><summary>솔버 로그</summary><pre id="ewLog"></pre></details></div></div>
 <details id="ewQueueCard" class="ew-queue-card" open><summary class="ew-bar"><h3>대기열</h3><span id="ewQueueState"></span></summary><div class="ew-bar ew-queue-actions"><button id="ewQueueStart" class="btn pri">대기열 시작</button><button id="ewQueuePause" class="btn">다음 실행부터 일시정지</button></div><div id="ewQueue"></div><p id="ewQueueError"></p><div id="ewFailures" class="ew-bar" hidden><button id="ewRetry" class="btn" hidden>실패 사유 및 복구</button><button id="ewSkip" class="btn" hidden>건너뛰기</button></div></details>`;
     document.querySelector('#dash .dlog').append(panel);
@@ -439,6 +447,7 @@ body.grouped #warehouseDetails details{margin-top:8px}body.grouped #warehouseDet
     const icons={reload:'M3 10a9 9 0 1 1 2.6 8.4M3 4v6h6',add:'M12 4v16M4 12h16',settings:'M4 7h16M4 17h16M8 4v6M16 14v6',folder:'M3 7V5h7l2 2h9v13H3Z',play:'m8 5 11 7-11 7Z'};
     for(const [id,key] of [['ewRename','settings'],['ewSettings','settings'],['ewFolder','folder'],['ewQueueStart','play'],['btnRun','reload'],['ewCreateForm','add']]){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('width',key==='add'?'22':key==='reload'?'18':'14');svg.setAttribute('height',key==='add'?'22':key==='reload'?'18':'14');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.6');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');svg.setAttribute('aria-hidden','true');const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',icons[key]);svg.append(path);$(id).prepend(svg);}
     $('ewNewRun').onclick=()=>openRun();$('ewRename').onclick=renameProject;$('ewView').onclick=viewResult;$('ewSearch').oninput=renderRuns;$('ewSettings').onclick=inspectSettings;
+    $('ewCSV').onclick=exportCaseCSV;
     $('ewEnqueue').onclick=()=>queueAction('enqueue',{ids:[runId]});$('ewQueueStart').onclick=()=>queueAction('resume');$('ewQueuePause').onclick=()=>queueAction('pause');$('ewRetry').onclick=()=>recoveryDialog(data.queue.failure);$('ewRecovery').onclick=()=>recoveryDialog(runId);$('ewSkip').onclick=()=>queueAction('skip',{id:data.queue.failure});$('ewStop').onclick=()=>queueAction('stop',{id:runId});$('ewFolder').onclick=async()=>{try{await api('/folder',{id:runId});}catch(e){message(e.message);}};
     $('mCFD').onclick=showList;$('mViz').onclick=viewResult;$('btnRun').onclick=reloadViewerCases;
     document.body.classList.add('grouped');showList();
