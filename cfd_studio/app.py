@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v198"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v199"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -4939,7 +4939,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
  #tbar{width:min(420px,40vw);min-width:30px;flex:1 1 auto;accent-color:var(--s1)}
  #controls #btnExport{height:32px;padding:0 12px;border-radius:16px;flex:none;white-space:nowrap}
  #controls #btnExport.recording{color:var(--s3);border-color:var(--s3)}
- #tlab{font-size:12.5px;min-width:80px;font-variant-numeric:tabular-nums;color:var(--ink2)}
+ #tlab{font-size:12.5px;min-width:80px;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--ink2)}
  #controls select{width:88px;height:30px;margin:0;font-size:12px;background-position:right 8px center;padding:0 24px 0 10px}
  .iconbtn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
   background:var(--s1);border:none;cursor:pointer;transition:background .12s;flex:none}
@@ -5173,7 +5173,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
       </svg></button>
     <button class="iconbtn" id="play" onclick="togglePlay()" title="재생" aria-label="재생"><svg id="playIco" width="13" height="13" viewBox="0 0 24 24"><path d="M6 4l12 8-12 8V4z" fill="#fff"/></svg></button>
     <input type="range" id="tbar" min="0" max="0" value="0" oninput="scrub(this.value)">
-    <span id="tlab">t = — s</span>
+    <span id="tlab" title="현재 시간 · 전체 저장 프레임 수">—s (0프레임)</span>
     <select id="speed" title="재생 배속" aria-label="재생 배속" onchange="changePlaybackSpeed()"><option value="0.1">0.1×</option><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select>
     <button class="btn" id="btnExport" onclick="openExport()" title="영상·그래프·현재 화면 내보내기">Export</button>
   </div>
@@ -5358,7 +5358,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <h4>Config</h4>
    <ul><li>CFD 실행 카드의 <b>Config 보기</b>: 실행에 사용한 원본 입력 조회</li><li><b>이 Config로 새 Case</b>: 기존 입력을 가져와 수정, 앞선 실행 보존</li><li>형상·격자 / 물성·경계조건 / 솔버·계산 / 관측·비교로 구분. 출처는 마지막 항목</li></ul>
    <h4>결과 보기</h4>
-   <ul><li>Viewer 왼쪽 CFD Case: 하나를 선택해 3D·그래프 결과 전환. 제목 오른쪽 다시 읽기로 선택한 결과 갱신</li><li>3D 아래 시간 막대·재생·배속: 저장 프레임 탐색</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>저장고 속도장 아래 표시 밀도: 표준·세밀·매우 세밀. 범례에 표시 벡터 수, 상단에 표시 셀 / 전체 셀 확인</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>왼쪽 <b>3D Virtual Viewer</b> 버튼: <b>Data Sheet Viewer</b>로 전환, 다시 누르면 3D 복귀</li><li>Data Sheet: 선택한 Case의 결과 항목 조회·CSV 저장. 그래프 클릭·드래그 또는 좌우 화살표로 저장 시점의 X·Y 확인</li><li><b>전체 구간 읽기</b>: 아직 읽지 않은 저장값부터 읽기. Case별 200개 이하 자동 읽기. 정상 해석의 X축은 반복 횟수</li><li>재생 바 오른쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
+   <ul><li>Viewer 왼쪽 CFD Case: 하나를 선택해 3D·그래프 결과 전환. 제목 오른쪽 다시 읽기로 선택한 결과 갱신</li><li>3D 아래 시간 막대·재생·배속: 저장 프레임 탐색. 시간 옆 괄호는 전체 저장 프레임 수</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>저장고 속도장 아래 표시 밀도: 표준·세밀·매우 세밀. 범례에 표시 벡터 수, 상단에 표시 셀 / 전체 셀 확인</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>왼쪽 <b>3D Virtual Viewer</b> 버튼: <b>Data Sheet Viewer</b>로 전환, 다시 누르면 3D 복귀</li><li>Data Sheet: 선택한 Case의 결과 항목 조회·CSV 저장. 그래프 클릭·드래그 또는 좌우 화살표로 저장 시점의 X·Y 확인</li><li><b>전체 구간 읽기</b>: 아직 읽지 않은 저장값부터 읽기. Case별 200개 이하 자동 읽기. 정상 해석의 X축은 반복 횟수</li><li>재생 바 오른쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
    <p class="mhint">저장고 애니메이션: 저장 프레임 사이 선형 보간. 흐름 마커: 유속 방향 표시. 1×는 물리시간 1초를 화면 1초로 재생합니다.</p>
    <h4>프로젝트 저장</h4>
    <ul><li>새 프로젝트·프로젝트 관리에서 저장 폴더 지정. C·D 등 드라이브 선택 가능</li><li>설정·Case별 실행 기록·원본·시각화·캐시를 프로젝트 폴더에 저장</li><li>기존 결과는 원래 경로를 유지. 프로젝트 위치 변경 시 복사·검증 후 연결 전환, 원본 보존</li><li>실행 중에는 위치 변경 불가. 독립 프리셋은 Studio에 보관</li></ul>
@@ -6194,7 +6194,7 @@ function configureViewerFields(c){
  ];
  for(const [id,label,title] of design){const input=document.getElementById(id),row=input&&input.closest('label'),sw=row&&row.querySelector('.sw');if(!row||!sw)continue;row.title=title;while(sw.nextSibling)sw.nextSibling.remove();row.appendChild(document.createTextNode(label));}
  const hud=document.querySelector('#hud .hrow');if(hud)hud.style.display=silo?'none':'';
- const tlab=document.getElementById('tlab');if(tlab&&!FRAMES.length)tlab.textContent=silo?'재생 = — s (—회)':'t = — s';
+ const tlab=document.getElementById('tlab');if(tlab&&!FRAMES.length)tlab.textContent='—s (0프레임)';
  for(const id of ['lyProbe','lyInfo','gcT','gcV','gcB','gcL']){const e=document.getElementById(id),row=e&&e.closest('label');if(row)row.style.display=silo?'none':'';if(silo&&e)e.checked=false;}
  const graphTitle=[...document.querySelectorAll('#vlegend .ltit')].find(e=>e.textContent.trim()==='그래프');if(graphTitle)graphTitle.style.display=silo?'none':'';
  if(silo){const gc=document.getElementById('gcol');if(gc)gc.innerHTML='';}
@@ -7201,7 +7201,7 @@ function frame(){
  document.getElementById('tbar').value=idx;
  renderGCol();
  let FL=null,TH=null,PH=null,PR=null,TR=null;
- if(FRAMES.length){const F=FRAMES[idx],shownT=playing?clock:framePlayTime(F),ax=runAxis(VIZCFG||CFG);document.getElementById('tlab').textContent=ax.steady?('재생 = '+shownT.toFixed(2)+' s ('+F.t.toFixed(0)+'회)'):('t = '+shownT.toFixed(ax.digits)+' '+ax.unit);
+ if(FRAMES.length){const F=FRAMES[idx],shownT=playing?clock:framePlayTime(F),ax=runAxis(VIZCFG||CFG);document.getElementById('tlab').textContent=shownT.toFixed(2)+(ax.steady?'s':ax.unit)+' ('+FRAMES.length.toLocaleString()+'프레임)';document.getElementById('tlab').title=ax.steady?'재생 시간 · 전체 저장 프레임 수 · 솔버 '+F.t.toFixed(0)+'회':'현재 시간 · 전체 저장 프레임 수';
   document.getElementById('hT').textContent=shownT.toFixed(2);
   const vapourML=frameVapourML(F);document.getElementById('hV').textContent=Number.isFinite(vapourML)?vapourML.toFixed(0):'—';
   document.getElementById('hC').textContent=F.n.toLocaleString();

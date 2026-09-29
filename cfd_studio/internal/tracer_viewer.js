@@ -145,7 +145,7 @@ function frameTracer(now,dt){
   T=TRACERBLEND.T;
  }
  document.getElementById('tbar').value=idx;
- document.getElementById('tlab').textContent='t = '+clock.toFixed(2)+' s';
+ document.getElementById('tlab').textContent=clock.toFixed(2)+'s ('+FRAMES.length.toLocaleString()+'프레임)';
  document.getElementById('hT').textContent=clock.toFixed(2);
  gl.clearColor(.051,.051,.051,1);gl.enable(gl.DEPTH_TEST);gl.depthMask(true);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
  const fov=2*Math.atan(Math.tan(19*Math.PI/180)*Math.max(1,VH/VW));
