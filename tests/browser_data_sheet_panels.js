@@ -6,7 +6,7 @@ async page => {
  let releasePressure;const pressureGate=new Promise(resolve=>releasePressure=resolve);
  const metrics=[{id:'temperature',name:'온도',unit:'°C'},{id:'velocity',name:'유속',unit:'m/s'},{id:'pressure',name:'압력',unit:'Pa'}];
  await page.route('**/chart-panel-test',r=>r.fulfill({contentType:'text/html',body:`<!doctype html><html><head><style>:root{--page:#10100f;--surface:#1b1b19;--surface2:#252523;--line:#383835;--ink:#e5e5df;--muted:#a4a49b;--s1:#3987e5;--s3:#ef776d}body{margin:0;font-family:Arial,sans-serif;background:var(--page);color:var(--ink)}#viz{position:absolute;inset:0}.btn{background:var(--surface2);color:var(--ink);border:1px solid var(--line);border-radius:6px}button,select{cursor:pointer}</style></head><body class="grouped execution-viewer"><div id="viz"></div><script>function setPlay(){};window.downloads=[];function exportDownload(blob,name){window.downloads.push({blob,name});}</script><script src="/data_sheet_viewer.js"></script></body></html>`}));
- await page.route('**/api/executions/chart-catalog?*',r=>r.fulfill({json:{axis:'time',metrics:metrics.flatMap(m=>['mean','min','max'].map(stat=>({...m,id:m.id+'.'+stat,scope:'global'}))),point_metrics:metrics}}));
+ await page.route('**/api/executions/chart-catalog?*',r=>r.fulfill({json:{axis:'time',metrics:metrics.flatMap(m=>['mean','min','max'].map(stat=>({...m,id:m.id+'.'+stat,scope:'global'}))),point_metrics:metrics.map(m=>({...m,bounds_m:[[0,2],[0,2],[0,2]]}))}}));
  await page.route('**/api/executions/chart?*',async r=>{const q=new URL(r.request().url()).searchParams,metric=q.get('metric').split('.')[0];if(metric==='pressure')await pressureGate;const values=metric==='temperature'?[10,20,30]:metric==='velocity'?[.1,.2,.3]:[100,200,300];try{await r.fulfill({json:{points:values.map((v,i)=>[i,v]),next:3,total:3,errors:[],basis:'UI 검사용 데이터'}});}catch(_){} });
  await page.route('**/api/executions/point-chart?*',r=>{const q=new URL(r.request().url()).searchParams,field=q.get('field'),x=Number(q.get('x')),values=field==='velocity'?[.1,.2,.3]:[11,21,31];return r.fulfill({json:{points:values.map((v,i)=>[i,v*x]),next:3,total:3,errors:[]}});});
  try{
@@ -16,6 +16,9 @@ async page => {
   check(await page.locator('#dsField option').count()===3,'left menu contains means only');
   check(await page.locator('#dsNotice,#dsTools,#warehouseDetails').count()===0,'secondary notes and lower coordinate panel are removed');
   check(await page.locator('#dsRead2').isDisabled(),'point graph waits for coordinates');
+  check(await page.locator('.ds-metrics select').count()===3,'left graph provides three metric selectors');
+  check(await page.locator('#dsCoordinates input[name=x]').getAttribute('placeholder')==='0 ~ 2','coordinate input shows stored range');
+  check(await page.locator('#dsCoordinates input[name=x]').getAttribute('max')==='2','coordinate input enforces maximum');
   await page.locator('#dsField2').selectOption('velocity|m/s|time');
   for(const axis of ['x','y','z'])await page.locator('#dsCoordinates input[name='+axis+']').fill('1');
   await page.locator('#dsCoordinates button').click();
@@ -23,6 +26,7 @@ async page => {
   const left=await page.locator('#dsPlot').boundingBox(),right=await page.locator('#dsPlot2').boundingBox();
   check(left.x+left.width<right.x&&Math.abs(left.y-right.y)<2,'two charts are side by side');
   check(left.height<=370&&right.height<=370,'chart height is bounded');
+  check(await page.evaluate(()=>{const box=document.getElementById('dataSheet'),s=getComputedStyle(box),content=box.clientWidth-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight);return Math.abs(box.querySelector('.ds-grid').getBoundingClientRect().width/content-.8)<.01;}),'graphs occupy eighty percent of the available width');
   check(await page.locator('#dsField').inputValue()!==await page.locator('#dsField2').inputValue(),'initial panels show different available metrics');
   await page.mouse.move(left.x+left.width*.2,left.y+left.height*.5);await page.mouse.down();await page.mouse.move(left.x+left.width*.54,left.y+left.height*.6,{steps:8});
   check(await page.evaluate(()=>window.getSelection().toString()===''),'drag does not select text');
@@ -70,6 +74,20 @@ async page => {
   check(await page.locator('#viewerHeading').isVisible()&&(await page.locator('#viewerHeading').innerText()).includes('검사 데이터'),'3D displays project and Case heading');
   await page.evaluate(()=>DataSheetViewer.setMode('data'));
   check(!await page.locator('#viewerHeading').isVisible(),'Data Sheet does not duplicate its heading');
+  await page.locator('#dsFieldB').selectOption('velocity.mean|m/s|time');
+  await page.locator('#dsFieldC').selectOption('pressure.mean|Pa|time');
+  await page.waitForFunction(()=>document.getElementById('dsCoverage').textContent.includes('9 / 9'));
+  check(await page.locator('#dsPlot path[data-series]').count()===3,'three mean curves are displayed together');
+  check(await page.locator('#dsPlot [data-y-axis]').count()===3,'different units have three separate Y axes');
+  check(await page.locator('#dsFieldB option[value="temperature.mean|°C|time"]').evaluate(option=>option.disabled),'duplicate metric selection is disabled');
+  await page.locator('#dsPlot').focus();await page.locator('#dsPlot').press('End');
+  const values=await page.locator('#dsValues').innerText();check(values.includes('30 °C')&&values.includes('0.3 m/s')&&values.includes('300 Pa'),'shared cursor reports each selected metric with its own unit');
+  await page.locator('#dsExport').click();await page.getByRole('button',{name:'CSV 데이터',exact:true}).click();await page.locator('dialog').waitFor({state:'detached'});
+  const multiCSV=await page.evaluate(()=>window.downloads.at(-1).blob.text());check(multiCSV.includes('"2","30","0.3","300"')&&multiCSV.includes('°C')&&multiCSV.includes('m/s')&&multiCSV.includes('Pa'),'CSV exports three unscaled series with individual units');
+  await page.locator('#dsCoordinates input[name=x]').fill('3');await page.locator('#dsCoordinates input[name=y]').focus();
+  check(await page.locator('#dsCoordinates input[name=x]').inputValue()===''&&await page.locator('#dsRead2').isDisabled(),'out-of-range coordinate is rejected on commit');
+  await page.locator('#dsCoordinates input[name=x]').fill('2');await page.locator('#dsCoordinates button').click();
+  await page.waitForFunction(()=>document.getElementById('dsCoverage2').textContent.includes('3 / 3'));
   await page.screenshot({path:'output/playwright/two-chart-desktop.png'});
   await page.setViewportSize({width:780,height:850});
   const narrowLeft=await page.locator('#dsPlot').boundingBox(),narrowRight=await page.locator('#dsPlot2').boundingBox();

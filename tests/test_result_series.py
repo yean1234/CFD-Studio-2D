@@ -83,7 +83,7 @@ class SeriesTests(unittest.TestCase):
         self.assertEqual(first['samples'][0]['cell_centre_m'],[.25,.5,.5])
         self.assertEqual(first['total'],2);self.assertEqual(first['next'],1)
         self.assertEqual([a.read_bytes(),b.read_bytes()],before)
-        self.assertEqual(self.series.catalog('case:a')['point_metrics'],[{'id':'temperature','name':'온도','unit':'°C'}])
+        self.assertEqual(self.series.catalog('case:a')['point_metrics'],[{'id':'temperature','name':'온도','unit':'°C','bounds_m':[[0.,1.],[0.,1.],[0.,1.]]}])
         self.assertTrue(all(m['scope']=='global' for m in self.series.catalog('case:a')['metrics']))
 
     def test_point_vector_planar_channels_pressure_and_mask(self):
@@ -115,3 +115,11 @@ class SeriesTests(unittest.TestCase):
         (self.root/'pressure_1.bin').write_bytes(b'PRS1'+struct.pack('<3I6f',1,1,5,0,0,0,1,1,1)+struct.pack('<5f',*values))
         self.assertIsNone(self.series.point_page('case:a','pressure',[.5,.5,.5])['points'][0][1])
         self.assertEqual(self.series.point_page('case:a','pressure',[.5,.5,.9])['points'],[[1,5]])
+
+    def test_point_bounds_follow_each_stored_field_grid(self):
+        self.packed('therm_1.bin',b'THM1',[300,310])
+        (self.root/'pressure_1.bin').write_bytes(b'PRS1'+struct.pack('<3I6f',1,1,1,-2,-3,-4,2,3,4)+struct.pack('<f',7))
+        fields={m['id']:m for m in self.series.catalog('case:a')['point_metrics']}
+        self.assertEqual(fields['temperature']['bounds_m'],[[0,1],[0,1],[0,1]])
+        self.assertEqual(fields['pressure']['bounds_m'],[[-2,2],[-3,3],[-4,4]])
+        self.assertIsNone(self.series.grid_bounds(self.root,'speed'))

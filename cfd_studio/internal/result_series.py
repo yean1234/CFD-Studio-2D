@@ -77,8 +77,12 @@ class ResultSeries:
             if cache_key in self.catalog_cache: return self.catalog_cache[cache_key]
         axis = result_axis(config)
         fields, metrics, point_metrics = [], [], []
+        domain = None
         if record['kind']=='warehouse':
             model = read(root/'model_contract.json', {})
+            geometry = config.get('geometry_spec',{}).get('geometry',{})
+            if all(isinstance(geometry.get(k),(int,float)) and math.isfinite(geometry[k]) and geometry[k]>0 for k in ('length_m','width_m','eaves_m')) and isinstance(geometry.get('roof_rise_m'),(int,float)) and math.isfinite(geometry['roof_rise_m']) and geometry['roof_rise_m']>=0:
+                domain = {'kind':'gable', **{k:geometry[k] for k in ('length_m','width_m','eaves_m','roof_rise_m')}}
             fields = ['concentration'] + (['temperature','speed','ux','uy','uz'] if model.get('kind')=='clo2_coupled_scenario' else [])
         else:
             prefixes = {name.split('_',1)[0] for name in bin_names}
@@ -95,12 +99,29 @@ class ResultSeries:
             if k=='pressure' and config.get('published',{}).get('rho_kg_m3'): unit='Pa'
             scope = 'region' if k in ('lower_temperature','upper_temperature') else 'global'
             metrics += [{'id': k+'.'+stat,'name':name+' · '+label,'unit':unit,'scope':scope} for stat,label in STATS.items()]
-            if scope == 'global': point_metrics.append({'id':k,'name':name,'unit':unit})
-        result={'id':key,'name':record['name'],'axis':axis,'metrics':metrics,'point_metrics':point_metrics,'coordinate_unit':'m'}
+            if scope == 'global':
+                bounds = ([[0,domain['length_m']],[0,domain['width_m']],[0,domain['eaves_m']+domain['roof_rise_m']]] if domain else None) if record['kind']=='warehouse' else self.grid_bounds(root,k)
+                point_metrics.append({'id':k,'name':name,'unit':unit,'bounds_m':bounds})
+        result={'id':key,'name':record['name'],'axis':axis,'metrics':metrics,'point_metrics':point_metrics,'coordinate_unit':'m','coordinate_domain':domain}
         with self.lock:
             self.catalog_cache[cache_key]=result
             while len(self.catalog_cache)>32: self.catalog_cache.popitem(last=False)
         return result
+
+    @staticmethod
+    def grid_bounds(root, field):
+        # Read the stored grid header, never infer spatial limits from a preset.
+        prefix = FIELDS[field][2]
+        path = next(iter(sorted(root.glob(prefix+'_*.bin'))),None)
+        if path is None: return None
+        try:
+            with path.open('rb') as stream: raw = stream.read(40)
+            if len(raw)!=40 or raw[:4] not in (FIELDS[field][3],b'PHS1' if prefix=='phase' else FIELDS[field][3]): return None
+            dims = struct.unpack_from('<3I',raw,4)
+            bb = struct.unpack_from('<6f',raw,16)
+            if not all(dims) or not all(math.isfinite(v) for v in bb) or any(bb[k]>=bb[k+3] for k in range(3)): return None
+            return [[bb[k],bb[k+3]] for k in range(3)]
+        except (OSError,struct.error): return None
 
     def frame_stat(self, path, field, config, *, raw=None):
         stamp=path.stat(); cache_key=(str(path),stamp.st_mtime_ns,stamp.st_size,field,config.get('published',{}).get('rho_kg_m3'),config.get('layers',{}).get('dielectric_mm'))
