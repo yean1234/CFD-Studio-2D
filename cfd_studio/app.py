@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v199"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v200"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -5358,7 +5358,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <h4>Config</h4>
    <ul><li>CFD 실행 카드의 <b>Config 보기</b>: 실행에 사용한 원본 입력 조회</li><li><b>이 Config로 새 Case</b>: 기존 입력을 가져와 수정, 앞선 실행 보존</li><li>형상·격자 / 물성·경계조건 / 솔버·계산 / 관측·비교로 구분. 출처는 마지막 항목</li></ul>
    <h4>결과 보기</h4>
-   <ul><li>Viewer 왼쪽 CFD Case: 하나를 선택해 3D·그래프 결과 전환. 제목 오른쪽 다시 읽기로 선택한 결과 갱신</li><li>3D 아래 시간 막대·재생·배속: 저장 프레임 탐색. 시간 옆 괄호는 전체 저장 프레임 수</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>저장고 속도장 아래 표시 밀도: 표준·세밀·매우 세밀. 범례에 표시 벡터 수, 상단에 표시 셀 / 전체 셀 확인</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>왼쪽 <b>3D Virtual Viewer</b> 버튼: <b>Data Sheet Viewer</b>로 전환, 다시 누르면 3D 복귀</li><li>Data Sheet: 선택한 Case의 결과 항목 조회·CSV 저장. 그래프 클릭·드래그 또는 좌우 화살표로 저장 시점의 X·Y 확인</li><li><b>전체 구간 읽기</b>: 아직 읽지 않은 저장값부터 읽기. Case별 200개 이하 자동 읽기. 정상 해석의 X축은 반복 횟수</li><li>재생 바 오른쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
+   <ul><li>Viewer 왼쪽 CFD Case: 하나를 선택해 3D·그래프 결과 전환. 제목 오른쪽 다시 읽기: 프로젝트 전체 준비 상태를 Case 게이지로 확인하고 선택한 결과 갱신. 100%는 시각화 준비 상태</li><li>3D 아래 시간 막대·재생·배속: 저장 프레임 탐색. 시간 옆 괄호는 전체 저장 프레임 수</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>저장고 속도장 아래 표시 밀도: 표준·세밀·매우 세밀. 범례에 표시 벡터 수, 상단에 표시 셀 / 전체 셀 확인</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>왼쪽 <b>3D Virtual Viewer</b> 버튼: <b>Data Sheet Viewer</b>로 전환, 다시 누르면 3D 복귀</li><li>Data Sheet: 선택한 Case의 결과 항목 조회·CSV 저장. 그래프 클릭·드래그 또는 좌우 화살표로 저장 시점의 X·Y 확인</li><li><b>전체 구간 읽기</b>: 아직 읽지 않은 저장값부터 읽기. Case별 200개 이하 자동 읽기. 정상 해석의 X축은 반복 횟수</li><li>재생 바 오른쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
    <p class="mhint">저장고 애니메이션: 저장 프레임 사이 선형 보간. 흐름 마커: 유속 방향 표시. 1×는 물리시간 1초를 화면 1초로 재생합니다.</p>
    <h4>프로젝트 저장</h4>
    <ul><li>새 프로젝트·프로젝트 관리에서 저장 폴더 지정. C·D 등 드라이브 선택 가능</li><li>설정·Case별 실행 기록·원본·시각화·캐시를 프로젝트 폴더에 저장</li><li>기존 결과는 원래 경로를 유지. 프로젝트 위치 변경 시 복사·검증 후 연결 전환, 원본 보존</li><li>실행 중에는 위치 변경 불가. 독립 프리셋은 Studio에 보관</li></ul>

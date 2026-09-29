@@ -259,6 +259,42 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
                 projects.append({'id': p['id'], 'name': p['name'], 'description': p.get('description', ''), 'default_preset': p.get('default_preset'), 'form_id': self.project_form(p, records), 'created': p['created'], 'storage_path': p.get('storage_path', ''), 'storage_available': bool(p.get('storage_path') and project_path(p['storage_path']).is_dir()), 'runs': runs})
             return {'projects': projects, 'queue': self.queue_summary(), 'busy': bool(self.busy()) or any(r['status'] in ('queued', 'running') and not r['id'].startswith('case:') or r['status'] == 'running' for r in records.values())}
 
+    def result_progress(self, project_id):
+        records = self.discover()
+        project = next((p for p in self._catalog(records)['projects'] if p['id'] == project_id), None)
+        if project is None:
+            raise ValueError('프로젝트를 찾을 수 없습니다')
+        rows = []
+        for key in project['runs']:
+            if key not in records:
+                continue
+            record = records[key]
+            try:
+                info = self.result_info(record) if record.get('path') and getattr(self, 'result_info', None) else {}
+                value = {**record, **info}
+                extract = value.get('extract') or {}
+                state = value.get('result_status', 'none')
+                active = state == 'preparing' or bool(extract.get('busy'))
+                failed = bool(extract.get('failed'))
+                total = max(0, int(extract.get('total') or 0))
+                done = max(0, int(extract.get('done') or 0))
+                percent = min(99, int(100*done/total)) if total else None
+                if state == 'ready' and not active and not failed:
+                    percent, text = 100, '준비됨'
+                elif active:
+                    text = '변환 중' if total else '확인 중'
+                elif failed:
+                    text = '일부 실패'
+                elif state == 'update':
+                    percent, text = None, '업데이트 필요'
+                else:
+                    percent, text = 0, '결과 없음'
+                rows.append({'id': key, 'percent': percent, 'label': text, 'active': active,
+                             'error': str(extract.get('last_error') or '') if failed else ''})
+            except (ValueError, OSError, KeyError, BadZipFile, EOFError) as error:
+                rows.append({'id': key, 'percent': None, 'label': '확인 실패', 'active': False, 'error': str(error)})
+        return {'project_id': project_id, 'runs': rows}
+
     def create_project(self, name, description='', default_preset=None, storage_path=None, form_id=None):
         with self.lock:
             data = self._catalog(self.discover())
@@ -480,6 +516,8 @@ def get_route(handler, workspace):
             result = workspace.solver_catalog()
         elif url.path == '/api/executions/presets':
             result = {'presets': workspace.presets()}
+        elif url.path == '/api/executions/result-progress':
+            result = workspace.result_progress(parse_qs(url.query).get('project_id', [''])[0])
         elif url.path == '/api/executions/detail':
             result = workspace.detail(parse_qs(url.query).get('id', [''])[0])
         else:
