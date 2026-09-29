@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v201"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v202"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -4792,7 +4792,8 @@ INDEX_HTML = r'''<!DOCTYPE html>
  .gcard .glg span{display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden}
  .gcard .glg i{width:8px;height:8px;border-radius:2px;flex:none}
  .gcard .glg b{color:var(--ink);font-variant-numeric:tabular-nums}
- #lcol{display:flex;flex-direction:column;gap:9px;align-items:stretch;max-height:100%}
+ #lcol{display:flex;flex-direction:column;gap:9px;align-items:stretch;width:240px;flex:none;min-height:0;max-height:calc(100vh - 152px)}
+ #hud{flex:none}#vlegend{min-height:0}
  #hud{background:rgba(26,26,25,.85);border:1px solid var(--line);
   backdrop-filter:blur(8px);border-radius:11px;padding:10px 14px;min-width:238px}
  .hgrp+.hgrp{margin-top:8px;padding-top:8px;border-top:1px solid var(--grid)}
@@ -4935,7 +4936,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
  @media(max-width:600px){#cfgBox{width:calc(100vw - 24px);padding:16px}#cfgBox .cr{grid-template-columns:minmax(112px,1fr) minmax(0,1.25fr) 52px;gap:7px;font-size:11.5px}#cfgBox .cfgRuntime .cr{grid-template-columns:112px minmax(0,1fr) 0}}
  #controls{position:absolute;left:50%;transform:translateX(-50%);bottom:16px;display:flex;gap:11px;align-items:center;
   background:rgba(26,26,25,.88);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:999px;
-  padding:9px 16px;max-width:calc(100% - 32px);box-sizing:border-box}
+  padding:9px 16px;width:min(880px,calc(100% - 32px));max-width:calc(100% - 32px);box-sizing:border-box}
  #tbar{width:min(420px,40vw);min-width:30px;flex:1 1 auto;accent-color:var(--s1)}
  #controls #btnExport{height:32px;padding:0 12px;border-radius:16px;flex:none;white-space:nowrap}
  #controls #btnExport.recording{color:var(--s3);border-color:var(--s3)}
@@ -4957,6 +4958,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
   font-size:19px;font-weight:600;color:#bcd9ff}
 
  /* ── 토스트/모달 ── */
+ body.grouped.execution-viewer:not(.data-sheet-viewer) #toasts{bottom:84px}
  #toasts{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:60}
  .toast{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--s1);border-radius:9px;
   padding:12px 16px;font-size:12.5px;min-width:250px;box-shadow:0 8px 26px rgba(0,0,0,.5);animation:in .18s ease-out}
@@ -4977,23 +4979,23 @@ INDEX_HTML = r'''<!DOCTYPE html>
   #settingsBtn{grid-column:2;grid-row:1;justify-self:end;margin:0}
   #modeSeg{grid-column:1;grid-row:2;justify-self:start}
   #app{height:calc(100% - 88px)}
-  body.tracerView #app{flex-direction:column}
-  body.tracerView #side{width:100%;min-width:0;flex:0 0 140px;border-bottom:1px solid var(--line)}
-  body.tracerView #main{min-height:0;min-width:0;border-left:0}
-  body.tracerView #rcol{left:8px;right:8px;top:8px;gap:6px;max-height:220px;overflow:auto}
-  body.tracerView #lcol{min-width:0;flex:1;gap:5px}
-  body.tracerView #hud,body.tracerView #vlegend{min-width:0;border-radius:6px;padding:7px}
-  body.tracerView #vlegend{display:grid;grid-template-columns:1fr 1fr;gap:3px}
-  body.tracerView #vlegend .ltit{grid-column:1 / -1;margin:2px 0}
-  body.tracerView #vlegend label{min-width:0;font-size:10px}
-  body.tracerView #tcbar{max-width:88px;padding:7px;border-radius:6px}
-  body.tracerView #tcbar .grad{height:94px}
-  body.tracerView #controls{left:8px;right:8px;bottom:8px;transform:none;gap:7px;padding:8px;border-radius:8px;flex-wrap:wrap}
-  body.tracerView #tbar{min-width:30px;width:auto;flex:1}
-  body.tracerView #tlab{min-width:0;font-size:11px}
-  body.tracerView #speed{width:62px}
+  body:is(.tracerView,.grouped.execution-viewer) #app{flex-direction:column}
+  body:is(.tracerView,.grouped.execution-viewer) #side{width:100%;min-width:0;flex:0 0 140px;border-bottom:1px solid var(--line)}
+  body:is(.tracerView,.grouped.execution-viewer) #main{min-height:0;min-width:0;border-left:0}
+  body:is(.tracerView,.grouped.execution-viewer) #rcol{left:8px;right:8px;top:8px;gap:6px;max-height:220px;overflow:auto}
+  body:is(.tracerView,.grouped.execution-viewer) #lcol{min-width:0;flex:1;gap:5px}
+  body:is(.tracerView,.grouped.execution-viewer) #hud,body:is(.tracerView,.grouped.execution-viewer) #vlegend{min-width:0;border-radius:6px;padding:7px}
+  body:is(.tracerView,.grouped.execution-viewer) #vlegend{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+  body:is(.tracerView,.grouped.execution-viewer) #vlegend .ltit{grid-column:1 / -1;margin:2px 0}
+  body:is(.tracerView,.grouped.execution-viewer) #vlegend label{min-width:0;font-size:10px}
+  body:is(.tracerView,.grouped.execution-viewer) #tcbar{max-width:88px;padding:7px;border-radius:6px}
+  body:is(.tracerView,.grouped.execution-viewer) #tcbar .grad{height:94px}
+  body:is(.tracerView,.grouped.execution-viewer) #controls{left:8px;right:8px;bottom:8px;transform:none;width:auto;max-width:none;gap:7px;padding:8px;border-radius:8px;flex-wrap:wrap}
+  body:is(.tracerView,.grouped.execution-viewer) #tbar{min-width:30px;width:auto;flex:1}
+  body:is(.tracerView,.grouped.execution-viewer) #tlab{min-width:0;font-size:11px}
+  body:is(.tracerView,.grouped.execution-viewer) #speed{width:62px}
  }
-.warehouse-viewer #lcol{width:240px;flex:none;min-height:0;max-height:calc(100vh - 152px)}.warehouse-viewer #hud{flex:none}.warehouse-viewer #vlegend{min-height:0}#warehouseDetails{border-top:1px solid var(--line);margin-top:9px;padding-top:4px}#warehouseDetails summary{cursor:pointer;padding:7px 0;font-size:11px;color:var(--ink2)}#warehouseDetails p{font-size:10px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}.wh-inputs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:5px}#warehouseDetails .wh-inputs label{display:grid;font-size:10px;gap:3px;margin:0}#warehouseDetails input{width:100%;min-width:0;height:28px;padding:4px;font-size:11px;background:var(--surface2);border:1px solid var(--line);border-radius:5px;color:var(--ink)}#warehouseDetails button{margin:7px 0}.warehouse-viewer #hLiveG,.warehouse-viewer #vizWarn{display:none!important}
+#warehouseDetails{border-top:1px solid var(--line);margin-top:9px;padding-top:4px}#warehouseDetails summary{cursor:pointer;padding:7px 0;font-size:11px;color:var(--ink2)}#warehouseDetails p{font-size:10px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}.wh-inputs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:5px}#warehouseDetails .wh-inputs label{display:grid;font-size:10px;gap:3px;margin:0}#warehouseDetails input{width:100%;min-width:0;height:28px;padding:4px;font-size:11px;background:var(--surface2);border:1px solid var(--line);border-radius:5px;color:var(--ink)}#warehouseDetails button{margin:7px 0}body.grouped #hLiveG,body.grouped #vizWarn{display:none!important}
 </style></head>
 <body>
 <div id="hdr">
@@ -5076,8 +5078,6 @@ INDEX_HTML = r'''<!DOCTYPE html>
     <input type="checkbox" id="exFlow" checked>
     <input type="checkbox" id="exTherm" checked>
    </div>
-   <label class="ck" style="margin-bottom:9px" title="스냅샷 생성 속도를 실측해 주기 자동 조절 · 변환된 원본은 정리(전체 상태 앵커는 보존)"><input type="checkbox" id="autoSync" onchange="setAutoSync()">
-    자동 동기화</label>
    <div class="fld result-data-summary" style="margin:13px 0 7px;display:flex;align-items:center;justify-content:space-between">
     <span>선택 Case</span><span class="sst" id="projDataName"></span></div>
    <div id="slots" class="result-data-summary">
@@ -5350,7 +5350,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <h4 style="margin-top:0">CFD 실행</h4>
    <ul><li><b>새 프로젝트</b>: 이름·프로젝트 폴더·설명·CFD FORM·프리셋 선택</li><li><b>+CFD Case</b>: 개별 Config·종료 조건·목표 입력 → <b>실행 저장</b></li><li>실행 선택 → <b>대기열에 추가</b> → <b>대기열 시작</b></li><li>실행 목록: 설정 차이·종료 조건·실행 상태·마지막 저장·수치 검사·시각화 확인</li><li>결과 버튼: <b>생성 / 업데이트 / 열기</b></li></ul>
    <h4>CFD FORM</h4>
-   <ul><li>왼쪽 <b>CFD FORM 리스트</b>: 이중액침냉각·옥수수 사일로·식량 저장고 훈증 시스템</li><li><b>새로 만들기</b>: 범용 솔버 10개·기존 전용 솔버 선택, 기능·주요 결과·연결 양식 확인</li><li><b>설치 확인</b>: OpenFOAM 환경에서 솔버 실행 파일 존재 확인. 버튼 아래에 설치됨·실행 파일 없음·확인 실패 표시. Studio 실행 연결 상태와 별도. <b>양식 구성</b>: 유체 → 해석 → 영역·격자·종료 조건 → 양식 생성. 솔버에 맞는 항목을 만든 뒤 <b>Config 편집</b>에서 값 입력. <b>Download JSON / Import JSON</b>으로 파일 편집 가능. Key·Type·Unit·Value 직접 편집 가능. <b>+ Field</b>로 항목 추가, Object·Array·JSON 지원. <b>Apply → FORM 초안 저장</b>. 사용자 정의 Config는 실행 연결 전까지 프로젝트·Case 실행에 사용할 수 없음</li><li><b>Config Template</b>: 기존 연결 양식 필요 시 직접 선택. FORM 오른쪽 <b>수정</b>: 이름·입력 양식 변경, 연결된 FORM에서 <b>새 프리셋</b> 저장</li><li>프로젝트 생성 시 FORM 필수. 프리셋은 해당 FORM 안에서 별도 선택</li><li><b>프리셋에 저장</b>: 기본 해제, 체크하면 새 이름으로 별도 저장</li><li>프로젝트 기본 프리셋 변경: 이후 추가하는 실행에만 적용</li></ul>
+   <ul><li>왼쪽 <b>CFD FORM 리스트</b>: 이중액침냉각·옥수수 사일로·식량 저장고 훈증 시스템</li><li><b>+</b>: 새 CFD FORM 생성. 범용 솔버 10개·기존 전용 솔버 선택, 기능·주요 결과·연결 양식 확인</li><li><b>설치 확인</b>: OpenFOAM 환경에서 솔버 실행 파일 존재 확인. 버튼 아래에 설치됨·실행 파일 없음·확인 실패 표시. Studio 실행 연결 상태와 별도. <b>양식 구성</b>: 유체 → 해석 → 영역·격자·종료 조건 → 양식 생성. 솔버에 맞는 항목을 만든 뒤 <b>Config 편집</b>에서 값 입력. <b>Download JSON / Import JSON</b>으로 파일 편집 가능. Key·Type·Unit·Value 직접 편집 가능. <b>+ Field</b>로 항목 추가, Object·Array·JSON 지원. <b>Apply → FORM 초안 저장</b>. 사용자 정의 Config는 실행 연결 전까지 프로젝트·Case 실행에 사용할 수 없음</li><li><b>Config Template</b>: 기존 연결 양식 필요 시 직접 선택. FORM 오른쪽 <b>수정</b>: 이름·입력 양식 변경, 연결된 FORM에서 <b>새 프리셋</b> 저장</li><li>프로젝트 생성 시 FORM 필수. 프리셋은 해당 FORM 안에서 별도 선택</li><li><b>프리셋에 저장</b>: 기본 해제, 체크하면 새 이름으로 별도 저장</li><li>프로젝트 기본 프리셋 변경: 이후 추가하는 실행에만 적용</li></ul>
    <h4>대기열</h4>
    <ul><li>시작 전 실행: 편집·순서 변경·제외 가능</li><li><b>다음 실행부터 일시정지</b>: 현재 실행 유지</li><li>실패: 대기열 정지 → <b>재시도 / 건너뛰기</b> → <b>대기열 시작</b></li><li>앱 재시작: 기록·결과·대기열 복원, 다음 실행은 일시정지 상태</li></ul>
    <h4>종료 조건</h4>
@@ -5358,7 +5358,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <h4>Config</h4>
    <ul><li>CFD 실행 카드의 <b>Config 보기</b>: 실행에 사용한 원본 입력 조회</li><li><b>이 Config로 새 Case</b>: 기존 입력을 가져와 수정, 앞선 실행 보존</li><li>형상·격자 / 물성·경계조건 / 솔버·계산 / 관측·비교로 구분. 출처는 마지막 항목</li></ul>
    <h4>결과 보기</h4>
-   <ul><li>Viewer 왼쪽 CFD Case: 하나를 선택해 3D·그래프 결과 전환. 제목 오른쪽 다시 읽기: 프로젝트 전체 준비 상태를 Case 게이지로 확인하고 선택한 결과 갱신. 100%는 시각화 준비 상태</li><li>3D 아래 시간 막대·재생·배속: 저장 프레임 탐색. 시간 옆 괄호는 전체 저장 프레임 수</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>저장고 속도장 아래 표시 밀도: 표준·세밀·매우 세밀. 범례에 표시 벡터 수, 상단에 표시 셀 / 전체 셀 확인</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>왼쪽 <b>3D Virtual Viewer</b> 버튼: <b>Data Sheet Viewer</b>로 전환, 다시 누르면 3D 복귀</li><li>Data Sheet: 선택한 Case의 결과 항목 조회·CSV 저장. 그래프 클릭·드래그 또는 좌우 화살표로 저장 시점의 X·Y 확인</li><li><b>전체 구간 읽기</b>: 아직 읽지 않은 저장값부터 읽기. Case별 200개 이하 자동 읽기. 정상 해석의 X축은 반복 횟수</li><li>재생 바 오른쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
+   <ul><li>Viewer 왼쪽 CFD Case: 하나를 선택해 3D·그래프 결과 전환. 제목 오른쪽 원형 화살표 아이콘(다시 읽기): 프로젝트 전체 준비 상태를 Case 게이지로 확인하고 선택한 결과 갱신. 100%는 시각화 준비 상태</li><li>3D 아래 시간 막대·재생·배속: 저장 프레임 탐색. 시간 옆 괄호는 전체 저장 프레임 수</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>저장고 속도장 아래 표시 밀도: 표준·세밀·매우 세밀. 범례에 표시 벡터 수, 상단에 표시 셀 / 전체 셀 확인</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>왼쪽 <b>3D Virtual Viewer</b> 버튼: <b>Data Sheet Viewer</b>로 전환, 다시 누르면 3D 복귀</li><li>Data Sheet: 선택한 Case의 결과 항목 조회·CSV 저장. 그래프 클릭·드래그 또는 좌우 화살표로 저장 시점의 X·Y 확인</li><li><b>전체 구간 읽기</b>: 아직 읽지 않은 저장값부터 읽기. Case별 200개 이하 자동 읽기. 정상 해석의 X축은 반복 횟수</li><li>재생 바 오른쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
    <p class="mhint">저장고 애니메이션: 저장 프레임 사이 선형 보간. 흐름 마커: 유속 방향 표시. 1×는 물리시간 1초를 화면 1초로 재생합니다.</p>
    <h4>프로젝트 저장</h4>
    <ul><li>새 프로젝트·프로젝트 관리에서 저장 폴더 지정. C·D 등 드라이브 선택 가능</li><li>설정·Case별 실행 기록·원본·시각화·캐시를 프로젝트 폴더에 저장</li><li>기존 결과는 원래 경로를 유지. 프로젝트 위치 변경 시 복사·검증 후 연결 전환, 원본 보존</li><li>실행 중에는 위치 변경 불가. 독립 프리셋은 Studio에 보관</li></ul>
@@ -5785,7 +5785,7 @@ async function selVz(rid){                                // 뷰어 전용 선�
  if(p&&p.pending){toast('실행 전 프로젝트 — 아직 볼 데이터가 없습니다',true);return;}
  VPROJ=(rid===CURC)?'':rid;
  VHIST=[];VHISTV=[];VHISTC=[];
- if(LOADED_RID!==rid){FRAMES=[];BUBLOADED=0;Cxyz=null;FLOWMAP={};THERMMAP={};PHASEMAP={};PRESSUREMAP={};TURBMAP={};}
+ if(LOADED_RID!==rid){document.getElementById('tlab').textContent='불러오는 중';document.getElementById('hFrTit').textContent='재생 프레임 · 불러오는 중';document.getElementById('tbar').value=0;document.getElementById('tbar').max=0;FRAMES=[];BUBLOADED=0;Cxyz=null;FLOWMAP={};THERMMAP={};PHASEMAP={};PRESSUREMAP={};TURBMAP={};}
  SRVDIRTY=true;
  renderProjects({cur:CURC,projects:LASTPROJS});
  // 이력은 loadFrames에서 프레임과 병렬로 읽는다. 마지막 화면 복원·직접 열기도 동일 경로를 탄다.
@@ -7520,13 +7520,13 @@ function applyAnalysisTypeUI(){
  if(document.body.classList.contains('grouped')&&(MODE==='cfd'||document.body.classList.contains('warehouse-viewer')))return;
  const active=MODE==='viz'?(VIZCFG||CFG):CFG;
  if(isTracerConfig(active)){
-  document.getElementById('appContext').textContent='가스 수송 CFD · 정규화 추적자';
+  if(!document.body.classList.contains('grouped'))document.getElementById('appContext').textContent='가스 수송 CFD · 정규화 추적자';
   document.getElementById('dash').style.display=MODE==='cfd'?'flex':'none';
   configureOutputFields(CFG);configureViewerFields(VIZCFG||CFG);return;
  }
  const silo=isSiloConfig(MODE==='viz'?(VIZCFG||CFG):CFG);
  const setup=document.getElementById('immersionSetup');
- const context=document.getElementById('appContext');if(context)context.textContent=(silo?'식량 저장고 CFD':'액침냉각 CFD')+' · __APP_VER__';
+ const context=document.getElementById('appContext');if(context&&!document.body.classList.contains('grouped'))context.textContent=(silo?'식량 저장고 CFD':'액침냉각 CFD')+' · __APP_VER__';
  const hTimeLabel=document.getElementById('hTimeLabel'),hTimeUnit=document.getElementById('hTimeUnit');
  if(hTimeLabel)hTimeLabel.textContent=silo?'재생':'t';if(hTimeUnit)hTimeUnit.textContent='s';
  if(setup)setup.style.display='flex';
@@ -8384,12 +8384,6 @@ async function stop(){
  if(LASTST)LASTST.running=false;
  toast('중지 신호를 보냈습니다');
  clearTimeout(PTIMER);PTIMER=setTimeout(poll,1200);}      // 정지 반영된 상태를 바로 재조회 (폴링 체인은 1개 유지)
-async function setAutoSync(){
- const on=document.getElementById('autoSync').checked;
- const fields=vizFields();
- await fetch('/api/autosync',{method:'POST',headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({on,fields})});
- toast(on?'자동 동기화 켜짐 — 스냅샷 생성 속도에 맞춰 자동 변환':'자동 동기화 꺼짐');}
 async function syncCase(){
  if(CFGREF==='inline'){
   if(!ACTIVE_CONFIG_FILE){toast('이 파일은 다시 접근할 수 없습니다 — 기반 파일 카드를 눌러 다시 선택하세요',true);return;}
@@ -8483,8 +8477,6 @@ async function poll(){
   ]);
   if(hw&&hw.sampled_at)s.sys=hw;              // 느린 WSL 상태와 분리해 가장 최근 실측값 사용
   LASTST=s; setStatus(s); updateLiveProjectProgress(s);
-  const asEl=document.getElementById('autoSync'); if(asEl&&document.activeElement!==asEl)asEl.checked=!!s.autosync;
-  if(asEl&&s.autosync&&s.autosync_period)asEl.parentElement.title='현재 동기화 주기 ~'+s.autosync_period+'초 (스냅샷 생성 속도 실측 기반 자동 조절)';
   if(EXBUSY&&s.extract&&!s.extract.busy&&!isWatching(CURC)){SRVDIRTY=true;refreshSrvInfo();}  // 자동 동기화 변환 완료 → 준비 개수 갱신
   EXBUSY=!!(s.extract&&s.extract.busy);
   const launch2=!s.running&&LAUNCHT&&Date.now()-LAUNCHT<240000;
@@ -8612,7 +8604,6 @@ function collectUI(){
  const layerModes={...VIEWLAYERSTATE,[layerMode]:currentLayers};
  return {mode:MODE, proj:PROJ, vproj:VPROJ, newmode:NEWMODE, speed:g('speed').value,
   layers:currentLayers,layer_modes:layerModes,
-  autos:g('autoSync').checked,
   cam:{th,ph,rad,tgt:[...tgt]},
   outputs:NEWMODE?Object.fromEntries(UIOUT.map(i=>[i,g(i).checked])):null};
 }
@@ -8639,7 +8630,6 @@ async function restoreUI(currentStatus){
   if(currentLayers)for(const k of UILY)if(g(k)&&currentLayers[k]!=null)g(k).checked=currentLayers[k];
   if(st.speed)g('speed').value=st.speed;
   if(st.cam){th=st.cam.th;ph=st.cam.ph;rad=st.cam.rad;}
-  if(st.autos){g('autoSync').checked=true;setAutoSync();}
   const ownsCurrent=!!(currentStatus&&(currentStatus.running||+currentStatus.time>0||
    (currentStatus.snap_times||[]).some(x=>+x>0)));
   if(st.proj&&st.proj!==(PROJ||'')&&!ownsCurrent&&!(st.newmode&&HASPEND)){await selectProj(st.proj,true);}

@@ -19,7 +19,7 @@ function saveWarehouseUI(){if(WHBASE)return;WHBASE={flowGradient:document.getEle
 function restoreWarehouseUI(){if(!WHBASE)return;lastTbarShow=null;lastVbarShow=null;for(const [id,v] of Object.entries(WHBASE.labels)){const input=document.getElementById(id),row=input.closest('label'),sw=row.querySelector('.sw');while(sw?.nextSibling)sw.nextSibling.remove();for(const n of v.nodes)row.append(n.cloneNode(true));row.style.display=v.display;row.title=v.title;input.checked=v.checked;input.disabled=v.disabled;}
  document.getElementById('vbarRange').previousElementSibling.style.background=WHBASE.flowGradient;
  document.querySelector('#tcbar .grad').style.background=WHBASE.gradient;configureViewerFields.mode=WHBASE.mode;GDEF.forEach((d,i)=>d.title=WHBASE.titles[i]);document.querySelector('#hud .hrow').innerHTML=WHBASE.hrow;document.getElementById('exGraph').innerHTML=WHBASE.graph;WHBASE=null;
- document.getElementById('whFlowControls')?.remove();document.getElementById('warehouseDetails')?.remove();document.getElementById('warehouseCSV')?.remove();document.getElementById('autoSync').closest('label').style.display='';document.getElementById('saveShot').title='현재 3D 화면 저장';document.getElementById('gcol')._keys='';
+ document.getElementById('whFlowControls')?.remove();document.getElementById('warehouseDetails')?.remove();document.getElementById('warehouseCSV')?.remove();document.getElementById('saveShot').title='현재 3D 화면 저장';document.getElementById('gcol')._keys='';
  document.querySelector('#tcbar>div').textContent='온도 °C';document.getElementById('tcSat').style.display='';document.getElementById('tcSatL').style.display='';
  const old=document.getElementById('tracerStats');if(old)old.style.display='none';}
 function configureWarehouseUI(){if(!WH)return;saveWarehouseUI();document.body.classList.remove('tracerView');
@@ -43,7 +43,7 @@ function configureWarehouseUI(){if(!WH)return;saveWarehouseUI();document.body.cl
  document.querySelector('#hud .hrow').innerHTML='<span>t <b id="hT">—</b> s</span><span>표시 <b id="hC">—</b>셀</span><span hidden>농도 표본최대 <b id="hV">—</b> '+WH.unit+'</span>';
  document.querySelector('#hud .hrow').style.display='';document.getElementById('hLiveG').style.display='none';
  const g=WH.meta.geometry;document.getElementById('hGeo').textContent=g.length_m+' × '+g.width_m+' m · '+(WH.meta.loading?.blocks?.length?'다공성 곡물 · ':'')+(WH.meta.model==='normalized_gable_verification'?'정규화 시험':'ClO₂ 가정 기반 계산');
- document.getElementById('plabels').replaceChildren();document.getElementById('gcol')._keys='';document.getElementById('autoSync').closest('label').style.display='none';
+ document.getElementById('plabels').replaceChildren();document.getElementById('gcol')._keys='';
  document.getElementById('saveShot').title='현재 3D 화면 저장';document.getElementById('vizWarn').style.display='none';document.getElementById('empty').style.display='none';
  for(const title of document.querySelectorAll('#vlegend .ltit'))title.style.display='';
  if(!document.getElementById('warehouseDetails')){const box=document.createElement('div');box.id='warehouseDetails';box.innerHTML=`
@@ -64,7 +64,7 @@ function warehouseBuildGeometry(){for(const g of WH.geometry||[])gl.deleteBuffer
  for(const b of WH.meta.loading?.blocks||[]){const a=b.min_m.map(x=>x*1000),z=b.max_m.map(x=>x*1000);WH.geometry.push({type:'grain',mesh:mesh(boxTris(...a,...z))},{type:'grainEdge',mesh:mesh(boxEdges(...a,...z))});}
 }
 async function loadWarehouseResult(id,name){rememberWarehouse();suspendWarehouseViewer();cancelViewerLoad();const gen=WHGEN;if(WH?.geometry)for(const g of WH.geometry)gl.deleteBuffer(g.mesh.b);WH=null;CFG=VIZCFG={_해석유형:'warehouse'};FRAMES=[];VSTREAMERR.clear();idx=0;clock=0;FLOWMAP={};THERMMAP={};PHASEMAP={};PRESSUREMAP={};TURBMAP={};BUBLOADED=0;Cxyz=null;VHIST=[];VHISTC=[];VHISTV=[];
- document.getElementById('tbar').max=0;document.getElementById('tlab').textContent='불러오는 중';loadMsg('결과 불러오는 중');document.getElementById('empty').style.display='';gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+ document.getElementById('tbar').max=0;document.getElementById('tlab').textContent='불러오는 중';document.getElementById('hFrTit').textContent='재생 프레임 · 불러오는 중';loadMsg('결과 불러오는 중');document.getElementById('empty').style.display='';gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
  try{const meta=await warehouseAPI('meta?id='+encodeURIComponent(id));if(gen!==WHGEN)return;
  if(!meta.times_s?.length||meta.times_s.some((t,i)=>!Number.isFinite(t)||(i&&t<=meta.times_s[i-1])))throw Error('결과 시간 순서를 확인해 주세요');
  WH={id,name,meta,unit:meta.concentration_unit==='kg/m3'?'mg/m³':'C/C_ref',cache:new Map(),pending:new Map(),stats:new Map(),geometry:[],pairKey:'',lastHud:0};VIZCFG=CFG={_해석유형:'warehouse',warehouse:meta};LOADED_RID='warehouse:'+id;

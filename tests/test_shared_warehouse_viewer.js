@@ -9,9 +9,9 @@ const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const workspace=fs.readFileSync(path.join(__dirname,'../cfd_studio/internal/execution_workspace.js'),'utf8');
 const transition=workspace.slice(workspace.indexOf('  async function viewResult(){'),workspace.indexOf('  function inspectSettings(){'));
 function transitionContext(detail){
- const calls=[];
- const ctx={detail,generation:1,viewMode:'cfd',VIZCFG:{_해석유형:'warehouse'},VPROJ:null,
-  DataSheetViewer:{begin(){},resume(){},loaded(){}},document:{body:{classList:{add(){},toggle(){}}}},setPlay(){},cancelViewerLoad(){},renderSidebarAction(){},
+ const calls=[],elements=new Map();
+ const ctx={$:id=>{if(!elements.has(id))elements.set(id,{});return elements.get(id);},suspendWarehouseViewer(){},detail,generation:1,viewMode:'cfd',VIZCFG:{_해석유형:'warehouse'},VPROJ:null,
+  DataSheetViewer:{begin(){},resume(){},loaded(){}},document:{body:{classList:{add(){},remove(){},toggle(){}}}},setPlay(){},cancelViewerLoad(){},renderSidebarAction(){},
   restoreWarehouseUI(){calls.push('restore');},message(t){calls.push(t);},showList(){ctx.viewMode='cfd';},
   setMode(m){assert.equal(ctx.VIZCFG,ctx.detail.config,'selected config must be available before geometry is rendered');calls.push(m);},
   async selVz(rid){calls.push(rid);}};
@@ -28,6 +28,15 @@ test('Viewer requested while run detail is loading stays pending for automatic e
 });
 
 
+test('a Case without results stays in Viewer with the same Case list',async()=>{
+ const {ctx}=transitionContext({has_results:false,can_generate:false});
+ let mode;ctx.setMode=value=>mode=value;
+ await ctx.viewResult();
+ assert.equal(ctx.viewMode,'viewer');assert.equal(mode,'viz');
+ assert.equal(ctx.$('controls').inert,true);
+ assert.equal(ctx.$('ewViewerEmpty').textContent,'선택한 Case의 결과가 아직 없습니다.');
+});
+
 test('Viewer mode control keeps its position and labels the active mode',()=>{
  const source=workspace.slice(workspace.indexOf('  function renderSidebarAction(){'),workspace.indexOf('  function button('));
  const control={classList:{toggle(){}},setAttribute(){},removeAttribute(){}};const ctx={$:()=>control,document:{body:{classList:{contains:()=>true}}},DataSheetViewer:{mode:'3d',toggle(){this.mode=this.mode==='data'?'3d':'data';}}};
@@ -37,9 +46,10 @@ test('Viewer mode control keeps its position and labels the active mode',()=>{
 test('legacy selection waits for frame reading before signaling ready',async()=>{
  const app=fs.readFileSync(path.join(__dirname,'../cfd_studio/app.py'),'utf8');
  const source=app.slice(app.indexOf('async function selVz(rid)'),app.indexOf('function openProj(rid)'));
- let finish;const gate=new Promise(resolve=>finish=resolve);const ctx={LASTPROJS:[],CURC:'',LOADED_RID:'',renderProjects(){},loadFrames:()=>gate};
+ const labels={tlab:{textContent:'0.00s (6프레임)'},hFrTit:{textContent:'재생 프레임 · 6개'},tbar:{value:5,max:5}};
+ let finish;const gate=new Promise(resolve=>finish=resolve);const ctx={document:{getElementById:id=>labels[id]},LASTPROJS:[],CURC:'',LOADED_RID:'',renderProjects(){},loadFrames:()=>gate};
  vm.createContext(ctx);vm.runInContext(source,ctx);let done=false;const selecting=ctx.selVz('result').then(()=>done=true);
- await Promise.resolve();assert.equal(done,false);finish();await selecting;assert.equal(done,true);
+ await Promise.resolve();assert.equal(done,false);assert.equal(labels.tlab.textContent,'불러오는 중');assert.equal(labels.hFrTit.textContent,'재생 프레임 · 불러오는 중');assert.equal(labels.tbar.max,0);finish();await selecting;assert.equal(done,true);
 });
 
 test('playback keys do not hijack CFD, buttons or settings',()=>{
