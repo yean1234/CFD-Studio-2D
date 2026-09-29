@@ -406,12 +406,29 @@ class ProjectStorage:
             raise ValueError('프로젝트 경로를 직접 입력하세요')
         env = os.environ.copy()
         env['CFD_PROJECT_PICK_START'] = str(start)
-        command = ("[Console]::OutputEncoding=[Text.UTF8Encoding]::new();Add-Type -AssemblyName System.Windows.Forms;"
-                   "$d=New-Object System.Windows.Forms.FolderBrowserDialog;$d.Description='프로젝트 폴더 선택';"
-                   "$d.ShowNewFolderButton=$true;if(Test-Path -LiteralPath $env:CFD_PROJECT_PICK_START){$d.SelectedPath=$env:CFD_PROJECT_PICK_START};"
-                   "if($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){[Console]::Write($d.SelectedPath)}")
-        result = subprocess.run(['powershell.exe', '-NoProfile', '-STA', '-Command', command], capture_output=True,
-                                env=env, timeout=600, creationflags=0x08000000)
+        # An owned modal stays above the browser even when Studio has no console.
+        # Keep user paths in the environment, never interpolate them into PowerShell.
+        command = (
+            "$ErrorActionPreference='Stop';[Console]::OutputEncoding=[Text.UTF8Encoding]::new();"
+            "Add-Type -AssemblyName System.Windows.Forms;"
+            "$owner=New-Object System.Windows.Forms.Form;"
+            "$owner.Text='CFD Studio';$owner.ShowInTaskbar=$false;$owner.TopMost=$true;"
+            "$owner.StartPosition=[System.Windows.Forms.FormStartPosition]::CenterScreen;"
+            "$owner.Size=New-Object System.Drawing.Size(1,1);$owner.Opacity=0;"
+            "$d=New-Object System.Windows.Forms.FolderBrowserDialog;"
+            "try{$owner.Show();$owner.Activate();"
+            "$d.Description='프로젝트 폴더 선택';$d.ShowNewFolderButton=$true;"
+            "if($env:CFD_PROJECT_PICK_START -and (Test-Path -LiteralPath $env:CFD_PROJECT_PICK_START -PathType Container)){"
+            "$d.SelectedPath=$env:CFD_PROJECT_PICK_START};"
+            "if($d.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK){"
+            "[Console]::Write($d.SelectedPath)}}"
+            "finally{$d.Dispose();$owner.Close();$owner.Dispose()}"
+        )
+        try:
+            result = subprocess.run(['powershell.exe', '-NoProfile', '-STA', '-Command', command], capture_output=True,
+                                    env=env, timeout=600, creationflags=0x08000000)
+        except subprocess.TimeoutExpired as error:
+            raise ValueError('폴더 선택 시간이 초과되었습니다. 찾기를 다시 누르거나 경로를 직접 입력하세요.') from error
         if result.returncode:
             raise ValueError('폴더 선택 창을 열지 못했습니다. 경로를 직접 입력하세요.')
         path = result.stdout.decode('utf-8').strip()
