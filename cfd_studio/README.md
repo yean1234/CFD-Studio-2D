@@ -58,7 +58,8 @@ wsl -l -v
 - sudo 요청 시 Ubuntu 사용자 비밀번호 입력
 - 완료 메시지 확인 → `cfd_studio/실행.bat` 더블클릭
 - 기본 접속 주소: `http://127.0.0.1:8712`. 실제 주소는 실행창에서 확인
-- 프로젝트 생성 → CFD Template·프리셋 선택 → +CFD Case
+- 프로젝트 생성 → CFD Template 선택 → 직접 Config 입력 또는 해당 Template의 프리셋 선택 → 저장
+- 실행 연결된 Template: **+CFD Case → 실행 저장 → 대기열에 추가 → 대기열 시작**
 
 ## 설치 범위
 
@@ -86,7 +87,7 @@ wsl -l -v
 
 - 기본 CFD Template 정의: `templates/cfd-forms.json`
 - 기본 Config: `configs/immersion.json`, `configs/grain_silo.json`, `tracer_transport`의 저장고 입력 템플릿
-- 솔버별 입력 정의·양식 생성·결과 항목: `internal`의 FORM 및 솔버 모듈
+- 솔버별 입력 정의·양식 생성·결과 항목: `internal`의 Template 및 솔버 모듈
 - 사용자 프로젝트·Case·원본 결과·캐시·PC별 등록 정보: Git 업로드 제외
 - 사용자 정의 Template과 프리셋: 로컬 등록부에 보관. 배포용 기본 정의와 별도
 - 다른 위치의 프로젝트 사용: **CFD → 프로젝트 찾기 → 폴더 지정 → 추가**
