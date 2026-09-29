@@ -4,6 +4,14 @@
 - 내용: 계산 모델, 결과 단위, 검증 상태
 - 화면 조작: [사용법](CFD-STUDIO-USER-GUIDE.md)
 
+## 설치 환경
+
+- [필수 프로그램·설치 BAT·설치 순서](../cfd_studio/README.md)
+- `설치.bat`: 최초 계산 환경 준비. WSL 자체·전용 솔버·GPU 환경 설치와 구분
+- `실행.bat`: 일반 실행
+- Windows Python 포함. Linux OpenFOAM·NumPy는 계산 환경에 필요
+- 기존 프로젝트·계산 폴더를 삭제해서 재설치하지 않음
+
 ## 프로젝트와 실행
 
 - CFD FORM: 해석 대상·솔버·입력 파트·기본 Config 정의
@@ -213,7 +221,7 @@
 
 - `Projects`: 기본 위치에 만든 프로젝트. 설정·Case·결과를 프로젝트별 보관
 - `configs`: 독립 설정 프리셋
-- `Setup`: 실행에 필요한 Python과 설치 파일
+- `Setup`: 포함 Python 실행 환경. 설치·실행 BAT는 `cfd_studio` 바로 아래
 - `Studies`: 이전 실험 묶음의 설정·실행 이력
 - `_runtime`: 앱 상태·임시 캐시·이전 형식 호환 데이터
 - 기존 `Project` 결과를 옮길 때는 프로젝트 연결도 함께 갱신

@@ -47,6 +47,8 @@
 
 - Windows 실행용 Python **3.12.10 x64 embedded runtime**이 포함되어 있습니다. 시스템 Python이나 Conda 설치가 필요하지 않습니다. Linux 계산·변환용 Python과 NumPy는 설치 스크립트가 준비합니다. WSL 배포판 선택이 필요하면 `cfd_studio/studio_config.example.json`을 `studio_config.json`으로 복사해 수정합니다.
 
+- `설치.bat`은 WSL 자체·전용 솔버 빌드·GPU 환경까지 설치하지 않습니다. [설치 범위와 필요한 프로그램](cfd_studio/README.md)을 확인하세요.
+
 - 설치 대상에 기존 케이스가 있으면 덮어쓰지 않고 중단합니다. 새 설치에서는 고유한 `wsl_case` 경로를 선택하세요. 기존 CFD Studio 사용자는 원본 프로젝트를 보존하고 소스 업데이트를 별도로 검토해야 합니다.
 
 ## 주요 기능

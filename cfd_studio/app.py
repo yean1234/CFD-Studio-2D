@@ -5347,6 +5347,9 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/solver-input-definitions-20260929.md" target="_blank" rel="noopener noreferrer">솔버별 입력 정의</a></p>
   </div>
   <div class="ibx" id="ifB1" style="display:none">
+   <h4 style="margin-top:0">설치</h4>
+   <ul><li>Windows 10/11 x64·WebGL2 브라우저·WSL2 Ubuntu 필요</li><li>Windows Python: <b>Setup/Python312</b>에 포함. 별도 설치 불필요</li><li>최초 사용: Ubuntu 설치·사용자 초기화 → <b>cfd_studio/설치.bat</b> → <b>cfd_studio/실행.bat</b></li><li>설치 BAT: OpenCFD OpenFOAM v2312·Linux Python/NumPy·보조 도구·새 기본 계산 폴더 준비</li><li>기존 설치: <b>실행.bat</b> 사용. 전용 솔버·GPU 환경은 별도 준비</li></ul>
+   <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/cfd_studio/README.md" target="_blank" rel="noopener noreferrer">필수 프로그램·설치 순서</a></p>
    <h4 style="margin-top:0">CFD 실행</h4>
    <ul><li><b>새 프로젝트</b>: 이름·프로젝트 폴더·설명·CFD FORM·프리셋 선택</li><li><b>+CFD Case</b>: 개별 Config·종료 조건·목표 입력 → <b>실행 저장</b></li><li>실행 선택 → <b>대기열에 추가</b> → <b>대기열 시작</b></li><li>실행 목록: 설정 차이·종료 조건·실행 상태·마지막 저장·수치 검사·시각화 확인</li><li>결과 버튼: <b>생성 / 업데이트 / 열기</b></li></ul>
    <h4>CFD FORM</h4>

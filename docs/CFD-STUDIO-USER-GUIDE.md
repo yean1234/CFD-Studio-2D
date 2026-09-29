@@ -3,6 +3,16 @@
 - 진행 순서: 프로젝트 → +CFD Case → 대기열 → 결과
 - 모델·단위·검증 상태: [설명서](CFD-STUDIO-MANUAL.md)
 
+## 설치
+
+- 필수: Windows 10/11 x64·WebGL2 브라우저·WSL2 Ubuntu
+- Windows Python: `cfd_studio/Setup/Python312`에 포함. 별도 설치 불필요
+- 최초 사용: Ubuntu 설치·사용자 초기화 → `cfd_studio/설치.bat` → `cfd_studio/실행.bat`
+- 설치 BAT: OpenCFD OpenFOAM v2312·Linux Python/NumPy·보조 도구·새 기본 계산 폴더 준비
+- 이미 설치된 PC: `실행.bat` 사용. 설치 BAT를 업데이트용으로 반복 실행하지 않음
+- 전용 솔버·GPU 환경: 별도 준비 필요
+- [필수 프로그램·설치 파일·설치 순서](../cfd_studio/README.md)
+
 ## 프로젝트
 
 - `cfd_studio/실행.bat` 실행
