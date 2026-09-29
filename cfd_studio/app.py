@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v196"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v197"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -4935,8 +4935,10 @@ INDEX_HTML = r'''<!DOCTYPE html>
  @media(max-width:600px){#cfgBox{width:calc(100vw - 24px);padding:16px}#cfgBox .cr{grid-template-columns:minmax(112px,1fr) minmax(0,1.25fr) 52px;gap:7px;font-size:11.5px}#cfgBox .cfgRuntime .cr{grid-template-columns:112px minmax(0,1fr) 0}}
  #controls{position:absolute;left:50%;transform:translateX(-50%);bottom:16px;display:flex;gap:11px;align-items:center;
   background:rgba(26,26,25,.88);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:999px;
-  padding:9px 16px}
- #tbar{width:min(420px,40vw);accent-color:var(--s1)}
+  padding:9px 16px;max-width:calc(100% - 32px);box-sizing:border-box}
+ #tbar{width:min(420px,40vw);min-width:30px;flex:1 1 auto;accent-color:var(--s1)}
+ #controls #btnExport{height:32px;padding:0 12px;border-radius:16px;flex:none;white-space:nowrap}
+ #controls #btnExport.recording{color:var(--s3);border-color:var(--s3)}
  #tlab{font-size:12.5px;min-width:80px;font-variant-numeric:tabular-nums;color:var(--ink2)}
  #controls select{width:88px;height:30px;margin:0;font-size:12px;background-position:right 8px center;padding:0 24px 0 10px}
  .iconbtn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
@@ -5090,8 +5092,6 @@ INDEX_HTML = r'''<!DOCTYPE html>
      <span id="btnRunTxt">생성</span></button>
    <button class="btn" id="btnUpdateViz" style="width:100%;margin-top:8px;justify-content:center;display:none" onclick="fetchResults()"
      title="현재 계산에서 새로 저장된 스냅샷만 기존 시각화에 추가">업데이트</button>
-   <button class="btn" style="width:100%;margin-top:8px;justify-content:center" id="btnExport" onclick="openExport()"
-     title="영상·그래프·현재 화면의 내보내기 형식을 선택합니다">Export</button>
    <div class="fgroup" style="margin-top:16px">프로젝트 리스트</div>
    <button class="btn" style="width:100%;justify-content:center;margin-bottom:7px" onclick="newProj()">＋ 새 프로젝트</button>
    <div id="projList2" style="display:flex;flex-direction:column;gap:6px"><span class="sst">확인 중</span></div>
@@ -5175,6 +5175,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
     <input type="range" id="tbar" min="0" max="0" value="0" oninput="scrub(this.value)">
     <span id="tlab">t = — s</span>
     <select id="speed" title="재생 배속" aria-label="재생 배속" onchange="changePlaybackSpeed()"><option value="0.1">0.1×</option><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select>
+    <button class="btn" id="btnExport" onclick="openExport()" title="영상·그래프·현재 화면 내보내기">Export</button>
   </div>
   <div id="vizWarn"><span id="vwTxt"></span><button class="btn pri" onclick="fetchResults()">지금 생성</button></div>
   <div id="errBanner"><div style="flex:1">
@@ -5357,7 +5358,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <h4>Config</h4>
    <ul><li>CFD 실행 카드의 <b>Config 보기</b>: 실행에 사용한 원본 입력 조회</li><li><b>이 Config로 새 Case</b>: 기존 입력을 가져와 수정, 앞선 실행 보존</li><li>형상·격자 / 물성·경계조건 / 솔버·계산 / 관측·비교로 구분. 출처는 마지막 항목</li></ul>
    <h4>결과 보기</h4>
-   <ul><li>Viewer 왼쪽 CFD Case: 이름을 눌러 3D 결과 전환, 체크박스로 그래프 비교 대상 선택</li><li>3D 아래 시간 막대·재생·배속: 저장 프레임 탐색</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>저장고 속도장 아래 표시 밀도: 표준·세밀·매우 세밀. 범례에 표시 벡터 수, 상단에 표시 셀 / 전체 셀 확인</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>왼쪽 <b>3D Virtual Viewer</b> 버튼: <b>Data Sheet Viewer</b>로 전환, 다시 누르면 3D 복귀</li><li>Data Sheet: 여러 Case의 결과 항목 비교·CSV 저장. 그래프 클릭·드래그 또는 좌우 화살표로 저장 시점의 X·Y 확인</li><li><b>전체 구간 읽기</b>: 아직 읽지 않은 저장값부터 읽기. Case별 200개 이하 자동 읽기. 정상 해석의 X축은 반복 횟수</li><li>왼쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
+   <ul><li>Viewer 왼쪽 CFD Case: 이름을 눌러 3D 결과 전환, 체크박스로 그래프 비교 대상 선택</li><li>3D 아래 시간 막대·재생·배속: 저장 프레임 탐색</li><li>오른쪽 결과 데이터·설계 레이어: 물리량·형상·단면 선택</li><li>저장고 속도장 아래 표시 밀도: 표준·세밀·매우 세밀. 범례에 표시 벡터 수, 상단에 표시 셀 / 전체 셀 확인</li><li>드래그: 회전, 휠: 확대·축소, 더블클릭: 시점 초기화</li><li>왼쪽 <b>3D Virtual Viewer</b> 버튼: <b>Data Sheet Viewer</b>로 전환, 다시 누르면 3D 복귀</li><li>Data Sheet: 여러 Case의 결과 항목 비교·CSV 저장. 그래프 클릭·드래그 또는 좌우 화살표로 저장 시점의 X·Y 확인</li><li><b>전체 구간 읽기</b>: 아직 읽지 않은 저장값부터 읽기. Case별 200개 이하 자동 읽기. 정상 해석의 X축은 반복 횟수</li><li>재생 바 오른쪽 Export: 영상·그래프·현재 화면·프레임 CSV 저장</li></ul>
    <p class="mhint">저장고 애니메이션: 저장 프레임 사이 선형 보간. 흐름 마커: 유속 방향 표시. 1×는 물리시간 1초를 화면 1초로 재생합니다.</p>
    <h4>프로젝트 저장</h4>
    <ul><li>새 프로젝트·프로젝트 관리에서 저장 폴더 지정. C·D 등 드라이브 선택 가능</li><li>설정·Case별 실행 기록·원본·시각화·캐시를 프로젝트 폴더에 저장</li><li>기존 결과는 원래 경로를 유지. 프로젝트 위치 변경 시 복사·검증 후 연결 전환, 원본 보존</li><li>실행 중에는 위치 변경 불가. 독립 프리셋은 Studio에 보관</li></ul>
@@ -7312,12 +7313,12 @@ function exportVideo(fmt,mime,name,handle){
   catch(e){toast('영상 저장 실패: '+e.message,true);}};
  REC={rec,c,x:c.getContext('2d'),prev:-1,t0:performance.now()};
  idx=0;clock=framePlayTime(FRAMES[0]);setPlay(true);rec.start(250);
- document.getElementById('btnExport').textContent='녹화 중 — 클릭하면 저장';
+ const exportButton=document.getElementById('btnExport');exportButton.textContent='녹화 종료';exportButton.title='녹화를 종료하고 영상 저장';exportButton.classList.add('recording');
  toast('녹화 시작 — 현재 레이어·카메라·배속으로 끝까지 재생합니다');
 }
 function stopVideo(){
  if(!REC)return;const R=REC;REC=null;
- document.getElementById('btnExport').textContent='Export';
+ const exportButton=document.getElementById('btnExport');exportButton.textContent='Export';exportButton.title='영상·그래프·현재 화면 내보내기';exportButton.classList.remove('recording');
  try{R.rec.stop();}catch(_){}
 }
 function recTick(){
