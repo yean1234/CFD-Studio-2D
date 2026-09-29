@@ -10,7 +10,7 @@ const workspace=fs.readFileSync(path.join(__dirname,'../cfd_studio/internal/exec
 const transition=workspace.slice(workspace.indexOf('  async function viewResult(){'),workspace.indexOf('  function inspectSettings(){'));
 function transitionContext(detail){
  const calls=[],elements=new Map();
- const ctx={$:id=>{if(!elements.has(id))elements.set(id,{});return elements.get(id);},suspendWarehouseViewer(){},detail,generation:1,viewMode:'cfd',VIZCFG:{_해석유형:'warehouse'},VPROJ:null,
+ const ctx={$:id=>{if(!elements.has(id))elements.set(id,{});return elements.get(id);},suspendWarehouseViewer(){},detail,runId:'pending',generation:1,viewMode:'cfd',VIZCFG:{_해석유형:'warehouse'},VPROJ:null,
   DataSheetViewer:{begin(){},resume(){},loaded(){}},document:{body:{classList:{add(){},remove(){},toggle(){}}}},setPlay(){},cancelViewerLoad(){},renderSidebarAction(){},
   restoreWarehouseUI(){calls.push('restore');},message(t){calls.push(t);},showList(){ctx.viewMode='cfd';},
   setMode(m){assert.equal(ctx.VIZCFG,ctx.detail.config,'selected config must be available before geometry is rendered');calls.push(m);},
@@ -37,10 +37,25 @@ test('a Case without results stays in Viewer with the same Case list',async()=>{
  assert.equal(ctx.$('ewViewerEmpty').textContent,'선택한 Case의 결과가 아직 없습니다.');
 });
 
-test('Viewer mode control keeps its position and labels the active mode',()=>{
+test('Viewer controls select explicit modes, retain selection on repeat click and restore project actions',()=>{
  const source=workspace.slice(workspace.indexOf('  function renderSidebarAction(){'),workspace.indexOf('  function button('));
- const control={classList:{toggle(){}},setAttribute(){},removeAttribute(){}};const ctx={$:()=>control,document:{body:{classList:{contains:()=>true}}},DataSheetViewer:{mode:'3d',toggle(){this.mode=this.mode==='data'?'3d':'data';}}};
- vm.createContext(ctx);vm.runInContext(source,ctx);ctx.renderSidebarAction();assert.equal(control.textContent,'3D Virtual Viewer');control.onclick();assert.equal(control.textContent,'Data Sheet Viewer');control.onclick();assert.equal(control.textContent,'3D Virtual Viewer');
+ const controls=Object.fromEntries(['ewFindProject','ewCreateProject'].map(id=>[id,{classList:{toggle(){}},attrs:{},setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];}}]));
+ let viewer=true;
+ const ctx={$:id=>controls[id],pending:false,findProject(){},createProject(){},document:{body:{classList:{contains:()=>viewer}}},DataSheetViewer:{mode:'3d',setMode(mode){this.mode=mode;}}};
+ vm.createContext(ctx);vm.runInContext(source,ctx);ctx.renderSidebarAction();
+ const data=controls.ewFindProject,three=controls.ewCreateProject;
+ assert.equal(data.textContent,'Data Sheet');assert.equal(three.textContent,'3D Virtual');
+ assert.equal(three.attrs['aria-pressed'],'true');assert.equal(data.attrs['aria-pressed'],'false');
+ data.onclick();assert.equal(ctx.DataSheetViewer.mode,'data');assert.equal(data.attrs['aria-pressed'],'true');assert.equal(three.attrs['aria-pressed'],'false');
+ data.onclick();assert.equal(ctx.DataSheetViewer.mode,'data');
+ three.onclick();assert.equal(ctx.DataSheetViewer.mode,'3d');
+ viewer=false;ctx.renderSidebarAction();assert.equal(data.textContent,'프로젝트 찾기');assert.equal(three.textContent,'새 프로젝트');
+ assert.equal(data.attrs['aria-pressed'],undefined);assert.equal(three.attrs['aria-pressed'],undefined);
+});
+
+test('Viewer without any selected Case exposes the empty Viewer layout',async()=>{
+ const {ctx}=transitionContext(null);ctx.runId='';let mode;ctx.setMode=v=>mode=v;
+ await ctx.viewResult();assert.equal(mode,'viz');assert.equal(ctx.viewMode,'viewer');assert.equal(ctx.$('controls').inert,true);
 });
 
 test('legacy selection waits for frame reading before signaling ready',async()=>{

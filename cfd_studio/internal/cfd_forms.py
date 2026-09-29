@@ -3,11 +3,11 @@ import copy
 import uuid
 import json
 
-BUILTINS = (
-    ('immersion', '이중액침냉각', 'config:immersion', ['icoReactingMultiphaseInterFoam']),
-    ('grain_silo', '옥수수 사일로', 'config:grain_silo', ['simpleFoam', 'pimpleFoam']),
-    ('warehouse', '식량 저장고 훈증 시스템', 'warehouse', ['warehouseBuoyantFoam']),
-)
+from pathlib import Path
+
+_DEFINITIONS = json.loads((Path(__file__).resolve().parents[1]/'templates/cfd-forms.json').read_text(encoding='utf-8'))
+BUILTINS = tuple((item['id'], item['name'], item['template'], item['solvers']) for item in _DEFINITIONS['forms'])
+
 
 
 # Defaults belong to the connected input adapter, not to UI branches.

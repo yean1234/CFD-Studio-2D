@@ -94,3 +94,12 @@ tracer_transport/coupled_solver/Make/linux*/
 output/warehouse_transport_coupled_sensitivity_*.json
 
 output/storage-ui-review/
+
+# User project folders and local registries; distributable FORM definitions live in templates/.
+*.cfdproj
+ProjectSettings/
+Cases/
+Results/
+Cache/
+cfd_studio/configs/.initialized
+/output/

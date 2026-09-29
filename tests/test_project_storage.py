@@ -211,5 +211,48 @@ class ProjectStorageTests(unittest.TestCase):
             self.w.open_project(imported['storage_path'])
         self.assertEqual(len(self.w.stored_projects()), 1)
 
+    def test_invalid_import_does_not_modify_source_or_registry(self):
+        donor = ExecutionWorkspace(ROOT, [], folder=self.root/'donor-registry', output=self.root/'donor-output')
+        p = donor.create_project('portable', storage_path=str(self.root/'portable'))
+        key = donor.save_case(p['id'], 'Case', donor.template())['run_key']
+        donor.snapshot()
+        folder = Path(p['storage_path'])
+        manifest = folder/'project.cfdproj'
+        settings = folder/'ProjectSettings/executions.json'
+        original_manifest, original_settings = manifest.read_bytes(), settings.read_bytes()
+        invalid = [
+            ('manifest-array', manifest, []),
+            ('id-type', manifest, {**read_json(manifest), 'id': []}),
+            ('runs-type', manifest, {**read_json(manifest), 'runs': [{}]}),
+            ('linked-path', manifest, {**read_json(manifest), 'linked_results': [{'kind':'legacy','path':'../escape'}]}),
+            ('settings-array', settings, []),
+            ('queue-entry', settings, {**read_json(settings), 'order': [{}]}),
+            ('missing-case', settings, {'cases': {}, 'order': []}),
+            ('foreign-case', settings, {'cases': {key:{**read_json(settings)['cases'][key], 'project_id':'b'*32}}, 'order': []}),
+        ]
+        before = {f:f.read_bytes() for f in self.w.folder.rglob('*') if f.is_file()}
+        for name, path, value in invalid:
+            with self.subTest(name=name):
+                manifest.write_bytes(original_manifest);settings.write_bytes(original_settings)
+                atomic_json(path, value)
+                source = {f:f.read_bytes() for f in folder.rglob('*') if f.is_file()}
+                with self.assertRaises(ValueError): self.w.open_project(str(folder))
+                self.assertEqual({f:f.read_bytes() for f in self.w.folder.rglob('*') if f.is_file()}, before)
+                self.assertEqual({f:f.read_bytes() for f in folder.rglob('*') if f.is_file()}, source)
+
+    def test_unrelated_folder_and_active_import_are_rejected(self):
+        folder = self.root/'not-a-project';folder.mkdir();(folder/'keep.txt').write_text('keep')
+        with self.assertRaisesRegex(ValueError, '프로젝트 폴더'):
+            self.w.open_project(str(folder))
+        self.assertEqual((folder/'keep.txt').read_text(), 'keep')
+        donor = ExecutionWorkspace(ROOT, [], folder=self.root/'donor-registry', output=self.root/'donor-output')
+        p = donor.create_project('active', storage_path=str(self.root/'active'))
+        key = donor.save_case(p['id'], 'Case', donor.template())['run_key']
+        donor.queue_action('enqueue', [key]);donor.queue_action('resume')
+        with patch.object(donor, 'launch_case'): donor.queue_tick()
+        with self.assertRaisesRegex(ValueError, '실행 중'):
+            self.w.open_project(p['storage_path'])
+        self.assertEqual(len(self.w.stored_projects()), 1)
+
 
 if __name__ == '__main__': unittest.main()

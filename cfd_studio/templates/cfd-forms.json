@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "forms": [
+    {
+      "id": "immersion",
+      "name": "이중액침냉각",
+      "template": "config:immersion",
+      "solvers": [
+        "icoReactingMultiphaseInterFoam"
+      ]
+    },
+    {
+      "id": "grain_silo",
+      "name": "옥수수 사일로",
+      "template": "config:grain_silo",
+      "solvers": [
+        "simpleFoam",
+        "pimpleFoam"
+      ]
+    },
+    {
+      "id": "warehouse",
+      "name": "식량 저장고 훈증 시스템",
+      "template": "warehouse",
+      "solvers": [
+        "warehouseBuoyantFoam"
+      ]
+    }
+  ]
+}

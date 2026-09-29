@@ -98,7 +98,7 @@ class ProjectStorage:
                 if path == other or path in other.parents or other in path.parents:
                     raise ValueError('다른 프로젝트와 겹치지 않는 폴더를 지정하세요')
         if path.exists() and (not path.is_dir() or any(path.iterdir())):
-            raise ValueError('비어 있는 프로젝트 폴더를 지정하세요. 기존 프로젝트는 열기로 연결하세요.')
+            raise ValueError('비어 있는 프로젝트 폴더를 지정하세요. 기존 프로젝트는 프로젝트 찾기로 등록하세요.')
         # Do not create a fake mount point when a Windows drive is disconnected.
         if re.match(r'^/mnt/[a-z]/', str(path)) and not Path(*path.parts[:3]).is_mount():
             if not Path(*path.parts[:3]).exists():
@@ -307,13 +307,27 @@ class ProjectStorage:
             if any((root/name).exists() for name in ('.copy-incomplete', '.storage-incomplete')):
                 raise ValueError('복사가 완료되지 않은 프로젝트입니다. 원본 프로젝트를 여세요.')
             p = read(root/'project.cfdproj', {})
-            if p.get('schema') != 1 or not re.fullmatch(r'[a-f0-9]{32}', p.get('id', '')) or not isinstance(p.get('runs'), list):
+            if (not isinstance(p, dict) or p.get('schema') != 1
+                or not isinstance(p.get('id'), str) or not re.fullmatch(r'[a-f0-9]{32}', p['id'])
+                or not isinstance(p.get('name'), str) or not p['name'].strip()
+                or not isinstance(p.get('runs'), list) or any(not isinstance(k, str) for k in p['runs'])
+                or len(p['runs']) != len(set(p['runs']))
+                or not isinstance(p.get('storage_path', ''), str)
+                or not isinstance(p.get('description', ''), str)
+                or not isinstance(p.get('linked_results', []), list)):
                 raise ValueError('CFD Studio 프로젝트 폴더가 아닙니다')
+            for name in ('ProjectSettings', 'Cases', 'Results', 'Cache'):
+                if not (root/name).is_dir():
+                    raise ValueError('프로젝트 필수 폴더가 없습니다: '+name)
+            for item in p.get('linked_results', []):
+                if (not isinstance(item, dict) or item.get('kind') not in ('legacy', 'warehouse')
+                    or not isinstance(item.get('path'), str) or not item['path']):
+                    raise ValueError('프로젝트 결과 연결 형식을 확인하세요')
+                if not item.get('external') and not (root/item['path']).resolve().is_relative_to(root):
+                    raise ValueError('프로젝트 내부 결과 경로가 폴더 범위를 벗어납니다')
             existing = next((v for v in self.stored_projects() if v['id'] == p['id']), None)
             if existing:
-                if project_path(existing['storage_path']) == root:
-                    return existing
-                if (project_path(existing['storage_path'])/'project.cfdproj').is_file():
+                if project_path(existing['storage_path']) != root and (project_path(existing['storage_path'])/'project.cfdproj').is_file():
                     raise ValueError('같은 프로젝트가 다른 경로에 연결되어 있습니다. 프로젝트 설정에서 위치를 변경하세요.')
             for other in self.stored_projects():
                 if other['id'] == p['id']:
@@ -322,18 +336,31 @@ class ProjectStorage:
                 if root == other_root or root in other_root.parents or other_root in root.parents:
                     raise ValueError('다른 프로젝트와 겹치지 않는 폴더를 지정하세요')
             local = read(root/'ProjectSettings/executions.json', {'cases': {}, 'order': []})
-            if not isinstance(local.get('cases'), dict) or not isinstance(local.get('order', []), list):
+            if not isinstance(local, dict) or not isinstance(local.get('cases'), dict) or not isinstance(local.get('order', []), list):
                 raise ValueError('프로젝트 실행 목록 형식을 확인하세요')
             for key, case in local['cases'].items():
                 if not isinstance(case, dict) or case.get('project_id') != p['id'] or case.get('id') != key:
                     raise ValueError('다른 프로젝트의 실행 설정이 포함되어 있습니다')
-                if case.get('status') == 'running':
-                    raise ValueError('실행 중인 프로젝트는 원래 Studio에서 완료 후 여세요')
+                if (not key.startswith('case:') or not isinstance(case.get('config'), dict)
+                    or not isinstance(case.get('name'), str) or not isinstance(case.get('attempts', []), list)
+                    or any(not isinstance(a, dict) for a in case.get('attempts', []))
+                    or case.get('status') not in ('draft', 'queued', 'preparing', 'running', 'complete', 'failed', 'stopped')):
+                    raise ValueError('프로젝트 실행 설정 형식을 확인하세요')
+                if case.get('status') in ('running', 'preparing') and not (existing and project_path(existing['storage_path']) == root):
+                    raise ValueError('실행 중인 프로젝트는 기존 Studio에서 계산 종료 후 등록하세요')
+            if any(k.startswith('case:') and k not in local['cases'] for k in p['runs']):
+                raise ValueError('프로젝트의 실행 설정 파일이 누락되었습니다')
             order = local.get('order', [])
-            if any(key not in local['cases'] for key in order) or len(order) != len(set(order)):
+            if any(not isinstance(key, str) or key not in local['cases'] for key in order) or len(order) != len(set(order)):
                 raise ValueError('프로젝트 대기열 형식을 확인하세요')
+            if existing and project_path(existing['storage_path']) == root:
+                return existing
+            if local.get('active') is not None:
+                raise ValueError('활성 실행 기록이 있는 프로젝트입니다. 기존 Studio에서 실행 상태를 확인하세요')
             data = self._catalog(self.discover())
             q = self.queue_data()
+            if q.get('active') or self.busy():
+                raise ValueError('계산 또는 결과 처리 완료 후 프로젝트를 등록하세요')
             if any(key in q['cases'] and q['cases'][key]['project_id'] != p['id'] for key in local['cases']):
                 raise ValueError('다른 프로젝트와 실행 ID가 겹칩니다')
             old = p.get('storage_path', str(root))

@@ -81,3 +81,12 @@ wsl -l -v
 | Python 누락 | 저장소의 `Setup/Python312` 전체 복구 |
 | 솔버 실행 파일 없음 | 선택한 솔버와 OpenFOAM 환경 확인. 전용 솔버 빌드 여부 확인 |
 | 화면이 이전 버전 | 계산·변환 상태 확인 후 앱 재시작, 브라우저 새로고침 |
+
+## 배포 구성
+
+- 기본 CFD FORM 정의: `templates/cfd-forms.json`
+- 기본 Config: `configs/immersion.json`, `configs/grain_silo.json`, `tracer_transport`의 저장고 입력 템플릿
+- 솔버별 입력 정의·양식 생성·결과 항목: `internal`의 FORM 및 솔버 모듈
+- 사용자 프로젝트·Case·원본 결과·캐시·PC별 등록 정보: Git 업로드 제외
+- 사용자 정의 FORM과 프리셋: 로컬 등록부에 보관. 배포용 기본 정의와 별도
+- 다른 위치의 프로젝트 사용: **CFD → 프로젝트 찾기 → 폴더 지정 → 추가**

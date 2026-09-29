@@ -64,14 +64,17 @@
     finally{reloadBusy=false;}
   }
   function renderSidebarAction(){
-    const control=$('ewCreateProject');if(!control)return;
-    const viewer=document.body.classList.contains('execution-viewer');control.classList.toggle('ew-view-switch',viewer);
-    if(!viewer){control.textContent='새 프로젝트';control.title='새 프로젝트';control.removeAttribute('aria-label');control.onclick=createProject;return;}
-    const isData=DataSheetViewer.mode==='data';
-    control.textContent=isData?'Data Sheet Viewer':'3D Virtual Viewer';
-    control.title=(isData?'3D Virtual Viewer':'Data Sheet Viewer')+'로 전환';
-    control.setAttribute('aria-label',control.textContent);control.onclick=()=>{DataSheetViewer.toggle();renderSidebarAction();};
+    const first=$('ewFindProject'),second=$('ewCreateProject');if(!first||!second)return;
+    const viewer=document.body.classList.contains('execution-viewer');
+    for(const [control,label,action,selected] of viewer
+      ? [[first,'Data Sheet',()=>selectViewerMode('data'),DataSheetViewer.mode==='data'],[second,'3D Virtual',()=>selectViewerMode('3d'),DataSheetViewer.mode==='3d']]
+      : [[first,'프로젝트 찾기',findProject,false],[second,'새 프로젝트',createProject,false]]){
+      control.textContent=label;control.title=label;control.setAttribute('aria-label',label);
+      control.classList.toggle('selected',selected);control.onclick=action;control.disabled=!viewer&&pending;
+      if(viewer)control.setAttribute('aria-pressed',String(selected));else control.removeAttribute('aria-pressed');
+    }
   }
+  function selectViewerMode(mode){DataSheetViewer.setMode(mode);renderSidebarAction();}
   function button(text, action, cls='btn') {const b=node('button',text,cls); b.type='button'; b.onclick=action; return b;}
   function message(text){$('ewMessage').textContent=text;}
   function showList(){DataSheetViewer.suspend();viewMode='cfd';suspendWarehouseViewer();setPlay(false,true);setMode('cfd');document.body.classList.remove('execution-viewer','warehouse-viewer');renderSidebarAction();$('appContext').textContent='CFD Studio · '+(currentProject()?.name||'프로젝트');}
@@ -149,7 +152,7 @@
     catch(e){if(token===generation){clearDetail();message(e.message);if(viewMode==='viewer')showEmptyViewer('결과를 불러오지 못했습니다.');}}
   }
   async function viewResult(){
-    if(!detail){viewMode='viewer';message('실행 정보를 불러오는 중입니다.');return;}
+    if(!detail){if(runId){viewMode='viewer';message('실행 정보를 불러오는 중입니다.');}else showEmptyViewer('표시할 CFD Case가 없습니다.');return;}
     if(detail.can_generate&&(!detail.has_results||detail.result_status==='update')){await prepareResult();return;}
     if(!detail.has_results){showEmptyViewer('선택한 Case의 결과가 아직 없습니다.');return;}
     const selected=detail,token=generation;viewMode='viewer';setPlay(false,true);document.body.classList.remove('case-empty');$('controls').inert=false;
@@ -305,6 +308,20 @@
       });
     }catch(e){message(e.message);}
   }
+  async function findProject(){
+    const d=node('dialog');d.className='ew-dialog';
+    d.innerHTML='<form><h2>프로젝트 찾기</h2><label>프로젝트 폴더<div class="ew-path"><input name="storage_path" required spellcheck="false" placeholder="D:\\CFD Projects\\프로젝트 이름"><button class="btn" type="button" data-pick>찾기</button></div></label><p class="ew-path-note">CFD Studio에서 생성한 프로젝트 폴더를 선택하세요. 파일 형식과 실행 목록을 검증한 후 등록합니다.</p><p role="status" aria-live="polite"></p><div class="ew-bar"><button class="btn pri" type="submit">추가</button><button class="btn" type="button" data-cancel>취소</button></div></form>';
+    const f=d.querySelector('form'),path=f.elements.storage_path,pick=f.querySelector('[data-pick]'),submit=f.querySelector('[type=submit]'),cancel=f.querySelector('[data-cancel]'),notice=f.querySelector('[role=status]');
+    let working=false;
+    const busy=value=>{working=value;path.disabled=value;pick.disabled=value;submit.disabled=value;cancel.disabled=value;};
+    pick.onclick=async()=>{busy(true);notice.textContent='';try{const reply=await api('/project-pick',{path:path.value});if(!reply.result.cancelled)path.value=reply.result.path;}catch(e){notice.textContent=e.message;}finally{busy(false);}};
+    cancel.onclick=()=>d.close();d.oncancel=e=>{if(working)e.preventDefault();};d.onclose=()=>d.remove();
+    f.onsubmit=async e=>{e.preventDefault();if(working||pending)return;const location=path.value;busy(true);pending=true;renderSidebarAction();notice.textContent='프로젝트 검증 중…';
+      try{const reply=await api('/project-open',{storage_path:location});showList();await refresh();await selectProject(reply.result.id);message('프로젝트 등록 완료');d.close();}
+      catch(error){notice.textContent=error.message;}finally{pending=false;busy(false);renderSidebarAction();}
+    };
+    document.body.append(d);d.showModal();path.focus();
+  }
   async function projectDialog(edit=false){
     try {
       const [presetReply,defaults]=await Promise.all([api('/presets'),api('/storage-defaults')]);
@@ -381,9 +398,12 @@ body.grouped #warehouseDetails details{margin-top:8px}body.grouped #warehouseDet
 }
 
 
-#ewCreateProject{position:relative;isolation:isolate;overflow:hidden;width:100%;height:38px;min-height:38px;box-sizing:border-box}#ewCreateProject.ew-view-switch{position:relative;padding-right:30px}#ewCreateProject.ew-view-switch::after{content:'⇄';position:absolute;right:12px;color:var(--muted)}
+#ewSidebarActions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;width:100%}
+#ewSidebarActions>.btn{display:flex;align-items:center;justify-content:center;width:100%;height:38px;min-height:38px;box-sizing:border-box;padding:0 6px;white-space:nowrap}
+#ewSidebarActions>.btn.selected{background:rgba(57,135,229,.18);border-color:var(--s1);color:#8fc3ff;box-shadow:inset 0 0 0 1px var(--s1)}
+
 `;document.head.append(style);
-    const sidebar=node('section',null);sidebar.id='ewSidebar';const create=button('새 프로젝트',createProject);create.id='ewCreateProject';const projectHeading=node('div',null,'ew-project-heading');projectHeading.append(node('h2','프로젝트'));sidebar.append(projectHeading,create);
+    const sidebar=node('section',null);sidebar.id='ewSidebar';const create=button('새 프로젝트',createProject);create.id='ewCreateProject';const find=button('프로젝트 찾기',findProject);find.id='ewFindProject';const actions=node('div');actions.id='ewSidebarActions';actions.append(find,create);const projectHeading=node('div',null,'ew-project-heading');projectHeading.append(node('h2','프로젝트'));sidebar.append(projectHeading,actions);
     const projects=node('div');projects.id='ewProjects';projects.setAttribute('aria-label','프로젝트 목록');projects.tabIndex=0;sidebar.append(projects);const presetBox=node('section');presetBox.id='ewPresets';const heading=node('div',null,'ew-project-heading');heading.append(node('h2','CFD FORM 리스트'),button('',()=>formEditor(),'btn ew-heading-action'));heading.lastChild.id='ewCreateForm';heading.lastChild.setAttribute('aria-label','새 CFD FORM');heading.lastChild.title='새 CFD FORM';const formList=node('div');formList.id='ewFormList';formList.setAttribute('aria-label','CFD FORM 목록');formList.tabIndex=0;presetBox.append(heading,formList);sidebar.append(presetBox);const viewerCases=node('section');viewerCases.id='ewViewerCases';const caseHeading=node('div',null,'ew-project-heading'),reload=$('btnRun');reload.className='btn ew-heading-action';reload.removeAttribute('style');reload.title='다시 읽기';reload.setAttribute('aria-label','다시 읽기');$('btnRunTxt').textContent='다시 읽기';caseHeading.append(node('h2','CFD Case'),reload);viewerCases.append(caseHeading);const caseList=node('div');caseList.id='ewViewerCaseList';caseList.setAttribute('aria-label','CFD Case 목록');caseList.tabIndex=0;viewerCases.append(caseList);sidebar.append(viewerCases);$('side').prepend(sidebar);
     const emptyViewer=node('div');emptyViewer.id='ewViewerEmpty';emptyViewer.setAttribute('role','status');$('viz').append(emptyViewer);
     const panel=node('section');panel.id='ewPanel';panel.innerHTML=`

@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v207"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v208"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -5329,7 +5329,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <h4>작업 구조</h4>
    <ul><li><b>CFD FORM</b>: 선택한 솔버의 입력 구조·필수 항목·계산 범위 정의</li><li><b>프리셋</b>: FORM에 속한 재사용 가능한 입력값 묶음</li><li><b>프로젝트</b>: 같은 목적의 여러 Case와 결과를 보관하는 폴더</li><li><b>Case</b>: 독립적인 Config·종료 조건·로그·결과. 시작 시 입력 스냅샷 보존</li></ul>
    <h4>솔버와 Config</h4>
-   <ul><li>솔버: 어떤 방정식과 알고리즘으로 계산할지 결정</li><li>유체 종류: 액체·기체·다상 구분. 물질과 물성값은 사용자가 입력</li><li>형상·격자: 해석 영역과 공간 분할. 이름만으로 수조·집 등의 형상을 만들지 않음</li><li>물성·초기장·경계조건: 재료 특성, 시작 상태, 경계에서의 속도·압력·온도 등</li><li>수치 설정: 이산화 기법·선형 솔버·연결 알고리즘·시간간격</li><li>Required: 선택한 솔버·조건에 필요한 입력. 조건부 항목은 난류·열물성·경계 모델에 따라 달라짐</li></ul>
+   <ul><li>솔버: 어떤 방정식과 알고리즘으로 계산할지 결정</li><li>유체 종류: 액체·기체·다상 구분. 물질과 물성값은 사용자가 입력</li><li>형상·격자: 해석 영역의 치수·배치·공간 분할 정의</li><li>물성·초기장·경계조건: 재료 특성, 시작 상태, 경계에서의 속도·압력·온도 등</li><li>수치 설정: 이산화 기법·선형 솔버·연결 알고리즘·시간간격</li><li>Required: 선택한 솔버·조건에 필요한 입력. 조건부 항목은 난류·열물성·경계 모델에 따라 달라짐</li></ul>
    <h4>솔버 선택</h4>
    <div class="kv"><table>
     <tr><td>icoFoam</td><td>비정상 층류. U·운동학적 압력 p·nu·PISO</td></tr>
@@ -5352,6 +5352,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <p>프로젝트는 여러 Case를 묶는 공간이며, CFD Case는 입력과 결과를 독립적으로 보관하는 계산 단위입니다. 항목을 펼치면 조작 순서가 표시됩니다.</p>
    <h4>CFD</h4>
    <p>화면 상단 <b>CFD</b> 탭. 프로젝트 생성 → Case 저장 → 대기열 실행 → 결과 준비</p>
+   <details><summary>기존 프로젝트 등록</summary><ul><li>CFD 화면 왼쪽 상단 <b>프로젝트 찾기</b> 클릭</li><li><b>찾기</b>로 프로젝트 폴더 선택 또는 전체 경로 입력 → <b>추가</b></li><li>프로젝트 파일·실행 목록 검증 후 왼쪽 목록에 등록. 이미 등록된 폴더는 해당 프로젝트 선택</li><li>검증 실패 시 안내 내용을 확인하고 올바른 폴더 선택. 가져온 대기열은 일시정지 상태로 복원</li></ul></details>
    <details><summary>프로젝트 생성</summary><ul><li>왼쪽 <b>프로젝트</b> 제목 아래 <b>새 프로젝트</b> 클릭</li><li><b>프로젝트 이름</b> 입력 → <b>프로젝트 폴더</b> 옆 <b>찾기</b>로 저장 폴더 지정</li><li><b>프로젝트 설명</b> 입력 → <b>CFD FORM</b>·<b>기본 프리셋</b> 선택 → 창 하단 <b>저장</b></li><li>저장한 프로젝트는 왼쪽 목록에서 이름을 클릭해 선택</li></ul></details>
    <details><summary>프로젝트 정보 및 저장 폴더 변경</summary><ul><li>프로젝트 선택 → 화면 오른쪽 상단 <b>프로젝트 관리</b></li><li>이름·설명·폴더·기본 프리셋 수정 → <b>저장</b>. C·D 등 드라이브 선택 가능</li><li>기본 프리셋 변경은 이후 생성하는 Case에 적용</li><li>폴더 변경은 복사·검증 후 연결 전환. 원본 보존. 계산·결과 저장 중에는 변경 불가</li></ul></details>
    <details><summary>CFD FORM 생성 및 편집</summary><ul><li>왼쪽 하단 <b>CFD FORM 리스트</b> 제목 오른쪽 둥근 정사각형 <b>+</b> 클릭. 기존 항목은 이름 오른쪽 <b>수정</b></li><li><b>CFD FORM 이름</b> 입력 → <b>솔버</b> 선택</li><li><b>양식 구성</b>에서 유체·해석 조건 선택 → <b>양식 생성</b></li><li><b>Config 편집</b>에서 값 입력 → <b>Apply</b> → <b>FORM 초안 저장</b></li><li>기존 연결 양식은 <b>Config Template</b>에서 선택 → <b>FORM 저장</b>. 사용자 정의 초안은 실행 연결 후 프로젝트에 사용 가능</li><li>파일 편집: <b>Download JSON / Import JSON</b>. 항목 추가: <b>+ Field</b></li><li><b>설치 확인</b>: 솔버 설치 여부를 버튼 아래에 표시. 자동 설치 기능 미제공</li></ul></details>
@@ -5364,32 +5365,22 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <p>화면 상단 <b>Viewer</b> 탭 또는 Case의 <b>열기</b>. Case 선택 → 시각화율 확인 → 3D·그래프 조회</p>
    <details><summary>프로젝트 및 CFD Case 선택</summary><ul><li>왼쪽 프로젝트 이름 클릭 → 아래 <b>CFD Case</b> 목록에서 Case 선택</li><li>선택 항목은 파란 테두리. 3D·그래프 모두 선택한 Case의 결과 표시</li><li>다른 Case 비교: 목록에서 다른 항목 선택. 한 번에 한 Case 표시</li><li>계산 화면 복귀: 상단 <b>CFD</b> 탭</li></ul></details>
    <details><summary>데이터 시각화율 확인 및 업데이트</summary><ul><li>왼쪽 <b>CFD Case</b> 목록의 각 항목 안 게이지에서 현재 시각화 준비 상태 확인</li><li>갱신: <b>CFD Case</b> 제목 오른쪽 둥근 사각형의 <b>원형 화살표</b> 클릭. 포인터를 올리면 <b>다시 읽기</b> 표시</li><li>프로젝트 내 Case들의 준비 상태 확인 및 선택한 Case의 결과 다시 읽기</li><li><b>100%</b>: 시각화 준비 완료. CFD 계산 진행률·수렴·실험 검증과 별도</li><li>새 원본의 변환이 필요하면 <b>CFD</b> 탭 → Case 선택 → <b>생성 / 업데이트</b> → <b>열기</b></li></ul></details>
-   <details><summary>3D Virtual Viewer 조작</summary><ul><li>중앙 3D 화면. 그래프 화면에서 왼쪽 <b>Data Sheet Viewer</b> 버튼을 눌러 3D로 전환</li><li>아래 파란 <b>▶</b>: 재생·일시정지. 시간 막대: 시점 선택. 오른쪽 <b>1×</b>: 재생 배속</li><li>시간 표시: <b>0.00s (전체 프레임 수)</b></li><li>드래그: 회전. 휠: 확대·축소. 더블클릭: 기본 시점 복원</li><li>오른쪽 <b>결과 데이터 / 설계 레이어</b>: 물리량·형상 표시. 항목은 Case의 저장 데이터에 따라 변경</li></ul></details>
-   <details><summary>Data Sheet Viewer 전환 및 수치 조회</summary><ul><li>왼쪽 넓은 <b>3D Virtual Viewer</b> 버튼 클릭 → <b>Data Sheet Viewer</b></li><li>그래프 위 <b>결과 항목</b> 선택 → 그래프 클릭·드래그 → 세로 점선과 X·Y 수치 확인</li><li>그래프에 초점을 둔 뒤 <b>← / →</b>로 시점 이동. 이 화면에는 재생 버튼 없음</li><li>전체 저장 구간을 조회하려면 그래프 위 <b>전체 구간 읽기</b>. 수치 저장: 오른쪽 상단 <b>CSV 저장</b></li><li>위치 조회를 지원하는 결과: 그래프 아래 <b>위치·시간 조회</b> → 좌표·시간 입력 → <b>조회</b></li><li>3D 화면 전환: 왼쪽 <b>Data Sheet Viewer</b> 버튼 클릭</li></ul></details>
+   <details><summary>3D Virtual Viewer 조작</summary><ul><li>왼쪽 상단 <b>3D Virtual</b> 버튼 클릭 → 중앙 3D 화면 표시. 선택한 모드는 파란 테두리와 배경으로 표시</li><li>아래 파란 <b>▶</b>: 재생·일시정지. 시간 막대: 시점 선택. 오른쪽 <b>1×</b>: 재생 배속</li><li>시간 표시: <b>0.00s (전체 프레임 수)</b></li><li>드래그: 회전. 휠: 확대·축소. 더블클릭: 기본 시점 복원</li><li>오른쪽 <b>결과 데이터 / 설계 레이어</b>: 물리량·형상 표시. 항목은 Case의 저장 데이터에 따라 변경</li></ul></details>
+   <details><summary>Data Sheet Viewer 전환 및 수치 조회</summary><ul><li>왼쪽 상단 <b>Data Sheet</b> 버튼 클릭 → 그래프 화면 표시. <b>3D Virtual</b> 버튼으로 3D 화면 전환</li><li>그래프 위 <b>결과 항목</b> 선택 → 그래프 클릭·드래그 → 세로 점선과 X·Y 수치 확인</li><li>그래프에 초점을 둔 뒤 <b>← / →</b>로 시점 이동. 이 화면에는 재생 버튼 없음</li><li>전체 저장 구간을 조회하려면 그래프 위 <b>전체 구간 읽기</b>. 수치 저장: 오른쪽 상단 <b>CSV 저장</b></li><li>위치 조회를 지원하는 결과: 그래프 아래 <b>위치·시간 조회</b> → 좌표·시간 입력 → <b>조회</b></li><li>3D 화면 전환: 왼쪽 상단 <b>3D Virtual</b> 버튼 클릭</li></ul></details>
    <details><summary>영상·이미지·CSV 내보내기</summary><ul><li>3D 화면 하단 재생 바 오른쪽 끝 <b>Export</b></li><li>영상: <b>영상 내보내기</b> → 종료할 때 재생 바의 <b>녹화 종료</b></li><li>3D 화면: <b>현재 화면 PNG</b>. 그래프: 항목 선택 → <b>PNG 사진 / CSV 데이터</b></li><li>그래프 수치만 저장: <b>Data Sheet Viewer</b> 오른쪽 상단 <b>CSV 저장</b></li></ul></details>
    <h4>설치 및 프로그램 실행</h4>
    <ul><li>최초 설치: WSL2 Ubuntu 설치·사용자 초기화 → <b>cfd_studio/설치.bat</b> → <b>cfd_studio/실행.bat</b></li><li>설치 완료 후 실행: <b>실행.bat</b> 더블클릭. Windows Python 포함. 전용 솔버·GPU 환경은 별도 준비</li></ul>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>사용법</b></a> · <a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/cfd_studio/README.md" target="_blank" rel="noopener noreferrer">설치</a> · 모델·단위·검증 범위는 위 <b>설명서</b> 탭</p>
   </div>
   <div class="ibx" id="ifB2" style="display:none">
-   <h4 style="margin-top:0">저장고 연결 계산 실행 기록</h4>
-   <p>22,308셀·모의시간 1시간: 약 5분 27초. 85,800셀·모의시간 10분: 약 7분 48초. 이 PC의 CPU 실행 기록이며 7일 계산 시간이나 정확도를 보장하지 않습니다. 상세 결과는 <a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/warehouse-coupled-cfd-20260928.md" target="_blank" rel="noopener noreferrer">연결 계산 보고서</a>를 확인하세요.</p>
-   <h4>액침냉각 사례 권장 사양</h4>
-   <p class="mhint">아래 3 mm·2 mm 격자와 하드웨어 수치는 액침냉각 사례 기준입니다. 저장고 수송 계산의 권장 사양으로 적용하지 마세요.</p>
-   <div class="kv"><table>
-    <tr><td>최소</td><td><b>4코어 / 8스레드 · RAM 16 GB · SSD 여유 40 GB</b><br>Windows 10/11 x64 + WSL2 Ubuntu · GPU 선택. 3 mm 단기 시험과 저장 결과 확인은 가능하지만 계산 시간이 매우 길 수 있습니다.</td></tr>
-    <tr><td>권장</td><td><b>12코어 / 24스레드 · RAM 32 GB · NVMe 여유 100 GB</b><br>3 mm 약 94만 셀 표준 계산용. GPU 압력 계산은 CUDA 지원 NVIDIA GPU와 VRAM 8 GB 이상 권장.</td></tr>
-    <tr><td>고성능</td><td><b>16코어 / 32스레드 이상 · RAM 64 GB 이상 · NVMe 여유 250 GB</b><br>2 mm 약 311만 셀, 긴 계산, 여러 프로젝트 보관용. NVIDIA VRAM 16 GB 이상 권장.</td></tr>
-    <tr><td>Viewer</td><td><b>4코어 · RAM 8 GB · WebGL2 지원 브라우저</b><br>이미 변환된 프로젝트 재생만 할 때의 기준. 프레임이 많으면 RAM 16 GB 이상이 편합니다.</td></tr>
-   </table></div>
-   <h4>자동 성능 설정</h4>
-   <ul>
-    <li>논리 CPU 수를 감지해 최대 80%를 MPI 작업자와 CPU 집합에 배정합니다.</li>
-    <li>NVIDIA GPU가 여러 개면 VRAM과 최대 클럭을 비교해 자동 선택합니다.</li>
-    <li><b>CPU + GPU 병행</b>은 압력 <code>p_rgh</code>만 PETSc CUDA로 계산합니다. <b>GPU Only</b>는 별도 OpenCFD feature-gpu 빌드와 Umpire 검증이 있을 때만 단일 GPU로 실행됩니다.</li>
-    <li>데이터 간격이 짧고 총 시간이 길수록 원본 용량이 크게 늘어납니다. <code>0.05 s</code> 간격의 <code>60 s</code> 계산은 수십 GB 이상을 예상하고 여유 공간을 확보하세요.</li>
-   </ul>
-   <p class="mhint">GPU Only는 개발 기능이며 CPU 결과와 부동소수점 절단 오차가 미세하게 다를 수 있습니다. 약 94만 셀에서는 전송·커널 실행 비용 때문에 CPU보다 느릴 수도 있으므로 새 짧은 프로젝트로 먼저 비교합니다.</p>
+   <h4 style="margin-top:0">계산 성능</h4>
+   <ul><li>계산 시간은 격자 수, 해석 모델, 시간간격, 종료 조건과 CPU·메모리 성능에 따라 달라집니다.</li><li>격자 세분화와 저장 간격 축소 시 계산량·메모리·저장 공간 요구량이 증가합니다.</li><li>실행 목록에서 계산 상태와 마지막 저장 시점을 확인하고, 솔버 로그에서 진행 내용을 조회할 수 있습니다.</li></ul>
+   <h4>계산 자원</h4>
+   <ul><li>오른쪽 상단 <b>환경 설정</b>에서 CPU 사용 상한, MPI 작업자 수, GPU와 계산 모드를 지정합니다.</li><li>자동 설정은 논리 CPU 수와 사용 상한을 기준으로 병렬 작업자 수를 정합니다. 작업자 수에 따른 성능은 격자 규모와 통신 비용에 따라 달라집니다.</li><li><b>CPU Only</b>: CPU 계산. <b>CPU + GPU 병행</b>: 지원 구성에서 압력 방정식에 GPU 사용. <b>GPU Only</b>: 별도의 OpenCFD GPU 실행 환경 필요</li><li>GPU 사용에는 솔버 지원, 호환 라이브러리와 GPU 메모리 확보가 필요합니다.</li></ul>
+   <h4>시각화 성능</h4>
+   <ul><li>3D 표시에는 WebGL2 지원 브라우저가 필요합니다.</li><li>표시할 셀·벡터·프레임 수가 많을수록 메모리 사용량과 읽기 시간이 증가합니다.</li><li>표시 밀도는 화면에 표시할 표본 수를 조절합니다. 계산 격자와 저장된 결과값은 변경하지 않습니다.</li><li>재생 배속은 저장된 결과의 재생 속도이며 CFD 계산 속도와 별개입니다.</li></ul>
+   <h4>저장 공간</h4>
+   <ul><li>프로젝트 폴더에 입력, 실행 기록, 원본 결과와 시각화 캐시를 보관합니다.</li><li>장시간 계산 전에는 저장 간격과 출력 항목을 확인하고 충분한 디스크 공간을 확보하세요.</li></ul>
   </div>
   <div class="ibx" id="ifB3" style="display:none">
    <div class="kv">
