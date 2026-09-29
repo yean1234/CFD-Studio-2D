@@ -38,3 +38,9 @@ test('multiple graph units keep separate Y ranges and matching units share a sca
  const series=[{unit:'°C',color:'blue',pts:[[0,20],[1,30]]},{unit:'m/s',color:'orange',pts:[[0,.1],[1,.2]]},{unit:'°C',color:'green',pts:[[0,100],[1,null]]}];
  const axes=sheetAxes(series);assert.equal(axes.length,2);assert.ok(axes[0].lo<20&&axes[0].hi>100);assert.ok(axes[1].lo<.1&&axes[1].hi<1);
 });
+
+ test('bar axes include zero without changing source values or line scales',()=>{
+ const series=[{unit:'K',color:'#fff',pts:[[0,280],[1,300]]},{unit:'m/s',color:'#abc',pts:[[0,-4],[1,-2]]}];
+ const before=JSON.stringify(series),line=sheetAxes(series),bars=sheetAxes(series,true);
+ assert.ok(line[0].lo>0);assert.equal(bars[0].lo,0);assert.ok(bars[0].hi>=300);assert.ok(bars[1].lo<=-4);assert.equal(bars[1].hi,0);assert.equal(JSON.stringify(series),before);
+});
