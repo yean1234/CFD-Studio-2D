@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v195"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v196"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -5067,7 +5067,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
   </section>
 
     <section id="secData" style="display:none">
-   <h2>결과 데이터</h2>
+   <h2 class="result-data-summary">결과 데이터</h2>
    <div id="exSel" hidden>
     <input type="checkbox" id="exBub" checked>
     <input type="checkbox" id="exPhase" checked>
@@ -5076,9 +5076,9 @@ INDEX_HTML = r'''<!DOCTYPE html>
    </div>
    <label class="ck" style="margin-bottom:9px" title="스냅샷 생성 속도를 실측해 주기 자동 조절 · 변환된 원본은 정리(전체 상태 앵커는 보존)"><input type="checkbox" id="autoSync" onchange="setAutoSync()">
     자동 동기화</label>
-   <div class="fld" style="margin:13px 0 7px;display:flex;align-items:center;justify-content:space-between">
+   <div class="fld result-data-summary" style="margin:13px 0 7px;display:flex;align-items:center;justify-content:space-between">
     <span>선택 Case</span><span class="sst" id="projDataName"></span></div>
-   <div id="slots">
+   <div id="slots" class="result-data-summary">
     <div class="dstat"><div><b>TMC-49 증기</b></div><span class="sst" id="slBub">확인 중</span></div>
     <div class="dstat"><div><b>액체 상분율</b></div><span class="sst" id="slPhase">확인 중</span></div>
     <div class="dstat"><div><b>유동</b></div><span class="sst" id="slFlow">확인 중</span></div>
