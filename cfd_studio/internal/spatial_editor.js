@@ -109,6 +109,7 @@
   const scene=new T.Scene();scene.background=new T.Color('#111315');
   const camera=new T.PerspectiveCamera(40,1,.001,1000),renderer=new T.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));host.append(renderer.domElement);
   const group=new T.Group();scene.add(group);const disposables=[],tags=[],meshes=[];const overlay=document.createElement('div');overlay.className='sp-tags';host.append(overlay);
+  const svgNS='http://www.w3.org/2000/svg',leaders=document.createElementNS(svgNS,'svg');leaders.classList.add('sp-leaders');leaders.setAttribute('aria-hidden','true');overlay.append(leaders);
   try{
    for(const [i,item]of model.items.entries()){
     let geometry,mesh;
@@ -123,14 +124,46 @@
     else if(item.center)mesh.position.fromArray(item.center);
     if(item.kind==='cylinder'){if(item.axis==='z')mesh.rotation.x=Math.PI/2;if(item.axis==='x')mesh.rotation.z=Math.PI/2;}
     group.add(mesh);meshes.push(mesh);mesh.userData.elementId=item.id;
-    if(onSelect){const tag=document.createElement('button');tag.type='button';tag.className='sp-tag';tag.textContent=item.label||item.name;tag.setAttribute('translate','no');tag.dataset.elementId=item.id;tag.onclick=()=>onSelect(item.id);overlay.append(tag);tags.push({tag,mesh});}
+    if(onSelect){const tag=document.createElement('button');tag.type='button';tag.className='sp-tag';tag.textContent=item.label||item.name;tag.setAttribute('translate','no');tag.dataset.elementId=item.id;tag.onclick=()=>onSelect(item.id);tag.title=item.label||item.name;overlay.append(tag);
+     const line=document.createElementNS(svgNS,'polyline'),dot=document.createElementNS(svgNS,'circle');line.setAttribute('fill','none');dot.setAttribute('r','2.5');const leader=document.createElementNS(svgNS,'g');leader.style.color='#'+color.getHexString();leader.append(line,dot);leaders.append(leader);tags.push({tag,mesh,leader,line,dot});}
 
    }
    const bounds=new T.Box3().setFromObject(group),size=bounds.getSize(new T.Vector3()),center=bounds.getCenter(new T.Vector3()),extent=Math.max(size.x,size.y,size.z);
    if(!Number.isFinite(extent)||extent<=0)throw Error('형상 크기를 확인하세요');group.position.copy(center).multiplyScalar(-1);group.scale.setScalar(1/extent);group.position.divideScalar(extent);
-   const axes=new T.AxesHelper(.65);axes.position.copy(center).multiplyScalar(-1/extent);scene.add(axes);disposables.push(axes.geometry,...(Array.isArray(axes.material)?axes.material:[axes.material]));camera.up.fromArray(model.up);
+   camera.up.fromArray(model.up);
    let yaw=cameraState?.yaw??-.6,pitch=cameraState?.pitch??.4,distance=cameraState?.distance??2.8,pointer=null;
-   const draw=()=>{const zUp=model.up[2]===1,p=[Math.cos(pitch)*Math.cos(yaw)*distance,Math.cos(pitch)*Math.sin(yaw)*distance,Math.sin(pitch)*distance];camera.position.fromArray(zUp?p:[p[0],p[2],p[1]]);camera.lookAt(0,0,0);renderer.render(scene,camera);const positions=tags.map(({tag,mesh})=>{const p=new T.Box3().setFromObject(mesh).getCenter(new T.Vector3()).project(camera);tag.hidden=p.z>1||p.z< -1;return {tag,x:(p.x+1)*host.clientWidth/2,y:(1-p.y)*host.clientHeight/2};}).sort((a,b)=>a.y-b.y);const placed=[];for(const p of positions){const w=p.tag.offsetWidth,h=p.tag.offsetHeight;p.x=Math.max(w/2+4,Math.min(host.clientWidth-w/2-4,p.x));p.y=Math.max(h/2+4,Math.min(host.clientHeight-h/2-4,p.y));for(const q of placed)if(Math.abs(p.x-q.x)<(w+q.w)/2+4&&Math.abs(p.y-q.y)<(h+q.h)/2+4)p.y=q.y+(h+q.h)/2+4;p.tag.style.left=p.x+'px';p.tag.style.top=p.y+'px';placed.push({...p,w,h});}};
+   const draw=()=>{
+    const width=host.clientWidth,height=host.clientHeight;if(!width||!height)return;
+    const zUp=model.up[2]===1,p=[Math.cos(pitch)*Math.cos(yaw)*distance,Math.cos(pitch)*Math.sin(yaw)*distance,Math.sin(pitch)*distance];
+    camera.position.fromArray(zUp?p:[p[0],p[2],p[1]]);camera.lookAt(0,0,0);renderer.render(scene,camera);
+    leaders.setAttribute('viewBox',`0 0 ${width} ${height}`);
+    const positions=tags.map(entry=>{
+     const point=new T.Box3().setFromObject(entry.mesh).getCenter(new T.Vector3()).project(camera);
+     const visible=point.z>=-1&&point.z<=1&&Math.abs(point.x)<=1&&Math.abs(point.y)<=1;
+     entry.tag.hidden=!visible;entry.leader.style.display=visible?'':'none';
+     entry.tag.style.maxWidth=Math.min(144,Math.max(76,width*.23))+'px';
+     return {...entry,visible,anchorX:(point.x+1)*width/2,anchorY:(1-point.y)*height/2};
+    }).filter(p=>p.visible).sort((a,b)=>a.anchorX-b.anchorX);
+    // Two outer lanes keep names away from the geometry. Sort each lane vertically
+    // so nearby anchors keep the same order and leader lines cross less often.
+    const middle=Math.ceil(positions.length/2);
+    for(const [side,lane]of [[-1,positions.slice(0,middle)],[1,positions.slice(middle)]]){
+     lane.sort((a,b)=>a.anchorY-b.anchorY);
+     const gap=8,margin=12,heights=lane.map(p=>p.tag.offsetHeight),total=heights.reduce((a,b)=>a+b,0)+Math.max(0,lane.length-1)*gap;
+     let bottom=margin;
+     lane.forEach((p,i)=>{p.y=Math.max(bottom+heights[i]/2,Math.min(height-margin-heights[i]/2,p.anchorY));bottom=p.y+heights[i]/2+gap;});
+     // Fit the last labels back into view, then distribute crowded lanes evenly.
+     let top=height-margin;
+     for(let i=lane.length-1;i>=0;i--){lane[i].y=Math.min(lane[i].y,top-heights[i]/2);top=lane[i].y-heights[i]/2-gap;}
+     lane.forEach((p,i)=>{
+      const w=p.tag.offsetWidth,h=heights[i];if(total>height-2*margin)p.y=margin+h/2+i*Math.max(0,(height-2*margin-h)/Math.max(1,lane.length-1));
+      const x=side<0?margin+w/2:width-margin-w/2,edge=x-side*w/2,elbow=edge-side*16;
+      p.tag.style.left=x+'px';p.tag.style.top=p.y+'px';
+      p.line.setAttribute('points',`${p.anchorX},${p.anchorY} ${elbow},${p.y} ${edge},${p.y}`);
+      p.dot.setAttribute('cx',p.anchorX);p.dot.setAttribute('cy',p.anchorY);
+     });
+    }
+   };
    const resize=new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();draw();});resize.observe(host);
    const canvas=renderer.domElement;canvas.style.touchAction='none';canvas.setAttribute('aria-label','공간 3D 미리보기');
    canvas.onpointerdown=e=>{if(e.button!==0)return;pointer={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY};canvas.setPointerCapture(e.pointerId);};
@@ -138,7 +171,7 @@
    canvas.addEventListener('wheel',e=>{e.preventDefault();distance=Math.max(1,Math.min(15,distance*Math.exp(Math.max(-100,Math.min(100,e.deltaY))*.001)));draw();},{passive:false});
    canvas.ondblclick=()=>{yaw=-.6;pitch=.4;distance=2.8;draw();};draw();
    const dispose=()=>{resize.disconnect();disposables.forEach(x=>x.dispose());renderer.dispose();renderer.domElement.remove();overlay.remove();};
-   dispose.select=id=>{for(const mesh of meshes)mesh.material.opacity=mesh.userData.elementId===id ? .4 : .15;for(const {tag}of tags)tag.setAttribute('aria-pressed',String(tag.dataset.elementId===id));draw();};
+   dispose.select=id=>{for(const mesh of meshes)mesh.material.opacity=mesh.userData.elementId===id ? .4 : .15;for(const {tag,leader}of tags){const active=tag.dataset.elementId===id;tag.setAttribute('aria-pressed',String(active));leader.classList.toggle('selected',active);}draw();};
    dispose.select(selected);dispose.cameraState=()=>({yaw,pitch,distance});return dispose;
   }catch(e){overlay.remove();disposables.forEach(x=>x.dispose());renderer.dispose();renderer.domElement.remove();throw e;}
  }
@@ -156,7 +189,7 @@
   const placeholder=text=>{host.replaceChildren(el('div',text,'sp-empty'));};placeholder('형상 확인을 눌러 미리보기');
   textarea.oninput=()=>{clear();placeholder('입력이 변경되었습니다 · 형상 확인을 눌러 갱신');error.textContent='';};
   textarea.onkeydown=e=>{if(e.key==='Tab'&&!readonly){e.preventDefault();textarea.setRangeText('  ',textarea.selectionStart,textarea.selectionEnd,'end');textarea.dispatchEvent(new Event('input',{bubbles:true}));}};
-  const refresh=button('형상 확인',async()=>{clear();error.textContent='';const token=generation;refresh.disabled=true;try{const {value}=read(),model=shapes(merge(base,value));report.textContent=model.notes.join('\n');if(!model.items.length){placeholder('표시할 형상이 없습니다');return;}const dispose=await viewer(host,model);if(closed||token!==generation){dispose();return;}clean=dispose;report.textContent=[model.items.length+' shapes · m · X / Y / Z',...model.items.map(x=>x.name),...model.notes].join('\n');}catch(e){if(!closed&&token===generation){placeholder('미리보기를 생성할 수 없습니다');error.textContent=e.message;}}finally{refresh.disabled=false;}});
+  const refresh=button('형상 확인',async()=>{clear();error.textContent='';const token=generation;refresh.disabled=true;try{const {value}=read(),model=shapes(merge(base,value));report.textContent=model.notes.join('\n');if(!model.items.length){placeholder('표시할 형상이 없습니다');return;}const dispose=await viewer(host,model);if(closed||token!==generation){dispose();return;}clean=dispose;report.textContent=[model.items.length+' shapes · m',...model.items.map(x=>x.name),...model.notes].join('\n');}catch(e){if(!closed&&token===generation){placeholder('미리보기를 생성할 수 없습니다');error.textContent=e.message;}}finally{refresh.disabled=false;}});
   header.append(el('h2','공간 정보'),refresh);code.append(el('label',schemaOnly?'초기 형상 JSON':'공간 JSON'),textarea);preview.append(el('div','3D 미리보기','sp-preview-label'),host,report);body.append(code,preview);
   const help=el('details'),summary=el('summary','공간 JSON 형식');help.append(summary,el('pre','geometry.regions / fluid_regions / solid_regions: 배열 또는 이름별 객체\nbox: shape, unit, min [x,y,z], max [x,y,z]\nsphere: shape, unit, center [x,y,z], radius\ncylinder: shape, unit, center [x,y,z], radius, height, axis (x/y/z)\nunit: m / cm / mm\n기존 tank·board·coil: mm / geometry_spec·loading.blocks: m'));
   actions.append(button(readonly?'닫기':'취소',()=>dialog.close()));
