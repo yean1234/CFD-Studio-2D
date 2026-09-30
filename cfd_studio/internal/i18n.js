@@ -643,6 +643,12 @@ add("geometry.source: 외부 형상 파일은 미리보기에 포함되지 않�
 add("silo·published: 외부 격자 형상은 미리보기 미지원","silo / published: external mesh geometry preview is unsupported","silo / published: 外部メッシュ形状のプレビューは未対応");
 add("tank·board·coil 표시 · 상분율·발열면·격자는 표시하지 않음","Shows tank, board and coil · phase fractions, heating surfaces and mesh are omitted","tank・board・coil を表示 · 相分率・発熱面・メッシュは非表示");
 add("probes_mm: 측정 지점은 미리보기에 포함되지 않음","probes_mm: probe points are not included in the preview","probes_mm: 測定点はプレビューに含まれません");
+add("선택한 조건","Selected conditions","選択した条件");
+add("조건 변경 후 사용 가능한 솔버","Solvers available after changing conditions","条件変更後に使用可能なソルバー");
+add("아래 변경값을 확인하세요 · 버튼을 누르기 전에는 응답을 변경하지 않습니다","Review the changes below · answers remain unchanged until you confirm","以下の変更内容を確認してください · 確認するまで回答は変更されません");
+add("이 조건으로 다시 추천","Recommend with these conditions","この条件で再推薦");
+add("선택한 조건이 등록된 솔버 양식과 일치하지 않습니다","The selected conditions do not match a registered solver template","選択した条件が登録済みのソルバー入力形式と一致しません");
+add("변경한 조건으로 추천할 수 없습니다","Unable to recommend with the changed conditions","変更した条件では推薦できません");
 let language='ko';
 try{const saved=root.localStorage?.getItem(key);if(supported.includes(saved))language=saved;}catch(_){}
 const patterns=[

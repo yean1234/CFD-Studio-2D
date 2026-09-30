@@ -24,12 +24,16 @@ def profile(solver):
     if purpose=='thermal_multiphase':media.append('liquid_liquid_gas')
     if solver=='warehouseBuoyantFoam':media=['gas']
     steady=item['time_mode']=='정상'
-    options={'medium':media,'purpose':[purpose], 'regime':['laminar'] if solver=='icoFoam' else ['laminar','RAS','LES'],
+    # General survey intentions may use a specialized solver. Its full physics
+    # still determines the generated inputs (e.g. phase fractions for VOF).
+    supported_purposes={'interface':['interface','flow'],
+                        'thermal_multiphase':['thermal_multiphase','heat_flow','flow','interface']}.get(purpose,[purpose])
+    options={'medium':media,'purpose':supported_purposes, 'regime':['laminar'] if solver=='icoFoam' else ['laminar','RAS','LES'],
              'domain':['internal','external'], 'mesh':['import','generate'],
              'termination':['convergence'] if steady else ['physical_time','convergence','frames']}
     # A stationary mean-flow template does not offer time-resolved LES.
     if steady:options['regime']=['laminar','RAS']
-    return {'solver':solver,'time_mode':'steady' if steady else 'transient',
+    return {'solver':solver,'physics_purpose':purpose,'time_mode':'steady' if steady else 'transient',
             'options':{k:[{'value':v,'label':LABELS[k][v]} for v in values] for k,values in options.items()},
             'note':item['limitation'] or item['summary'], 'requirements': input_definition(solver)}
 
@@ -44,7 +48,7 @@ def generate(solver,answers):
     if not isinstance(answers,dict) or set(answers)!=set(p['options']):raise ValueError('모든 양식 질문에 답해 주세요')
     for key,options in p['options'].items():
         if answers[key] not in [o['value'] for o in options]:raise ValueError('선택한 솔버에서 지원하지 않는 항목: '+key)
-    a=copy.deepcopy(answers);purpose=a['purpose'];steady=p['time_mode']=='steady'
+    a=copy.deepcopy(answers);purpose=p['physics_purpose'];steady=p['time_mode']=='steady'
     thermal=purpose in ('heat_flow','conjugate_heat','compressible_flow','thermal_multiphase','thermal_scalar')
     multi=purpose in ('interface','thermal_multiphase')
     buoyant=purpose in ('heat_flow','conjugate_heat','thermal_scalar')
@@ -142,21 +146,36 @@ def recommend(answers):
     missing=[k for k in options if answers[k]=='not_listed']
     if missing:
         return {'answers':copy.deepcopy(answers),'candidates':[],'status':'unsupported',
-                'unsupported_fields':missing,
+                'unsupported_fields':missing,'alternatives':[],
                 'message':'지원 불가 · 여기에 없음으로 선택한 조건은 현재 등록된 솔버·양식에서 지원하지 않습니다',
                 'basis':'해당 조건을 지원하는 솔버·입력 양식의 추가 정의가 필요합니다'}
     candidates=[]
+    alternatives=[]
+    weights={'medium':4,'purpose':4,'regime':2,'time_mode':2,'termination':1}
     for p in profiles():
-        if p['time_mode']!=answers['time_mode']:continue
-        if any(answers[k] not in [o['value'] for o in choices] for k,choices in p['options'].items()):continue
+        allowed={k:[o['value'] for o in choices] for k,choices in p['options'].items()}
+        allowed['time_mode']=[p['time_mode']]
+        changes=[]
+        adjusted=copy.deepcopy(answers)
+        for key,values in allowed.items():
+            if answers[key] not in values:
+                adjusted[key]=values[0]
+                changes.append({'field':key,'from':answers[key],'to':values[0]})
         item=definition(p['solver'])
-        candidates.append({'solver':p['solver'],'summary':item['summary'],'note':p['requirements']['limit'],
-                           'upstream':item['upstream'], 'outputs':item['outputs'],
-                           'algorithm':p['requirements']['algorithm'],
-                           'dedicated':item['dedicated'],
-                           'reason':'선택한 유체·해석·시간 방식·유동 모델과 일치'})
-    return {'answers':copy.deepcopy(answers),'candidates':candidates,'status':'supported' if candidates else 'unsupported','unsupported_fields':[],
-            'message':'' if candidates else '선택한 조건에 맞는 등록 솔버가 없습니다 · 이전 단계에서 조건을 확인하세요',
+        candidate={'solver':p['solver'],'summary':item['summary'],'note':p['requirements']['limit'],
+                   'upstream':item['upstream'], 'outputs':item['outputs'],
+                   'algorithm':p['requirements']['algorithm'],
+                   'dedicated':item['dedicated'],
+                   'reason':'선택한 유체·해석·시간 방식·유동 모델과 일치'}
+        if changes:
+            alternatives.append({**candidate,'changes':changes,'answers':adjusted,
+                                 'score':sum(weights.get(c['field'],1) for c in changes)})
+        else:
+            candidates.append(candidate)
+    alternatives.sort(key=lambda a:(a['score'],len(a['changes'])))
+    return {'answers':copy.deepcopy(answers),'candidates':candidates,'alternatives':alternatives,
+            'status':'supported' if candidates else 'unsupported','unsupported_fields':[],
+            'message':'' if candidates else '선택한 조건이 등록된 솔버 양식과 일치하지 않습니다',
             'basis':'등록된 솔버의 양식 지원 조건 기준 · 설치 여부·실행 연결·물리 검증은 별도'}
 
 

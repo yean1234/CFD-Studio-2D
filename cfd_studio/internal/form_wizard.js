@@ -3,7 +3,7 @@
     const el=(tag,text,cls)=>{const e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e;};
   function ensureStyle(){
     if(!document.getElementById('formWizardStyle')){const style=el('style');style.id='formWizardStyle';style.textContent=`
-      .fw-dialog [hidden]{display:none!important}.fw-dialog{width:min(720px,94vw);max-height:90vh;overflow:auto;border:1px solid var(--line);border-radius:14px;padding:24px;background:var(--card,var(--page));color:var(--text)}.fw-dialog::backdrop{background:#000a}.fw-dialog h2{font-size:18px;margin:0 0 8px}.fw-meta{color:var(--muted);font-size:12px;margin-bottom:20px}.fw-progress{display:flex;gap:8px;margin:0 0 24px}.fw-progress span{flex:1;padding:10px;border-bottom:2px solid var(--line);font-size:12px;color:var(--muted)}.fw-progress [aria-current=step]{color:var(--text);border-color:var(--accent,#579eff)}.fw-question{border:0;padding:0;margin:0 0 22px}.fw-question legend{font-size:14px;font-weight:600;margin-bottom:12px}.fw-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.fw-choice{display:flex;align-items:center;gap:10px;padding:14px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--page);font-size:13px}.fw-choice:has(input:checked){border-color:var(--accent,#579eff);background:color-mix(in srgb,var(--accent,#579eff) 10%,var(--page))}.fw-choice input{width:16px;height:16px;accent-color:var(--accent,#579eff)}.fw-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.fw-error{color:var(--red,#f88);font-size:12px;min-height:18px}.fw-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0}.fw-summary div{padding:12px;border:1px solid var(--line);border-radius:9px;font-size:13px}.fw-note{font-size:12px;color:var(--muted);line-height:1.7}.fw-unsupported{border:1px solid var(--red,#c77770);border-radius:10px;padding:14px;margin-top:14px}.fw-unsupported strong{color:var(--red,#ed9288)}.fw-unsupported ul{font-size:12px;padding-left:20px}.fw-dialog button{min-width:75px}@media(max-width:520px){.fw-options,.fw-summary{grid-template-columns:1fr}}
+      .fw-dialog [hidden]{display:none!important}.fw-dialog{width:min(720px,94vw);max-height:90vh;overflow:auto;border:1px solid var(--line);border-radius:14px;padding:24px;background:var(--card,var(--page));color:var(--text)}.fw-dialog::backdrop{background:#000a}.fw-dialog h2{font-size:18px;margin:0 0 8px}.fw-meta{color:var(--muted);font-size:12px;margin-bottom:20px}.fw-progress{display:flex;gap:8px;margin:0 0 24px}.fw-progress span{flex:1;padding:10px;border-bottom:2px solid var(--line);font-size:12px;color:var(--muted)}.fw-progress [aria-current=step]{color:var(--text);border-color:var(--accent,#579eff)}.fw-question{border:0;padding:0;margin:0 0 22px}.fw-question legend{font-size:14px;font-weight:600;margin-bottom:12px}.fw-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.fw-choice{display:flex;align-items:center;gap:10px;padding:14px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--page);font-size:13px}.fw-choice:has(input:checked){border-color:var(--accent,#579eff);background:color-mix(in srgb,var(--accent,#579eff) 10%,var(--page))}.fw-choice input{width:16px;height:16px;accent-color:var(--accent,#579eff)}.fw-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.fw-error{color:var(--red,#f88);font-size:12px;min-height:18px}.fw-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0}.fw-summary div{padding:12px;border:1px solid var(--line);border-radius:9px;font-size:13px}.fw-note{font-size:12px;color:var(--muted);line-height:1.7}.fw-alternative{border:1px solid var(--line);border-radius:10px;padding:14px;margin:12px 0}.fw-alternative ul{font-size:12px;padding-left:18px;line-height:1.8}.fw-selection{margin:14px 0}.fw-selection dl{display:grid;grid-template-columns:90px 1fr;gap:7px;font-size:12px}.fw-selection dd{margin:0}.fw-unsupported{border:1px solid var(--red,#c77770);border-radius:10px;padding:14px;margin-top:14px}.fw-unsupported strong{color:var(--red,#ed9288)}.fw-unsupported ul{font-size:12px;padding-left:20px}.fw-dialog button{min-width:75px}@media(max-width:520px){.fw-options,.fw-summary{grid-template-columns:1fr}}
     `;document.head.append(style);}
   }
 
@@ -64,6 +64,18 @@
       }catch(e){if(d.isConnected)error.textContent=e.message;}
       finally{busy=false;if(d.isConnected)render();}
     },'pri');actions.append(cancel,back,next);d.append(title,progress,body,unsupported,error,actions);
+    const choiceLabel=(key,value)=>options[key]?.find(o=>o.value===value)?.label||value;
+    async function applyAlternative(item){
+      if(busy)return;busy=true;error.textContent='';next.disabled=true;back.disabled=true;
+      for(const control of body.querySelectorAll('button,input'))control.disabled=true;
+      try{
+        const snapshot={...item.answers},result=await loadRecommendations(snapshot);
+        if(!d.isConnected)return;
+        if(!result.candidates.some(c=>c.solver===item.solver))throw Error('변경한 조건으로 추천할 수 없습니다');
+        Object.assign(values,snapshot);summary=result;candidates=result.candidates.filter(x=>!fixedSolver||x.solver===fixedSolver);chosen='';selected='';render();
+      }catch(e){if(d.isConnected)error.textContent=e.message;}
+      finally{busy=false;if(d.isConnected)render();}
+    }
     function render(){
       progress.replaceChildren();for(const [i,s] of steps.entries()){const n=el('span',(i+1)+'. '+s[0]);if(i===step)n.setAttribute('aria-current','step');progress.append(n);}
       body.replaceChildren();back.hidden=step===0;back.disabled=busy;next.disabled=busy||(step===3&&!chosen);next.textContent=step===2?'솔버 추천':step===3?'양식 생성':'다음';
@@ -75,8 +87,20 @@
         }
         body.append(el('p','해석 조건을 먼저 선택하면 지원 솔버를 추천합니다','fw-note'));
       }else{
+        const selection=el('details',null,'fw-selection'),listing=el('dl');selection.open=!candidates.length;selection.append(el('summary','선택한 조건'),listing);
+        for(const [key,label] of Object.entries(fieldNames))listing.append(el('dt',label),el('dd',choiceLabel(key,values[key])));
+        body.append(selection);
         if(!candidates.length){body.append(el('p',fixedSolver?'기존 Template의 솔버와 조건이 맞지 않습니다 · 이전 단계에서 수정하거나 새 Template을 만드세요':summary.message,'fw-note'));}
         else body.append(el('p','조건이 일치하는 솔버 중 하나를 선택하세요','fw-note'));
+        if(!candidates.length){
+          const alternatives=(summary.alternatives||[]).filter(x=>!fixedSolver||x.solver===fixedSolver).slice(0,3);
+          if(alternatives.length){body.append(el('h3','조건 변경 후 사용 가능한 솔버'),el('p','아래 변경값을 확인하세요 · 버튼을 누르기 전에는 응답을 변경하지 않습니다','fw-note'));
+            for(const item of alternatives){const card=el('section',null,'fw-alternative'),list=el('ul');card.append(el('strong',item.solver),el('p',item.summary,'fw-note'));
+              for(const change of item.changes){const li=el('li');li.append(el('span',fieldNames[change.field]),': ',el('span',choiceLabel(change.field,change.from)),' → ',el('strong',choiceLabel(change.field,change.to)));list.append(li);}
+              const apply=button('이 조건으로 다시 추천',()=>applyAlternative(item));apply.disabled=busy;card.append(list,apply);body.append(card);
+            }
+          }
+        }
         for(const item of candidates){
           const label=el('label',null,'fw-choice fw-solver-choice'),radio=el('input'),content=el('div');label.style.marginBottom='10px';radio.type='radio';radio.name='recommended_solver';radio.value=item.solver;radio.checked=chosen===item.solver;radio.onchange=()=>{chosen=item.solver;selected=chosen;next.disabled=false;error.textContent='';};
           content.append(el('strong',item.solver),el('p',item.summary,'fw-note'),el('p',item.reason,'fw-note'),el('p',item.algorithm+' · '+item.outputs.join(' · '),'fw-note'),el('p',item.note,'fw-note'));
