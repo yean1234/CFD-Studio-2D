@@ -2,7 +2,7 @@
 
 - 대상: CFD Studio 사용자
 - 내용: Template·Config·저장 구조·결과 표시·지원 범위
-- 사용법과 화면 명칭 기준: v222
+- 사용법과 화면 명칭 기준: v225
 - 화면 조작: [사용법](CFD-STUDIO-USER-GUIDE.md)
 
 ## 설치 환경
@@ -333,3 +333,45 @@
 - 번역 항목이 없는 외부 오류·확장 모델의 안내는 원문 표시
 - 앱 도움말은 선택한 언어로 제공 · GitHub의 전체 문서는 한국어 기준
 - 브라우저 저장소 사용이 차단된 환경에서는 언어 선택의 재접속 후 유지가 제한될 수 있음
+
+
+## 공간 정보
+
+- Config·Template의 **공간 JSON**에서 코드 입력과 3D 미리보기 제공
+- JSON 데이터만 해석 · Python·JavaScript 코드는 실행하지 않음
+- 지원 단위: `m`, `cm`, `mm` · 미리보기 좌표는 m로 환산
+- `geometry.regions`, `geometry.fluid_regions`, `geometry.solid_regions`: 형상 배열 또는 이름별 객체
+- `box`: `shape`, `unit`, `min`, `max`
+- `sphere`: `shape`, `unit`, `center`, `radius`
+- `cylinder`: `shape`, `unit`, `center`, `radius`, `height`, `axis`
+- 좌표 배열: `[x, y, z]` · 원기둥 중심은 높이의 중간 지점 · axis는 `x`·`y`·`z`
+- 기존 Config: `tank`·`board`·`coil`의 mm 좌표, `geometry_spec.geometry`의 박공지붕 외형, `loading.blocks`의 m 좌표 지원
+- 표시 제외: 외부 CAD·STL·격자 파일, 상세 사일로 형상, 상분율·발열면·측정 지점
+- 미지원 형식·미입력 치수는 안내에 표시 · 형상을 임의로 추정하지 않음
+- 미리보기는 형상 확인 기능 · 유효 격자 생성, 경계조건 연결, 솔버 실행 가능성을 판정하지 않음
+- 신규 공간 JSON을 기존 솔버가 자동 해석하지 않음 · 실제 계산에는 해당 Config 형식의 실행 연결 필요
+- 미리보기 최대 1,000개 형상 · JSON 최대 1 MB
+- Template의 공간 코드는 `version`·`fields` 형식의 입력 양식 정의 · 저장 시 실제 입력값 제거
+- Config의 공간 코드는 실제 공간 항목 값 · 다른 물성·계산 항목은 보존
+- **적용**은 부모 편집기의 초안에만 반영 · 최종 저장 전 프로젝트·프리셋·실행 스냅샷은 변경하지 않음
+
+### 공간 JSON 예시
+
+- 형식 설명용 예시 · 치수와 좌표는 사용자가 해석 대상에 맞게 입력
+- Template 정의 JSON과 Config 값 JSON은 서로 다른 형식
+
+```json
+{
+  "geometry": {
+    "fluid_regions": [
+      {
+        "name": "domain",
+        "shape": "box",
+        "unit": "m",
+        "min": [0, 0, 0],
+        "max": [4, 2, 3]
+      }
+    ]
+  }
+}
+```

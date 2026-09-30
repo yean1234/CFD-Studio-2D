@@ -622,6 +622,27 @@ add("유동 모델","Flow model","流動モデル");
 add("시간 방식","Time mode","時間方式");
 add("해석 영역","Analysis domain","解析領域");
 add("격자 준비","Mesh preparation","メッシュ準備");
+add("공간 JSON","Spatial JSON","空間 JSON");
+add("공간 양식 JSON","Spatial schema JSON","空間入力形式 JSON");
+add("공간 정보","Spatial geometry","空間情報");
+add("형상 확인","Preview geometry","形状を確認");
+add("3D 미리보기","3D preview","3D プレビュー");
+add("형상 확인을 눌러 미리보기","Select Preview geometry to view the geometry","形状を確認を押すとプレビューを表示");
+add("입력이 변경되었습니다 · 형상 확인을 눌러 갱신","Input changed · select Preview geometry to refresh","入力が変更されました · 形状を確認で更新");
+add("표시할 형상이 없습니다","No geometry to display","表示できる形状がありません");
+add("미리보기를 생성할 수 없습니다","Unable to generate preview","プレビューを生成できません");
+add("공간 JSON 형식","Spatial JSON format","空間 JSON 形式");
+add("Template에는 양식만 저장 · 미리보기 치수는 저장하지 않음","Templates store field definitions only · preview dimensions are not saved","Template は入力形式のみ保存 · プレビュー寸法は保存しません");
+add("형상 확인용 미리보기 · 격자 생성·솔버 계산은 별도","Geometry preview · mesh generation and solver execution are separate","形状確認用プレビュー · メッシュ生成と計算は別の操作");
+add("공간 JSON 객체를 입력하세요","Enter a spatial JSON object","空間 JSON オブジェクトを入力してください");
+add("공간 JSON은 1 MB 이하로 입력하세요","Spatial JSON must not exceed 1 MB","空間 JSON は 1 MB 以下で入力してください");
+add("공간 JSON이 너무 복잡합니다","Spatial JSON exceeds complexity limits","空間 JSON が複雑すぎます");
+add("형상 크기를 확인하세요","Check geometry dimensions","形状の寸法を確認してください");
+add("표시할 형상이 없습니다 · 치수와 형식을 확인하세요","No geometry to display · check dimensions and format","表示できる形状がありません · 寸法と形式を確認してください");
+add("geometry.source: 외부 형상 파일은 미리보기에 포함되지 않음","geometry.source: external geometry files are not included in the preview","geometry.source: 外部形状ファイルはプレビューに含まれません");
+add("silo·published: 외부 격자 형상은 미리보기 미지원","silo / published: external mesh geometry preview is unsupported","silo / published: 外部メッシュ形状のプレビューは未対応");
+add("tank·board·coil 표시 · 상분율·발열면·격자는 표시하지 않음","Shows tank, board and coil · phase fractions, heating surfaces and mesh are omitted","tank・board・coil を表示 · 相分率・発熱面・メッシュは非表示");
+add("probes_mm: 측정 지점은 미리보기에 포함되지 않음","probes_mm: probe points are not included in the preview","probes_mm: 測定点はプレビューに含まれません");
 let language='ko';
 try{const saved=root.localStorage?.getItem(key);if(supported.includes(saved))language=saved;}catch(_){}
 const patterns=[

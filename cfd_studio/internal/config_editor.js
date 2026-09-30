@@ -111,6 +111,7 @@
     const close=()=>{if(!locked){version++;dialog.close();}};
     const busy=value=>{locked=value;for(const n of dialog.querySelectorAll('button,input,textarea,select'))n.disabled=value;};
     dialog.replaceChildren();const header=el('header');header.append(el('h2',options.title||(readonly?'Case Config':'새 Case Config')),button('닫기',close));dialog.append(header);
+    header.insertBefore(button('공간 JSON',()=>CFDSpatial.open({config:current(),readonly,onApply:next=>{config=next;jsonText=null;invalidNumbers.clear();renderNav();render();}})),header.lastChild);
     const top=el('div');top.className='settings-top';const name=el('input');name.id='settingsName';name.value=options.name||'실행 '+new Date().toLocaleString('ko-KR');name.style.width='min(400px,55vw)';name.maxLength=80;name.setAttribute('aria-label',options.purpose==='preset'?'프리셋 이름':'실행 이름');
     if(!readonly&&options.purpose!=='form'){const l=el('label',options.purpose==='preset'?'프리셋 이름':'Case 이름');l.append(name);top.append(l);}
     const savePreset=el('input');savePreset.type='checkbox';savePreset.id='savePresetCheck';savePreset.checked=false;const presetName=el('input');presetName.id='newPresetName';presetName.placeholder='새 프리셋 이름';presetName.setAttribute('aria-label','새 프리셋 이름');presetName.hidden=true;

@@ -94,6 +94,24 @@
 
 ![솔버 추천](assets/template-survey/recommendations.png)
 
+### 공간 정보
+
+- **양식 편집** 또는 **Config 편집** → **공간 JSON**
+- 왼쪽 큰 입력창: 공간 정보 JSON 편집 · Tab으로 들여쓰기
+- 오른쪽 위 **형상 확인**: 오른쪽에 3D 미리보기 표시
+- 드래그: 회전 · 휠: 확대·축소 · 더블클릭: 시점 초기화
+- 입력 변경 후 **형상 확인**으로 갱신
+- **적용**: 편집 중인 Config에 반영 → 상위 편집 화면에서 저장
+- **취소**: 공간 편집 내용 폐기 · 기존 Config 유지
+- Template: 필드 정의를 JSON으로 편집 · 미리보기용 입력 치수는 저장하지 않음
+- 실행을 시작한 Case의 Config: 조회만 가능
+- **Fields / JSON**: 왼쪽 표시 방식 선택 · **+ Field / Import JSON / Download JSON**: 오른쪽 작업 버튼
+- 지원 형식과 제한: [설명서](CFD-STUDIO-MANUAL.md#공간-정보)
+
+![Config 편집 도구](assets/spatial-editor/toolbar.png)
+
+![공간 정보 편집](assets/spatial-editor/preview.png)
+
 ### 프로젝트 Config
 
 - **새 프로젝트 → CFD Template** 선택
