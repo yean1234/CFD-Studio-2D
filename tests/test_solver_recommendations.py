@@ -41,6 +41,21 @@ class SolverRecommendationTests(unittest.TestCase):
         with self.assertRaises(ValueError):generate_from_survey('simpleFoam',base())
         with self.assertRaises(ValueError):generate_from_survey('not-installed-custom-solver',base())
 
+    def test_none_of_these_is_valid_but_unsupported_for_every_question(self):
+        options=survey_options()
+        for key,choices in options.items():
+            self.assertEqual(choices[-1],{'value':'not_listed','label':'여기에 없음'})
+            a=base(**{key:'not_listed'});before=copy.deepcopy(a)
+            result=recommend(a)
+            self.assertEqual(result['status'],'unsupported')
+            self.assertEqual(result['unsupported_fields'],[key])
+            self.assertEqual(result['candidates'],[])
+            self.assertEqual(a,before)
+            with self.assertRaises(ValueError):generate_from_survey('icoFoam',a)
+        result=recommend(base(medium='not_listed',regime='not_listed'))
+        self.assertEqual(set(result['unsupported_fields']),{'medium','regime'})
+        self.assertEqual(recommend(base())['status'],'supported')
+
     def test_api_rechecks_compatibility_before_generation(self):
         class Handler:
             path='/api/executions/form-survey'
@@ -49,3 +64,6 @@ class SolverRecommendationTests(unittest.TestCase):
         h.path='/api/executions/form-recommend';post_route(h,None,{'answers':base()});self.assertEqual(h.code,200)
         h.path='/api/executions/form-from-survey';post_route(h,None,{'answers':base(),'solver':'icoFoam'});self.assertEqual(h.code,200)
         post_route(h,None,{'answers':base(),'solver':'interFoam'});self.assertEqual(h.code,400)
+
+        h.path='/api/executions/form-recommend';post_route(h,None,{'answers':base(mesh='not_listed')});self.assertEqual(h.code,200);self.assertEqual(h.value['result']['status'],'unsupported')
+        h.path='/api/executions/form-from-survey';post_route(h,None,{'answers':base(mesh='not_listed'),'solver':'icoFoam'});self.assertEqual(h.code,400)

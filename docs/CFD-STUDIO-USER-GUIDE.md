@@ -77,6 +77,7 @@
 - **유동·시간**: 층류·난류, 정상·비정상 해석 선택 → **다음**
 - **영역·종료**: 내부·외부 영역, 격자 준비 방식, 종료 조건 선택 → **솔버 추천**
 - 추천 목록에서 기능·출력·제한 확인 → 솔버 하나 선택 → **양식 생성**
+- **여기에 없음**: 해당 조건을 지원하는 등록 솔버·양식이 없음을 표시 · 지원하지 않는 항목 안내 후 추천·생성 중지 · 선택 수정 또는 취소 가능
 - 맞는 솔버가 없으면 **이전**으로 돌아가 조건 확인
 - **양식 확인** 화면에서 이름·설명 입력
 - **양식 편집**에서 Key·Type·Unit 확인 → **Apply → Template 저장**
@@ -88,6 +89,8 @@
 - **Download JSON / Import JSON**으로 Template 정의 파일 편집
 
 ![해석 조건 설문](assets/template-survey/survey.png)
+
+![지원 불가 항목 안내](assets/template-survey/unsupported.png)
 
 ![솔버 추천](assets/template-survey/recommendations.png)
 

@@ -130,7 +130,7 @@ def survey_options():
     """Analysis-first questions; solver compatibility is checked separately."""
     labels=copy.deepcopy(LABELS)
     labels['time_mode']={'steady':'정상 해석','transient':'비정상 해석'}
-    return {k:[{'value':v,'label':label} for v,label in choices.items()] for k,choices in labels.items()}
+    return {k:[{'value':v,'label':label} for v,label in choices.items()]+[{'value':'not_listed','label':'여기에 없음'}] for k,choices in labels.items()}
 
 
 def recommend(answers):
@@ -139,6 +139,12 @@ def recommend(answers):
         raise ValueError('모든 해석 조건을 선택하세요')
     if any(not isinstance(answers[k],str) or answers[k] not in [o['value'] for o in choices] for k,choices in options.items()):
         raise ValueError('지원되는 해석 조건을 선택하세요')
+    missing=[k for k in options if answers[k]=='not_listed']
+    if missing:
+        return {'answers':copy.deepcopy(answers),'candidates':[],'status':'unsupported',
+                'unsupported_fields':missing,
+                'message':'지원 불가 · 여기에 없음으로 선택한 조건은 현재 등록된 솔버·양식에서 지원하지 않습니다',
+                'basis':'해당 조건을 지원하는 솔버·입력 양식의 추가 정의가 필요합니다'}
     candidates=[]
     for p in profiles():
         if p['time_mode']!=answers['time_mode']:continue
@@ -149,7 +155,7 @@ def recommend(answers):
                            'algorithm':p['requirements']['algorithm'],
                            'dedicated':item['dedicated'],
                            'reason':'선택한 유체·해석·시간 방식·유동 모델과 일치'})
-    return {'answers':copy.deepcopy(answers),'candidates':candidates,
+    return {'answers':copy.deepcopy(answers),'candidates':candidates,'status':'supported' if candidates else 'unsupported','unsupported_fields':[],
             'message':'' if candidates else '선택한 조건에 맞는 등록 솔버가 없습니다 · 이전 단계에서 조건을 확인하세요',
             'basis':'등록된 솔버의 양식 지원 조건 기준 · 설치 여부·실행 연결·물리 검증은 별도'}
 

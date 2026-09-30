@@ -612,6 +612,16 @@ add("모든 해석 조건을 선택하세요","Select all analysis conditions","
 add("지원되는 해석 조건을 선택하세요","Select supported analysis conditions","対応する解析条件を選択してください");
 add("추천 목록에서 조건에 맞는 솔버를 선택하세요","Select a compatible recommended solver","条件に適合する推薦ソルバーを選択してください");
 add("설문을 완료하고 솔버를 선택하세요","Complete the questionnaire and select a solver","設問に回答してソルバーを選択してください");
+add("여기에 없음","None of these","ここにない");
+add("지원 불가","Not supported","対応不可");
+add("여기에 없음으로 선택한 항목","Items marked as none of these","「ここにない」を選択した項目");
+add("현재 등록된 솔버·양식에서 지원하지 않습니다 · 해당 조건의 추가 정의가 필요합니다","Not supported by the registered solvers and input forms · These conditions require additional definitions","現在登録されているソルバー・入力形式では非対応 · この条件の追加定義が必要");
+add("지원 불가 · 여기에 없음으로 선택한 조건은 현재 등록된 솔버·양식에서 지원하지 않습니다","Not supported · Conditions marked as none of these are outside the registered solver and input-form definitions","対応不可 · 「ここにない」を選択した条件は登録済みソルバー・入力形式の対応範囲外");
+add("해당 조건을 지원하는 솔버·입력 양식의 추가 정의가 필요합니다","Additional solver and input-form definitions are required for these conditions","この条件に対応するソルバー・入力形式の追加定義が必要");
+add("유동 모델","Flow model","流動モデル");
+add("시간 방식","Time mode","時間方式");
+add("해석 영역","Analysis domain","解析領域");
+add("격자 준비","Mesh preparation","メッシュ準備");
 let language='ko';
 try{const saved=root.localStorage?.getItem(key);if(supported.includes(saved))language=saved;}catch(_){}
 const patterns=[
