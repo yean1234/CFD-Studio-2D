@@ -4,6 +4,13 @@
 const supported=['ko','en','ja'],key='cfd-studio-language';
 const messages=Object.create(null);
 function add(source,en,ja){messages[source]=[en,ja];}
+add("JSON 저장","Save JSON","JSONを保存");
+add("전체 Config JSON","Full Config JSON","Config全体のJSON");
+add("선택 항목 JSON","Selected section JSON","選択項目のJSON");
+add("JSON 저장 또는 취소를 선택하세요","Save or cancel the JSON changes","JSONの保存またはキャンセルを選択してください");
+add("이 Config로 새 Case","New Case from this Config","このConfigで新規Case");
+add("실행 시점의 입력 기록 · 변경하려면 이 Config로 새 Case 선택","Inputs recorded at execution · Choose New Case from this Config to edit","実行時の入力記録 · 編集するにはこのConfigで新規Caseを選択");
+add("수렴 기준은 실행기 연결이 필요하므로 현재 선택할 수 없음","Convergence requires a connected execution adapter and is currently unavailable","収束条件は実行アダプター接続が必要なため現在選択不可");
 add("종류","Type","種類");
 add("경계조건 종류","Boundary condition type","境界条件の種類");
 add("열물성 구성 방식","Thermophysical formulation","熱物性の構成方式");

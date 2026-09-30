@@ -215,6 +215,8 @@ class RunManagement:
                 # Saving the optional preset must succeed before the draft can change.
                 if preset_name:
                     saved = self.save_preset(preset_name, config, form_id) if form_id else self.save_preset(preset_name, config)
+                from cfd_studio.config_assets import store_definitions
+                case['definition_assets']=store_definitions(self.project_folder(project_id)/'Cases'/key.removeprefix('case:'),config)
                 q['cases'][key] = case
                 self.save_queue(q)
             except Exception:

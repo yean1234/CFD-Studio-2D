@@ -85,7 +85,7 @@ def generate(solver,answers):
         if a['termination']=='physical_time':stop['end_time']=quantity('s')
         if a['termination']=='frames':stop.update(saved_frames=None,include_initial_frame=None)
     config={'analysis':{'form_generator':'solver-questionnaire-v1','solver':solver,'time_mode':p['time_mode'],'choices':a},
-            'geometry':{'source':'','fluid_regions':[]},'mesh':mesh,'materials':{'fluids':fluids},
+            'geometry':{'fluid_regions':[]},'mesh':mesh,'materials':{'fluids':fluids},
             'physics':{'flow_regime':a['regime']},'initial_conditions':{'fields':initial},
             'boundary_conditions':boundaries,'numerics':numerics,'termination':stop,
             'outputs':{'fields':list(field_units),'write_interval':quantity('iterations' if steady else 's'),'probes':[]}}

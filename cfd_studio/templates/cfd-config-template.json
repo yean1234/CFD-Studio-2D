@@ -1,10 +1,8 @@
 {
   "geometry": {
-    "source": null,
     "regions": []
   },
   "mesh": {
-    "source": null,
     "generator": null,
     "controls": {}
   },

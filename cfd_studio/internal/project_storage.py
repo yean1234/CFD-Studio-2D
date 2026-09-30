@@ -109,6 +109,12 @@ class ProjectStorage:
             (path/name).mkdir(exist_ok=True)
         project['storage_path'] = str(path)
         project.setdefault('linked_results', [])
+        config=project.get('initial_config')
+        if config is None and project.get('default_preset'):
+            config=self.template(project['default_preset'])
+        if config is not None:
+            from cfd_studio.config_assets import store_definitions
+            project['definition_assets']=store_definitions(path,config)
         write(path/'project.cfdproj', {**project, 'schema': 1})
         return path
 

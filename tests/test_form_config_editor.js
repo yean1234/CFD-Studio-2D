@@ -33,3 +33,13 @@ test('Template layout survives blanking without storing operating values',()=>{
  assert.deepEqual(blank.geometry,source.geometry);assert.equal(blank.coil.x0,1);assert.equal(blank.coil.h_W_m2K,null);assert.equal(blank.materials.fluid.density,null);assert.deepEqual(schema,before);
  blank.geometry.regions[0].max[0]=9;assert.equal(source.geometry.regions[0].max[0],1);
 });
+
+test('JSON section edits reject wrong types and unsafe keys without changing originals',()=>{
+ const {validateValueEdits}=require('../cfd_studio/internal/form_config_editor.js');
+ const original={geometry:{regions:[{min:[0,0,0],max:[1,1,1]}]},enabled:true};
+ const before=JSON.stringify(original),wrong=structuredClone(original);wrong.geometry.regions[0].min[0]='bad';
+ assert.throws(()=>validateValueEdits(original,wrong));
+ assert.throws(()=>validateValueEdits(original,JSON.parse('{"constructor":1}')));
+ const valid=structuredClone(original);valid.geometry.regions[0].max[0]=2;validateValueEdits(original,valid);
+ assert.equal(JSON.stringify(original),before);
+});

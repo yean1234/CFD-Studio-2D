@@ -354,8 +354,8 @@
 - 전기 해석 등 새로운 물리 모델은 해당 솔버의 입력·실행 연결 필요
 - 기존 이중액침의 발열면 `heater.cpus` 표시 · 총 발열량 `heater.total_W` 연결
 
-- Config·Template의 오른쪽 상시 3D 영역에 **공간 JSON** 배치
-- 저장고: **형상·격자 → 저장고 형상 → 공간 JSON**
+- Config·Template·Case의 가운데에 3D 형상 상시 표시 · 항목별 **JSON** 버튼으로 오른쪽 편집창 표시
+- 저장고: **저장고 형상 → JSON**
 - 코드 입력과 3D 미리보기 제공
 - JSON 데이터만 해석 · Python·JavaScript 코드는 실행하지 않음
 - 지원 단위: `m`, `cm`, `mm` · 미리보기 좌표는 m로 환산
@@ -370,14 +370,14 @@
 - 미리보기는 형상 확인 기능 · 유효 격자 생성, 경계조건 연결, 솔버 실행 가능성을 판정하지 않음
 - 신규 공간 JSON을 기존 솔버가 자동 해석하지 않음 · 실제 계산에는 해당 Config 형식의 실행 연결 필요
 - 미리보기 최대 1,000개 형상 · JSON 최대 1 MB
-- Template의 공간 JSON은 실제 초기 형상 값 · 전체 Template JSON은 `version`·`fields` 양식 정의
+- Template의 항목별 JSON은 해당 필드 정의 · 초기 형상은 정의의 `value`에 보관 · 전체 Template JSON은 `version`·`fields` 양식 정의
 - Config의 공간 코드는 실제 공간 항목 값 · 다른 물성·계산 항목은 보존
-- **적용**은 부모 편집기의 초안에만 반영 · 최종 저장 전 프로젝트·프리셋·실행 스냅샷은 변경하지 않음
+- **JSON 저장**은 편집기의 초안에만 반영 · 최종 저장 전 프로젝트·프리셋·실행 스냅샷은 변경하지 않음
 
 ### 공간 JSON 예시
 
 - 형식 설명용 예시 · 치수와 좌표는 사용자가 해석 대상에 맞게 입력
-- 전체 Template 정의 JSON과 Config 값 JSON은 서로 다른 형식 · 공간 JSON 창에서는 두 경우 모두 실제 형상 항목 사용
+- 아래 예시는 Config 값 JSON · Template JSON에서는 해당 형상 항목의 필드 정의에 값을 보관
 
 ```json
 {
@@ -441,3 +441,18 @@
 - Windows GPU 엔진을 읽지 못하면 다른 기준의 NVIDIA 활동률로 대체하지 않고 **—** 표시
 - 현재 GPU 측정 연결: NVIDIA Windows 드라이버·CUDA 장치 식별·Windows GPU Engine 카운터 필요 · 별도 CUDA Toolkit 설치 불필요
 - 기준: [Microsoft GPU 집계 설명](https://devblogs.microsoft.com/directx/gpus-in-the-task-manager/), [NVIDIA 메모리 측정](https://docs.nvidia.com/deploy/nvml-api/index.html)
+
+
+## Config 편집 및 정의 파일
+
+- Template·프로젝트·Case는 공통 Config 편집기 사용
+- 입력 항목·3D 형상·항목별 JSON을 좌측부터 순서대로 배치
+- JSON 저장은 편집 초안 반영 · 최종 저장은 Case의 실행 저장 또는 상위 Template·프로젝트 저장
+- 실행한 Case의 Config·형상·JSON은 변경 불가 · 새 Case 사본에서 편집
+- 정의 파일은 소유 Template·프로젝트·Case 내부의 `Assets/Definitions/<Config SHA-256>`에 저장
+- `config.json`: 전체 입력 · `geometry.json`: 형상 관련 입력 · `mesh.json`: 격자 설정
+- `Sections`: 항목별 JSON · `manifest.json`: 항목과 파일의 대응 및 정의 버전
+- 이 파일 묶음은 입력 정의이며 계산 격자·결과 데이터가 아님
+- 완성된 파일 묶음 생성 후 저장 기록에 연결 · 기존 버전 덮어쓰기 방지 · 기존 파일 변조 발견 시 저장 중단
+- 저장 실패 후 연결되지 않은 파일 묶음이 남을 수 있으며 기존 기록은 유지
+- 외부 파일 경로는 자동 실행·복사하지 않음 · 기존 외부 참조 및 원본 보존

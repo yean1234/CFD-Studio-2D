@@ -203,6 +203,8 @@ class CFDForms:
             if model=='solver_definition' and isinstance(config.get('analysis'),dict) and config['analysis'].get('form_generator')=='solver-questionnaire-v1':
                 from cfd_studio.solver_requirements import inspect_config
                 item['input_review']=inspect_config(solver,config)
+            from cfd_studio.config_assets import store_definitions
+            item['definition_assets']=store_definitions(self.folder/'Templates'/key, config)
             data = read_json(self.folder/'forms.json', {})
             data[key] = item
             atomic_json(self.folder/'forms.json', data)

@@ -98,7 +98,15 @@ def rules(solver,baseline,actual):
         if isinstance(expected,dict) and 'unit' in expected:add(path+['unit'],'unit',expected['unit'])
         for key in ('x','y','z'):add(path+[key],'number')
     if a['mesh']=='import':add(['mesh','source'],'text')
-    else:add(['geometry','source'],'text');add(['mesh','generator'],'text');q(['mesh','cell_size'],True)
+    else:
+        # A generated domain is defined inline; it does not require a file path.
+        geometry=actual.get('geometry',{})
+        if geometry.get('source'):add(['geometry','source'],'text')  # Preserve imported legacy definitions.
+        elif geometry.get('shape'):add(['geometry'],'mapping')
+        else:
+            region_key='regions' if geometry.get('regions') else 'fluid_regions'
+            add(['geometry',region_key],'mapping' if isinstance(geometry.get(region_key),dict) else 'sequence')
+        add(['mesh','generator'],'text');q(['mesh','cell_size'],True)
     for name in baseline['materials']['fluids']:
         path=['materials','fluids',name]
         if d['material'] in ('nu','two_phase','boussinesq'):q(path+['kinematic_viscosity'],True)
