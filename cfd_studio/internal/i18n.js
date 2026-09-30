@@ -700,6 +700,14 @@ add("변경한 조건으로 추천할 수 없습니다","Unable to recommend wit
 let language='ko';
 try{const saved=root.localStorage?.getItem(key);if(supported.includes(saved))language=saved;}catch(_){}
 const patterns=[
+ [/^(유체|상분율) (\d+)$/,[(m,l)=>translate(m[1],l)+' '+m[2],(m,l)=>translate(m[1],l)+' '+m[2]]],
+ [/^([XYZ]) (최소|최대)$/,[(m)=>m[1]+(m[2]==='최소'?' minimum':' maximum'),(m)=>m[1]+(m[2]==='최소'?' 最小':' 最大')]],
+ [/^(.+) (입력 형식을 확인하세요|배열 형식을 유지하세요|값을 입력하세요|숫자를 확인하세요|숫자·범위를 확인하세요|최대 좌표는 최소 좌표보다 커야 합니다)$/,[(m,l)=>translate(m[1],l)+': '+translate(m[2],l),(m,l)=>translate(m[1],l)+': '+translate(m[2],l)]],
+ [/^(.+)(에 좌표 3개를 입력하세요|을 양수로 입력하세요)$/,[(m,l)=>m[1]+': '+translate(m[2],l),(m,l)=>m[1]+': '+translate(m[2],l)]],
+ [/^(.+): (치수 미입력|지원하지 않는 형식|shape 미입력|unit에 m, cm 또는 mm를 입력하세요|axis에 x, y 또는 z를 입력하세요)$/,[(m,l)=>m[1]+': '+translate(m[2],l),(m,l)=>m[1]+': '+translate(m[2],l)]],
+ [/^(.+): 지원하지 않는 shape (.+)$/,['$1: unsupported shape $2','$1: 未対応のshape $2']],
+ [/^(공간 항목이 아닙니다|공간 JSON 분류를 유지하세요|기존 공간 항목을 유지하세요|공간 JSON 분류에 맞지 않는 항목|Config 저장 완료): (.+)$/,[(m,l)=>translate(m[1],l)+': '+m[2],(m,l)=>translate(m[1],l)+': '+m[2]]],
+
  [/^주요 용도 · (.+)$/,[(m,l)=>'Typical uses · '+translate(m[1],l),(m,l)=>'主な用途 · '+translate(m[1],l)]],
  [/^실행 (\d+)개$/,['$1 Cases','$1件のCase']],
  [/^Config (\d+)개 변경$/,['$1 Config changes','Config変更 $1件']],
@@ -871,6 +879,101 @@ add("SSD 저장공간","SSD storage","SSD保存容量");
 add("드라이브 저장공간 사용률","Drive storage capacity used","ドライブ保存容量使用率");
 add("GPU 사용률","GPU utilization","GPU使用率");
 add("사용 용량 / 전체 용량","Used capacity / Total capacity","使用容量 / 総容量");
+
+// Config actions, termination controls and spatial validation
+add("전체 JSON","Full JSON","JSON全体");
+add("JSON 가져오기","Import JSON","JSONをインポート");
+add("JSON 내보내기","Export JSON","JSONをエクスポート");
+add("전체 Config","Full Config","Config全体");
+add("목표값·비교 목적","Targets and comparison purpose","目標値・比較目的");
+add("솔버 시간간격 · 결과 저장 간격 · Viewer 재생 속도는 개별 항목","Solver time step, result output interval and Viewer playback speed are separate settings","ソルバーの時間刻み・結果保存間隔・Viewerの再生速度は個別に設定");
+add("선택한 출력 항목이 모두 저장된 시점만 1프레임으로 계산","One frame is counted only when all selected outputs are saved","選択した出力項目がすべて保存された時点を1フレームとして計数");
+add("선택한 출력 항목이 모두 저장된 시점만 1프레임으로 셉니다.","One frame is counted only when all selected outputs are saved","選択した出力項目がすべて保存された時点を1フレームとして計数");
+add("솔버 시간간격: 계산 단계 · 결과 저장 간격: 파일 출력 주기 · 재생 속도: Viewer 표시 배속","Solver time step: calculation step · Output interval: file save interval · Playback speed: Viewer speed","ソルバーの時間刻み：計算ステップ · 結果保存間隔：ファイル出力周期 · 再生速度：Viewerの表示倍率");
+add("높이","Height","高さ");
+add("열원","Heat sources","熱源");
+add("JSON 항목을 찾을 수 없습니다","JSON section not found","JSON項目が見つかりません");
+add("선택한 항목의 JSON 키는 유지하세요","Keep the selected section's JSON key","選択項目のJSONキーを維持してください");
+add("Config 저장","Save Config","Configを保存");
+add("프리셋 이름","Preset name","プリセット名");
+add("실행 이름","Case name","Case名");
+add("프리셋","Preset","プリセット");
+add("프리셋 Config","Preset Config","プリセットのConfig");
+add("실행 시점 Config","Config at execution","実行時のConfig");
+add("새 Case Config","New Case Config","新規CaseのConfig");
+add("보관된 Case Config","Archived Case Config","保管済みCaseのConfig");
+add("새 Case의 기본값","Defaults for the new Case","新規Caseの既定値");
+add("이 Case에 적용","Apply to this Case","このCaseに適用");
+add("프리셋을 불러오는 중입니다","Loading preset","プリセットを読み込み中");
+add("이름을 입력하세요","Enter a name","名前を入力してください");
+add("실행 이름을 입력하세요","Enter a Case name","Case名を入力してください");
+add("불러올 설정을 선택하세요","Select settings to load","読み込む設定を選択してください");
+add("Config 항목","Config item","Config項目");
+add("열려 있는 설정 창을 먼저 닫아 주세요","Close the open settings window first","開いている設定画面を先に閉じてください");
+add("CFD Template의 해석 대상을 변경할 수 없습니다","The CFD Template analysis target cannot be changed","CFD Templateの解析対象は変更できません");
+add("솔버는 CFD Template에서 지정합니다","The solver is specified in the CFD Template","ソルバーはCFD Templateで指定します");
+add("계산 설정이 없습니다","Calculation settings are missing","計算設定がありません");
+add("종료값","End value","終了値");
+add("설정 JSON 객체가 필요합니다","A settings JSON object is required","設定のJSONオブジェクトが必要です");
+add("허용되지 않는 설정 키","Disallowed settings key","許可されていない設定キー");
+add("이 설정은 조회만 지원합니다. 실행 가능한 기본 설정을 선택하세요.","These settings are read-only; select supported execution settings","この設定は閲覧専用です · 実行可能な設定を選択してください");
+add("결과 프레임 저장 간격은 종료값 이하여야 합니다","The frame output interval must not exceed the end value","結果フレーム保存間隔は終了値以下にしてください");
+add("계산 간격은 저장 간격 이하여야 합니다","The calculation step must not exceed the output interval","計算間隔は保存間隔以下にしてください");
+add("종료시간은 저장 간격의 배수여야 합니다","End time must be a multiple of the output interval","終了時間は保存間隔の倍数にしてください");
+add("CPU 프로세스 수는 1~8의 정수여야 합니다","CPU process count must be an integer from 1 to 8","CPUプロセス数は1～8の整数にしてください");
+add("출력 항목을 하나 이상 선택하세요","Select at least one output field","出力項目を1つ以上選択してください");
+add("수렴 기준의 연속 유지 구간을 확인하는 실행기 연결이 없습니다","No execution adapter checks the sustained convergence interval","収束条件の連続維持区間を確認する実行アダプターが接続されていません");
+add("정상 해석에 물리시간 종료를 적용할 수 없습니다","Physical-time termination is unavailable for steady analysis","定常解析では物理時間による終了を指定できません");
+add("종료 방식을 선택하세요","Select a termination mode","終了方式を選択してください");
+add("저장 프레임 수는 양의 정수여야 합니다","Saved frame count must be a positive integer","保存フレーム数は正の整数にしてください");
+add("목표값을 확인하세요. 초기 프레임 포함 시 최소 2개가 필요합니다","Check the target; at least 2 frames are required when including the initial frame","目標値を確認してください · 初期フレームを含む場合は2フレーム以上が必要です");
+add("실행에 사용한 설정입니다. 조회·내보내기만 가능합니다.","Settings used for execution; viewing and export only","実行に使用した設定です · 閲覧とエクスポートのみ可能です");
+add("설정은 이번 실행에만 적용됩니다. 프로젝트에는 고정되지 않습니다.","Settings apply only to this Case and are not fixed to the project","設定はこのCaseのみに適用され、プロジェクトには固定されません");
+add("설정 파일은 64 KiB 이하여야 합니다","Settings files must not exceed 64 KiB","設定ファイルは64 KiB以下にしてください");
+add("계산 시작","Start calculation","計算開始");
+add("이 모델은 보관 설정 조회만 지원합니다","This model supports archived settings viewing only","このモデルは保管済み設定の閲覧のみ対応");
+add("파일","File","ファイル");
+add("참고 자료","References","参考資料");
+add("행 삭제","Delete row","行を削除");
+add("행 추가","Add row","行を追加");
+add("미사용","Not used","未使用");
+add("숫자를 입력하세요","Enter a number","数値を入力してください");
+add("수렴 기준: 연속 유지 구간을 확인하는 실행기 연결이 없어 현재 선택할 수 없습니다.","Convergence criteria are unavailable without an execution adapter that checks the sustained interval","収束条件は連続維持区間を確認する実行アダプターが未接続のため選択不可");
+add("정상 해석의 반복 횟수는 물리시간이 아닙니다.","Steady-analysis iteration count is not physical time","定常解析の反復回数は物理時間ではありません");
+add("설정","Settings","設定");
+add("검색 결과가 없습니다.","No search results","検索結果がありません");
+add("대표 물성 입력","Enter reference properties","代表物性を入力");
+add("원래 물성표 사용","Use original property table","元の物性表を使用");
+add("유한한 숫자를 입력하세요","Enter a finite number","有限の数値を入力してください");
+add("허용되지 않는 JSON 키","Disallowed JSON key","許可されていないJSONキー");
+add("공간 JSON의 format·version·sections를 유지하세요","Keep format, version and sections in the spatial JSON","空間JSONのformat・version・sectionsを維持してください");
+add("공간 JSON 최상위 항목을 확인하세요","Check the spatial JSON top-level fields","空間JSONの最上位項目を確認してください");
+add("공간 JSON 분류를 확인하세요","Check the spatial JSON sections","空間JSONの分類を確認してください");
+add("observations.outputs에는 probes만 입력하세요","Only probes is allowed in observations.outputs","observations.outputsにはprobesのみ入力してください");
+add("roof_rise_m은 0 이상이어야 합니다","roof_rise_m must be nonnegative","roof_rise_mは0以上にしてください");
+add("발열면 최대 좌표는 최소 좌표보다 커야 합니다","Heat-source maximum coordinates must exceed the minimum coordinates","発熱面の最大座標は最小座標より大きくしてください");
+add("상분율·계산 격자는 표시하지 않음","Phase fractions and computational mesh are not displayed","体積分率・計算メッシュは表示対象外");
+add("미리보기 형상은 1000개 이하로 입력하세요","Preview supports up to 1000 shapes","プレビューの形状は1000個以下にしてください");
+add("공간 3D 미리보기","Spatial 3D preview","空間3Dプレビュー");
+add("입력 형식을 확인하세요","Check the input type","入力形式を確認してください");
+add("배열 형식을 유지하세요","Keep the array format","配列形式を維持してください");
+add("값을 입력하세요","Enter a value","値を入力してください");
+add("숫자를 확인하세요","Check the number","数値を確認してください");
+add("숫자·범위를 확인하세요","Check the number and range","数値と範囲を確認してください");
+add("최대 좌표는 최소 좌표보다 커야 합니다","Maximum coordinates must exceed minimum coordinates","最大座標は最小座標より大きくしてください");
+add("에 좌표 3개를 입력하세요","Enter three coordinates","座標を3つ入力してください");
+add("을 양수로 입력하세요","Enter a positive value","正の値を入力してください");
+add("치수 미입력","Dimensions not entered","寸法未入力");
+add("지원하지 않는 형식","Unsupported format","未対応の形式");
+add("shape 미입력","Shape not entered","shape未入力");
+add("unit에 m, cm 또는 mm를 입력하세요","Enter m, cm or mm for unit","unitにm・cm・mmを入力してください");
+add("axis에 x, y 또는 z를 입력하세요","Enter x, y or z for axis","axisにx・y・zを入力してください");
+add("공간 항목이 아닙니다","Not a spatial field","空間項目ではありません");
+add("공간 JSON 분류를 유지하세요","Keep the spatial JSON sections","空間JSONの分類を維持してください");
+add("기존 공간 항목을 유지하세요","Keep existing spatial fields","既存の空間項目を維持してください");
+add("공간 JSON 분류에 맞지 않는 항목","Field is not valid in this spatial section","この空間JSON分類では使用できない項目");
+add("Config 저장 완료","Config saved","Configを保存しました");
+add("계산 격자는 표시하지 않음","Computational mesh is not displayed","計算メッシュは表示対象外");
 const api={translate,get language(){return language;},supported:Object.freeze(supported),messages};
 root.CFDI18n=api;
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
@@ -887,14 +990,16 @@ function updateText(n){
  if(current!==rendered){const option=n.parentElement;if(option.tagName==='OPTION'&&!option.hasAttribute('value'))option.setAttribute('value',option.value);n.nodeValue=rendered;}
 }
 function updateAttributes(el){
- if(skipped(el))return;
+ if(skipped(el)&&el.tagName!=='TEXTAREA')return;
+ if(el.closest('script,style,[translate="no"],[data-i18n-ignore]'))return;
  let records=attributes.get(el);if(!records){records={};attributes.set(el,records);}
  for(const name of attrNames){if(!el.hasAttribute(name))continue;const current=el.getAttribute(name),old=records[name],source=old&&current===old.rendered?old.source:current,rendered=translate(source);records[name]={source,rendered};if(current!==rendered)el.setAttribute(name,rendered);}
 }
 function walk(node){
  if(node.nodeType===3){updateText(node);return;}
- if(node.nodeType!==1||skipped(node))return;
+ if(node.nodeType!==1)return;
  updateAttributes(node);
+ if(skipped(node))return;
  for(const child of node.childNodes)walk(child);
 }
 function observe(){observer.observe(doc.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:attrNames});}
