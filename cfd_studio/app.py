@@ -8445,9 +8445,11 @@ function renderHardwareUsage(hw){
  const valid=v=>typeof v==='number'&&Number.isFinite(v),percent=v=>valid(v)?Math.max(0,Math.min(100,v)):null;
  const capacity=d=>valid(d?.total_bytes)&&d.total_bytes>0&&valid(d.free_bytes)?percent(100*(1-d.free_bytes/d.total_bytes)):null;
  const storageText=d=>{if(!valid(d.total_bytes)||d.total_bytes<=0)return '—';const total=(d.total_bytes/1e9).toFixed(1),used=valid(d.free_bytes)?(Math.max(0,d.total_bytes-d.free_bytes)/1e9).toFixed(1):'—';return used+' / '+total+' GB';};
+ // nvidia-smi reports memory.used and memory.total in MiB.
+ const vramText=g=>{const used=valid(g.mu)&&g.mu>=0?(g.mu/1024).toFixed(1):'—',total=valid(g.mt)&&g.mt>0?(g.mt/1024).toFixed(1):'—';return 'VRAM '+used+' / '+total+' GiB';};
  const drives=Array.isArray(hw?.drives)?hw.drives:[];
  const gpus=Array.isArray(hw?.gpus)?hw.gpus:[];
- const items=[['cpu','CPU',percent(hw?.cpu),'컴퓨터 전체 CPU 사용률','cpu'],...drives.map(d=>['disk:'+d.drive,d.drive,capacity(d),'드라이브 저장공간 사용률','disk',storageText(d)]),...gpus.map(g=>['gpu:'+g.i,g.i==null?'GPU':'GPU '+g.i,percent(g.u),'GPU 사용률','gpu'])];
+ const items=[['cpu','CPU',percent(hw?.cpu),'컴퓨터 전체 CPU 사용률','cpu'],...drives.map(d=>['disk:'+d.drive,d.drive,capacity(d),'드라이브 저장공간 사용률','disk',storageText(d)]),...gpus.map(g=>['gpu:'+g.i,g.i==null?'GPU':'GPU '+g.i,percent(g.u),'GPU 사용률','gpu',vramText(g)])];
  const icons={cpu:'M7 7h10v10H7ZM9 2v5m6-5v5M9 17v5m6-5v5M2 9h5m-5 6h5m10-6h5m-5 6h5',disk:'M5 4h14l2 11v5H3v-5ZM3 15h18M7 18h.01M11 18h.01',gpu:'M3 6h18v12H3ZM8 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM16 10h2m-2 4h2M6 18v3m5-3v3'};
  const previous=new Map([...row.children].map(n=>[n.dataset.key,n]));
  for(const [key,label,value,tip,kind,capacityText='']of items){
