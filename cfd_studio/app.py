@@ -8443,10 +8443,19 @@ function clearDash(){
 function renderHardwareUsage(hw){
  const card=document.getElementById('sysCard'),row=document.getElementById('sysRow');if(!card||!row)return;
  const valid=v=>typeof v==='number'&&Number.isFinite(v),percent=v=>valid(v)?Math.max(0,Math.min(100,v)):null;
- const storage=hw?.storage,ssd=valid(storage?.disk_total_bytes)&&storage.disk_total_bytes>0&&valid(storage.disk_free_bytes)?percent(100*(1-storage.disk_free_bytes/storage.disk_total_bytes)):null;
- const gpuValues=(hw?.gpus||[]).filter(g=>valid(g.u));const gpu=gpuValues.length?Math.max(...gpuValues.map(g=>g.u)):null;
- const items=[['CPU',percent(hw?.cpu),'컴퓨터 전체 CPU 사용률'],['SSD 저장공간',ssd,'Studio 설치 드라이브의 저장공간 사용률'],['GPU',percent(gpu),'GPU 전체 사용률 · 여러 장치가 있으면 가장 높은 값']];
- row.replaceChildren();for(const [label,value,tip] of items){const item=document.createElement('div');item.className='hw-item';item.title=tip;const name=document.createElement('b');name.textContent=label;const track=document.createElement('div');track.className='hw-track';const fill=document.createElement('span');fill.className='hw-fill';fill.style.width=(value??0)+'%';track.append(fill);const output=document.createElement('output');output.textContent=value===null?'—':value.toFixed(1)+'%';item.setAttribute('aria-label',label+' '+output.textContent);item.append(name,track,output);row.append(item);}
+ const capacity=d=>valid(d?.total_bytes)&&d.total_bytes>0&&valid(d.free_bytes)?percent(100*(1-d.free_bytes/d.total_bytes)):null;
+ const drives=Array.isArray(hw?.drives)?hw.drives:[];
+ const gpus=Array.isArray(hw?.gpus)?hw.gpus:[];
+ const items=[['cpu','CPU',percent(hw?.cpu),'컴퓨터 전체 CPU 사용률','cpu'],...drives.map(d=>['disk:'+d.drive,d.drive,capacity(d),'드라이브 저장공간 사용률','disk']),...gpus.map(g=>['gpu:'+g.i,g.i==null?'GPU':'GPU '+g.i,percent(g.u),'GPU 사용률','gpu'])];
+ const icons={cpu:'M7 7h10v10H7ZM9 2v5m6-5v5M9 17v5m6-5v5M2 9h5m-5 6h5m10-6h5m-5 6h5',disk:'M5 4h14l2 11v5H3v-5ZM3 15h18M7 18h.01M11 18h.01',gpu:'M3 6h18v12H3ZM8 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM16 10h2m-2 4h2M6 18v3m5-3v3'};
+ const previous=new Map([...row.children].map(n=>[n.dataset.key,n]));
+ for(const [key,label,value,tip,kind]of items){
+  let item=previous.get(key);if(item)previous.delete(key);else{item=document.createElement('div');item.className='hw-item';item.dataset.key=key;const icon=document.createElementNS('http://www.w3.org/2000/svg','svg');icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('aria-hidden','true');const path=document.createElementNS(icon.namespaceURI,'path');path.setAttribute('d',icons[kind]);icon.append(path);const name=document.createElement('b'),output=document.createElement('output'),track=document.createElement('div'),fill=document.createElement('span');track.className='hw-track';fill.className='hw-fill';track.append(fill);item.append(icon,name,output,track);row.append(item);}
+  item.title=tip;item.querySelector('b').textContent=label;item.querySelector('output').textContent=value===null?'—':value.toFixed(1)+'%';item.querySelector('.hw-fill').style.width=(value??0)+'%';item.setAttribute('aria-label',label+' '+item.querySelector('output').textContent);item.classList.toggle('hw-unavailable',value===null);
+ }
+ for(const obsolete of previous.values())obsolete.remove();
+ // Keep CPU, drives and GPUs in the same order when devices appear or disappear.
+ items.forEach(([key],i)=>{const child=[...row.children].find(n=>n.dataset.key===key);if(row.children[i]!==child)row.insertBefore(child,row.children[i]||null);});
  card.style.display='';card.dataset.stale=String(!hw||!!hw.stale||!!hw.sampled_at&&Date.now()/1000-hw.sampled_at>15);
 }
 async function poll(){
@@ -9175,6 +9184,33 @@ def _storage_refresh():
     finally:
         _STORAGE_COLLECT_LK.release()
 
+def _drive_usage():
+    """Read local fixed-volume capacity without launching a shell or scanning files."""
+    if os.name != "nt":
+        return []
+    import ctypes
+    kernel = ctypes.windll.kernel32
+    kernel.GetLogicalDrives.restype = ctypes.c_ulong
+    kernel.GetDriveTypeW.argtypes = [ctypes.c_wchar_p]
+    kernel.GetDriveTypeW.restype = ctypes.c_uint
+    mask = kernel.GetLogicalDrives()
+    drives = []
+    for index in range(26):
+        if not mask & (1 << index):
+            continue
+        letter = chr(65 + index) + ":"
+        root = letter + "\\"
+        if kernel.GetDriveTypeW(root) != 3:  # Fixed local volumes only
+            continue
+        item = {"drive": letter}
+        try:
+            usage = shutil.disk_usage(root)
+            item.update(total_bytes=int(usage.total), free_bytes=int(usage.free))
+        except OSError:
+            pass
+        drives.append(item)
+    return drives
+
 def _sys_collect():
     flags = 0x08000000 if os.name == "nt" else 0          # CREATE_NO_WINDOW — 창 깜빡임 방지
     d, errors = {}, []
@@ -9208,6 +9244,10 @@ def _sys_collect():
         if g: d["gpus"] = g
     except Exception as e:
         errors.append("gpu:" + type(e).__name__)
+    try:
+        d["drives"] = _drive_usage()
+    except Exception as e:
+        errors.append("drives:" + type(e).__name__)
     if errors:
         d["_errors"] = errors
     if d: d["sampled_at"] = time.time()

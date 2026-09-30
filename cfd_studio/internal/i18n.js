@@ -820,6 +820,8 @@ add("컴퓨터 전체 CPU 사용률","Whole-computer CPU utilization","コンピ
 add("Studio 설치 드라이브의 저장공간 사용률","Storage capacity used on the Studio installation drive","Studioインストールドライブの保存容量使用率");
 add("GPU 전체 사용률 · 여러 장치가 있으면 가장 높은 값","Whole-device GPU utilization · Highest value across multiple GPUs","GPU全体の使用率 · 複数の場合は最大値");
 add("SSD 저장공간","SSD storage","SSD保存容量");
+add("드라이브 저장공간 사용률","Drive storage capacity used","ドライブ保存容量使用率");
+add("GPU 사용률","GPU utilization","GPU使用率");
 const api={translate,get language(){return language;},supported:Object.freeze(supported),messages};
 root.CFDI18n=api;
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
