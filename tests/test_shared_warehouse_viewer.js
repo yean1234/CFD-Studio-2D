@@ -39,17 +39,17 @@ test('a Case without results stays in Viewer with the same Case list',async()=>{
 
 test('Viewer controls select explicit modes, retain selection on repeat click and restore project actions',()=>{
  const source=workspace.slice(workspace.indexOf('  function renderSidebarAction(){'),workspace.indexOf('  function button('));
- const controls=Object.fromEntries(['ewFindProject','ewCreateProject'].map(id=>[id,{classList:{toggle(){}},attrs:{},setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];}}]));
+ const controls=Object.fromEntries(['ewFindProject','ewCreateProject','ewSidebarActions'].map(id=>[id,{dataset:{},classList:{toggle(){}},attrs:{},setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];}}]));
  let viewer=true;
  const ctx={$:id=>controls[id],pending:false,findProject(){},createProject(){},document:{body:{classList:{contains:()=>viewer}}},DataSheetViewer:{mode:'3d',setMode(mode){this.mode=mode;}}};
  vm.createContext(ctx);vm.runInContext(source,ctx);ctx.renderSidebarAction();
- const data=controls.ewFindProject,three=controls.ewCreateProject;
+ const three=controls.ewFindProject,data=controls.ewCreateProject;
  assert.equal(data.textContent,'Data Sheet');assert.equal(three.textContent,'3D Virtual');
  assert.equal(three.attrs['aria-pressed'],'true');assert.equal(data.attrs['aria-pressed'],'false');
  data.onclick();assert.equal(ctx.DataSheetViewer.mode,'data');assert.equal(data.attrs['aria-pressed'],'true');assert.equal(three.attrs['aria-pressed'],'false');
  data.onclick();assert.equal(ctx.DataSheetViewer.mode,'data');
  three.onclick();assert.equal(ctx.DataSheetViewer.mode,'3d');
- viewer=false;ctx.renderSidebarAction();assert.equal(data.textContent,'프로젝트 찾기');assert.equal(three.textContent,'새 프로젝트');
+ viewer=false;ctx.renderSidebarAction();assert.equal(three.textContent,'프로젝트 찾기');assert.equal(data.textContent,'새 프로젝트');
  assert.equal(data.attrs['aria-pressed'],undefined);assert.equal(three.attrs['aria-pressed'],undefined);
 });
 

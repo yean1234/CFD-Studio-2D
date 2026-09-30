@@ -77,8 +77,9 @@ const DataSheetViewer=(()=>{
    for(const char of String(value)){if(line&&measure.measureText(line+char).width>width-64){add('text',{x:32,y,fill:color,'font-size':size},line);y+=size+10;line='';}line+=char;}
    if(line){add('text',{x:32,y,fill:color,'font-size':size},line);y+=size+10;}
   };
-  text('그래프 '+(snapshot.index+1)+' · '+({line:'선',bar:'막대',scatter:'산점도'}[snapshot.chartType])+' · '+snapshot.name+' ('+snapshot.unit+')',24);
-  text(snapshot.project+' · '+snapshot.series.map(s=>s.name).join(', '));
+  const translate=value=>globalThis.CFDI18n?.translate(value)||value;
+  text(translate('그래프')+' '+(snapshot.index+1)+' · '+translate({line:'선',bar:'막대',scatter:'산점도'}[snapshot.chartType])+' · '+translate(snapshot.name)+' ('+snapshot.unit+')',24);
+  text(snapshot.project+' · '+snapshot.series.map(s=>snapshot.index?s.name:translate(s.name)).join(', '));
   text(snapshot.coverage,16,'#a4a49b');
   const graph=snapshot.svg;for(const name of ['id','class','style','tabindex'])graph.removeAttribute(name);
   graph.setAttribute('x',String(width*.1));graph.setAttribute('y',y);graph.setAttribute('width',width*.8);graph.setAttribute('height','720');root.append(graph);y+=740;
@@ -121,7 +122,7 @@ const DataSheetViewer=(()=>{
  if(p.position&&(!bounds||p.position.some((v,k)=>v<bounds[k][0]||v>bounds[k][1]))){stopRead(p);p.position=null;p.cache.clear();p.error='좌표가 선택한 결과의 범위를 벗어났습니다.';}
  return bounds;
  }
- function refresh(){mount();const name=project?.name||context?.name||'Data Sheet',caseName=selected.length?selected[0].name:'왼쪽에서 Case를 선택하세요';$('dsName').textContent=name;$('dsSelection').textContent=caseName;const heading=$('viewerHeading');heading.querySelector('h2').textContent=name;heading.querySelector('p').textContent=caseName;panels.forEach(refreshPanel);}
+ function refresh(){mount();const name=project?.name||context?.name||'Data Sheet',caseName=selected.length?selected[0].name:'왼쪽에서 Case를 선택하세요';$('dsName').textContent=name;$('dsSelection').textContent=caseName;$('dsSelection').setAttribute('translate',selected.length?'no':'yes');const heading=$('viewerHeading');heading.querySelector('h2').textContent=name;heading.querySelector('h2').setAttribute('translate','no');heading.querySelector('p').textContent=caseName;heading.querySelector('p').setAttribute('translate',selected.length?'no':'yes');panels.forEach(refreshPanel);}
 
  function refreshPanel(p){
  const options=metricOptions(p),signature=JSON.stringify([...options.keys()]);
@@ -135,7 +136,7 @@ const DataSheetViewer=(()=>{
  const d=dataset(p),rows=sheetRows(d.series);at(p,'dsExport').disabled=!rows.length;at(p,'dsRead').disabled=!options.size||!!(p.index&&!p.position);
  at(p,'dsRead').textContent=p.reading?'읽기 중지':d.series.length&&d.series.every(s=>{const c=p.cache.get(s.cacheKey);return c&&c.next>=c.total;})?'다시 읽기':'전체 구간 읽기';
  const counts=d.series.map(s=>p.cache.get(s.cacheKey));at(p,'dsCoverage').textContent=counts.length?'읽음 '+counts.reduce((n,c)=>n+(c?.points.length||0),0)+' / '+counts.reduce((n,c)=>n+(c?.total||0),0)+(d.series.length>1?' 값':' 시점'):'';
- at(p,'dsLegend').replaceChildren(...d.series.map(s=>{const n=el('span',s.name+' ('+s.unit+')');n.style.setProperty('--series',s.color);return n;}));at(p,'dsError').textContent=[catalogError,p.error].filter(Boolean).join('\n');draw(p,d);
+ at(p,'dsLegend').replaceChildren(...d.series.map(s=>{const n=el('span',s.name+' ('+s.unit+')');if(p.index)n.setAttribute('translate','no');n.style.setProperty('--series',s.color);return n;}));at(p,'dsError').textContent=[catalogError,p.error].filter(Boolean).join('\n');draw(p,d);
  }
  function draw(p,d){const svg=at(p,'dsPlot');svg.replaceChildren();const rows=sheetRows(d.series),points=d.series.flatMap(s=>s.pts).filter(([x,y])=>Number.isFinite(x)&&Number.isFinite(y));
  at(p,'dsEmpty').hidden=!!points.length;at(p,'dsEmpty').textContent=p.index&&!p.position?'X·Y·Z 좌표를 입력하고 조회하세요.':p.reading?'저장값을 읽고 있습니다.':'선택한 결과 항목의 저장값이 없습니다.';svg.style.display=points.length?'block':'none';p.domain=null;at(p,'dsValues').replaceChildren();at(p,'dsX').textContent='그래프에서 확인할 위치를 선택하세요';if(!points.length)return;
@@ -158,7 +159,7 @@ const DataSheetViewer=(()=>{
    if(s.pts.length===1&&Number.isFinite(s.pts[0][1]))add('circle',{cx:x(s.pts[0][0]),cy:y(s.pts[0][1],s.unit),r:3,fill:s.color});
   }
  }
- if(p.cursor!=null){const picked=sheetPick(d.series,p.cursor);if(!picked)return;add('line',{x1:x(picked[0]),x2:x(picked[0]),y1:35,y2:300,stroke:'#eee','stroke-dasharray':'4 5','data-cursor':'x'});at(p,'dsX').textContent='X = '+String(picked[0])+(d.axis==='iteration'?' 회':' s')+' · 저장 시점';d.series.forEach((s,i)=>{const v=picked[i+1],label=el('span',s.name+' · Y = '+(v==null?'— (이 X의 저장값 없음)':String(v)+' '+s.unit));label.style.setProperty('--series',s.color);at(p,'dsValues').append(label);if(v!=null)add('circle',{cx:x(picked[0]),cy:y(v,s.unit),r:4,fill:s.color,stroke:'#151514','stroke-width':2});});}
+ if(p.cursor!=null){const picked=sheetPick(d.series,p.cursor);if(!picked)return;add('line',{x1:x(picked[0]),x2:x(picked[0]),y1:35,y2:300,stroke:'#eee','stroke-dasharray':'4 5','data-cursor':'x'});at(p,'dsX').textContent='X = '+String(picked[0])+(d.axis==='iteration'?' 회':' s')+' · 저장 시점';d.series.forEach((s,i)=>{const v=picked[i+1],label=el('span');const name=el('span',s.name);if(p.index)name.setAttribute('translate','no');label.append(name,' · Y = '+(v==null?'— (이 X의 저장값 없음)':String(v)+' '+s.unit));label.style.setProperty('--series',s.color);at(p,'dsValues').append(label);if(v!=null)add('circle',{cx:x(picked[0]),cy:y(v,s.unit),r:4,fill:s.color,stroke:'#151514','stroke-width':2});});}
  }
 
  async function loadCatalogs(){const token=++catalogEpoch;catalogController?.abort();const c=catalogController=new AbortController();stopAll();catalogsReady=false;catalogs=new Map();catalogError='';refresh();await Promise.all(selected.map(async r=>{try{const value=await api('chart-catalog?id='+encodeURIComponent(r.id),c.signal);if(token===catalogEpoch)catalogs.set(r.id,value);}catch(e){if(token===catalogEpoch&&e.name!=='AbortError')catalogError+=(catalogError?'\n':'')+r.name+': '+e.message;}}));if(token!==catalogEpoch)return;catalogsReady=true;refresh();if(mode==='data'&&document.body.classList.contains('data-sheet-viewer'))readPanels();}

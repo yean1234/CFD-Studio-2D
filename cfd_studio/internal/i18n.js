@@ -700,6 +700,32 @@ add("변경한 조건으로 추천할 수 없습니다","Unable to recommend wit
 let language='ko';
 try{const saved=root.localStorage?.getItem(key);if(supported.includes(saved))language=saved;}catch(_){}
 const patterns=[
+ [/^X = ([-+\d.eE]+) 회$/, ['X = $1 iterations','X = $1 回']],
+ [/^(.+) 시각화 준비$/,['$1 visualization readiness','$1 可視化準備']],
+ [/^(.+) 수정$/,['Edit $1','$1を編集']],
+ [/^읽음 (\d+ \/ \d+) 값$/,['Read $1 values','$1 値を読込済み']],
+ [/^왼쪽 그래프 요소 (\d+)$/,['Left chart metric $1','左グラフの項目 $1']],
+ [/^([XYZ]) 좌표$/,['$1 coordinate','$1 座標']],
+ [/^그래프 (\d+)\. 클릭 또는 좌우 화살표로 저장 시점 선택$/,['Chart $1. Click or use the left/right arrows to select a saved time','グラフ $1 · クリックまたは左右矢印で保存時点を選択']],
+
+ [/^그래프 (\d+)( Export)?$/,['Chart $1$2','グラフ $1$2']],
+ [/^벡터 ([\d,]+)개$/,['$1 vectors','ベクトル $1 個']],
+ [/^([\d,]+)셀$/,['$1 cells','$1 セル']],
+ [/^농도 (mg\/m³|kg\/m³|C\/C_ref)$/,['Concentration $1','濃度 $1']],
+ [/^(결과 읽기 실패|농도 프레임 읽기 실패): (.+)$/,[(m,l)=>translate(m[1],l)+': '+translate(m[2],l),(m,l)=>translate(m[1],l)+': '+translate(m[2],l)]],
+
+ [/^기준: (Case 생성 당시 프리셋|Case 최초 저장 설정)$/,[(m,l)=>'Baseline: '+translate(m[1],l),(m,l)=>'基準：'+translate(m[1],l)]],
+ [/^읽음 (\d+ \/ \d+) 시점$/,['Read $1 time points','$1 時点を読込済み']],
+ [/^([XYZ]) 유속$/,['$1 velocity','$1 流速']],
+ [/^(\d+(?:\.\d+)?) 시뮬레이션 초$/,['$1 simulation seconds','シミュレーション $1 秒']],
+ [/^(\d+(?:\.\d+)?) 회$/,['$1 iterations','$1 回']],
+ [/^(.+)s \((\d+)프레임\)$/,['$1s ($2 frames)','$1s（$2フレーム）']],
+ [/^(.+) ~ (.+) 범위로 입력하세요\.$/,['Enter a value between $1 and $2','$1～$2の範囲で入力してください']],
+ [/^(.+) 이상으로 입력하세요\.$/,['Enter a value greater than or equal to $1','$1以上の値を入力してください']],
+ [/^(.+) 이하로 입력하세요\.$/,['Enter a value less than or equal to $1','$1以下の値を入力してください']],
+ [/^(CSV 내보내기 실패|내보내기 실패|불러오기 실패|영상 저장 실패|스크린샷 저장 실패|화면 저장 실패|저장 실패|설정 삭제 실패|동기화 실패|다시 읽기 실패): (.+)$/,[(m,l)=>translate(m[1],l)+': '+translate(m[2],l),(m,l)=>translate(m[1],l)+': '+translate(m[2],l)]],
+ [/^(.+) \(([^()]+)\)$/,[(m,l)=>translate(m[1],l)+' ('+m[2]+')',(m,l)=>translate(m[1],l)+' ('+m[2]+')']],
+
  [/^(유체|상분율) (\d+)$/,[(m,l)=>translate(m[1],l)+' '+m[2],(m,l)=>translate(m[1],l)+' '+m[2]]],
  [/^([XYZ]) (최소|최대)$/,[(m)=>m[1]+(m[2]==='최소'?' minimum':' maximum'),(m)=>m[1]+(m[2]==='최소'?' 最小':' 最大')]],
  [/^(.+) (입력 형식을 확인하세요|배열 형식을 유지하세요|값을 입력하세요|숫자를 확인하세요|숫자·범위를 확인하세요|최대 좌표는 최소 좌표보다 커야 합니다)$/,[(m,l)=>translate(m[1],l)+': '+translate(m[2],l),(m,l)=>translate(m[1],l)+': '+translate(m[2],l)]],
@@ -974,12 +1000,353 @@ add("기존 공간 항목을 유지하세요","Keep existing spatial fields","�
 add("공간 JSON 분류에 맞지 않는 항목","Field is not valid in this spatial section","この空間JSON分類では使用できない項目");
 add("Config 저장 완료","Config saved","Configを保存しました");
 add("계산 격자는 표시하지 않음","Computational mesh is not displayed","計算メッシュは表示対象外");
+// Shared CFD, Viewer, resource status and export messages
+add("비교 기준이 저장되지 않은 기존 결과입니다","These existing results have no saved comparison baseline","この既存結果には比較基準が保存されていません");
+add("비교 기준이 저장되지 않은 기존 결과입니다.","These existing results have no saved comparison baseline","この既存結果には比較基準が保存されていません");
+add("코어 자동 감지","Automatic core detection","コアを自動検出");
+add("Case 생성 당시 프리셋","Preset at Case creation","Case作成時のプリセット");
+add("Case 최초 저장 설정","Initial saved Case configuration","Caseの初回保存時の設定");
+add("기준 설정과 차이 없음","No differences from the baseline","基準設定との差分なし");
+add("기준","Baseline","基準");
+add("연결된 실행 양식 · 입력값은 프로젝트와 프리셋에서 관리","Connected execution template · Inputs are managed in projects and presets","実行接続済みの入力形式 · 入力値はプロジェクトとプリセットで管理");
+add("설치 확인 중","Checking installation","インストールを確認中");
+add("실패 확인 필요","Failure needs review","失敗内容の確認が必要");
+add("현재 실행 후 일시정지","Pause after the current Case","現在のCase完了後に一時停止");
+add("순차 실행","Sequential execution","順次実行");
+add("대기열 완료","Queue completed","キュー完了");
+add("실행 순서 위로","Move Case up","実行順を上へ");
+add("실행 순서 아래로","Move Case down","実行順を下へ");
+add("중단한 실행을 확인하세요","Review the interrupted Case","中断したCaseを確認してください");
+add("전체 CSV 다운로드를 시작했습니다","Full CSV download started","全CSVのダウンロードを開始しました");
+add("CSV 내보내기 실패","CSV export failed","CSVのエクスポートに失敗");
+add("실패하거나 중단된 Case를 선택하세요","Select a failed or interrupted Case","失敗または中断したCaseを選択してください");
+add("프로젝트에서 CFD Template을 선택하세요","Select a CFD Template in the project","プロジェクトでCFD Templateを選択してください");
+add("이 Template은 Config 저장만 지원합니다 · Case 계산에는 실행기 연결 필요","This Template supports Config storage only · Calculation requires an execution adapter","このTemplateはConfig保存のみ対応 · 計算には実行アダプター接続が必要");
+add("실행 저장 완료","Case saved","Caseを保存しました");
+add("프로젝트 검증 중…","Validating project…","プロジェクトを検証中…");
+add("프로젝트 등록 완료","Project added","プロジェクトを登録しました");
+add("해석 대상 선택","Select analysis target","解析対象を選択");
+add("Template 저장 완료","Template saved","Templateを保存しました");
+add("누락된 결과 확인 중","Checking for missing results","不足している結果を確認中");
+add("CFD Case 목록","CFD Case list","CFD Case一覧");
+add("전체 시계열·저장 공간 데이터를 CSV 묶음으로 내보내기","Export all time series and saved spatial data as a CSV archive","全時系列・保存済み空間データをCSVアーカイブに書き出す");
+add("결과를 읽지 못했습니다","Unable to read results","結果を読み込めませんでした");
+add("오른쪽 그래프","Right chart","右のグラフ");
+add("왼쪽 그래프","Left chart","左のグラフ");
+add("오른쪽 그래프 결과 항목","Right chart result field","右グラフの結果項目");
+add("이미지 생성을 위한 Canvas를 사용할 수 없습니다","Canvas is unavailable for image generation","画像生成用Canvasを利用できません");
+add("그래프 이미지 변환 실패","Chart image conversion failed","グラフ画像の変換に失敗");
+add("PNG 이미지 생성 실패","PNG image generation failed","PNG画像の生成に失敗");
+add("파일 생성 중…","Creating file…","ファイルを作成中…");
+add("내보내기 실패","Export failed","エクスポートに失敗");
+add("범위 없음","No range available","範囲なし");
+add("좌표가 선택한 결과의 범위를 벗어났습니다.","The coordinates are outside the selected result domain","座標が選択した結果の範囲外です");
+add("왼쪽에서 Case를 선택하세요","Select a Case on the left","左側でCaseを選択してください");
+add("X·Y·Z 좌표를 입력하고 조회하세요.","Enter X, Y and Z coordinates, then query","X・Y・Z座標を入力して照会してください");
+add("저장값을 읽고 있습니다.","Reading saved values","保存値を読み込み中");
+add("선택한 결과 항목의 저장값이 없습니다.","No saved values for the selected result field","選択した結果項目の保存値がありません");
+add("— (이 X의 저장값 없음)","— (No saved value at this X)","—（このXの保存値なし）");
+add("지원하지 않는 Viewer 모드","Unsupported Viewer mode","未対応のViewerモード");
+add("숫자를 입력하세요. 예: 1, 0.5, 1e-3","Enter a number, e.g. 1, 0.5, 1e-3","数値を入力してください · 例：1、0.5、1e-3");
+add("정수를 입력하세요. 예: 1, 2, 3","Enter an integer, e.g. 1, 2, 3","整数を入力してください · 例：1、2、3");
+add("올바른 JSON 형식으로 입력하세요.","Enter valid JSON","正しいJSON形式で入力してください");
+add("유한한 숫자를 입력하세요.","Enter a finite number","有限の数値を入力してください");
+add("배열을 입력하세요. 예: [1, 2, 3]","Enter an array, e.g. [1, 2, 3]","配列を入力してください · 例：[1, 2, 3]");
+add("JSON 객체를 입력하세요. 예: {\"key\": 1}","Enter a JSON object, e.g. {\"key\": 1}","JSONオブジェクトを入力してください · 例：{\"key\": 1}");
+add("숫자를 입력하세요.","Enter a number","数値を入力してください");
+add("값을 입력하세요.","Enter a value","値を入力してください");
+add("허용된 간격에 맞는 값을 입력하세요.","Enter a value matching the allowed step","許可された刻みに合う値を入力してください");
+add("빨간색으로 표시된 입력값을 수정하세요.","Correct the inputs marked in red","赤色で表示された入力値を修正してください");
+add("현재 설정 보기","View current Config","現在のConfigを表示");
+add("기본 설정","Default Config","既定のConfig");
+add("현재 설정","Current Config","現在のConfig");
+add("파일 필요","File required","ファイルが必要");
+add("출력 데이터","Output data","出力データ");
+add("TMC-49 증기","TMC-49 vapor","TMC-49蒸気");
+add("기포 형상·부피","Bubble geometry and volume","気泡の形状・体積");
+add("액체 상분율","Liquid phase fraction","液相体積分率");
+add("하단·상단 액체","Lower and upper liquids","下層・上層の液体");
+add("유속장","Velocity field","流速場");
+add("온도장","Temperature field","温度場");
+add("압력장","Pressure field","圧力場");
+add("난류장","Turbulence field","乱流場");
+add("농도장","Concentration field","濃度場");
+add("3D 온도","3D temperature","3D温度");
+add("실행","Run","実行");
+add("리셋","Reset","リセット");
+add("중단 시 자동 이어서 실행","Automatically resume after interruption","中断時に自動再開");
+add("프로젝트 리스트","Project list","プロジェクト一覧");
+add("＋ 새 프로젝트","＋ New project","＋ 新規プロジェクト");
+add("선택 Case","Selected Case","選択Case");
+add("속도장","Velocity field","速度場");
+add("유속 |U| m/s","Velocity |U| m/s","流速 |U| m/s");
+add("화살표=방향","Arrow = direction","矢印＝方向");
+add("온도 °C","Temperature °C","温度 °C");
+add("재생 프레임","Playback frames","再生フレーム");
+add("기포 셀","Bubble cells","気泡セル");
+add("실시간 솔버","Live solver status","ソルバーのリアルタイム状態");
+add("코일","Coil","コイル");
+add("config.json 연결 대기","Waiting for config.json","config.json接続待ち");
+add("TMC-49 증기 기포","TMC-49 vapor bubbles","TMC-49蒸気気泡");
+add("온도 히트맵","Temperature heatmap","温度ヒートマップ");
+add("수조(유리) · 공기층","Tank (glass) · Air layer","水槽（ガラス）· 空気層");
+add("초기 계면 기준선","Initial interface reference","初期界面の基準線");
+add("열전대","Thermocouples","熱電対");
+add("실시간 정보 텍스트","Live information overlay","リアルタイム情報表示");
+add("그래프","Chart","グラフ");
+add("열전대 온도","Thermocouple temperature","熱電対温度");
+add("기포 부피","Bubble volume","気泡体積");
+add("기포 셀 수","Bubble cell count","気泡セル数");
+add("층별 평균 온도","Mean temperature by layer","層別平均温度");
+add("3D 시각화","3D visualization","3D可視化");
+add("선택한 프로젝트의 시각화 데이터가 여기에 표시됩니다","Visualization data for the selected project appears here","選択したプロジェクトの可視化データをここに表示");
+add("데이터 준비 완료","Data ready","データ準備完了");
+add("—s (0프레임)","—s (0 frames)","—s（0フレーム）");
+add("지금 생성","Generate now","今すぐ生成");
+add("가상 열전대","Virtual thermocouples","仮想熱電対");
+add("데이터 대기 중","Waiting for data","データ待ち");
+add("T2 계면↓","T2 below interface","T2 界面↓");
+add("T3 계면↑","T3 above interface","T3 界面↑");
+add("T4 코일↑","T4 above coil","T4 コイル↑");
+add("│ 냉각회로","│ Cooling circuit","│ 冷却回路");
+add("T5 입구","T5 inlet","T5 入口");
+add("T6 출구","T6 outlet","T6 出口");
+add("TMC-49 증기 부피","TMC-49 vapor volume","TMC-49蒸気体積");
+add("에너지 수지","Energy balance","エネルギー収支");
+add("솔버 지표","Solver metrics","ソルバー指標");
+add("Courant 수 (max)","Courant number (max)","Courant数（最大）");
+add("시간 간격 Δt (s)","Time step Δt (s)","時間刻み Δt (s)");
+add("압력 잔차 (초기)","Pressure residual (initial)","圧力残差（初期）");
+add("계산 속도 (물리 s / 실제 h)","Calculation speed (physical s / wall-clock h)","計算速度（物理s / 実時間h）");
+add("계산 속도 (회 / 실제 h)","Calculation speed (iterations / wall-clock h)","計算速度（反復回数 / 実時間h）");
+add("솔버 로그 (실시간)","Solver log (live)","ソルバーログ（リアルタイム）");
+add("파일을 여기에 놓으세요","Drop files here","ここにファイルをドロップ");
+add("실행 환경","Execution environment","実行環境");
+add("설정이 아직 로딩되지 않았습니다","Config has not loaded yet","Configはまだ読み込まれていません");
+add("새 설정 만들기","Create Config","Configを新規作成");
+add("해석 유형과 조건을 선택해 독립 config.json으로 저장합니다.","Select analysis type and conditions to save a separate config.json","解析の種類と条件を選択して独立したconfig.jsonに保存");
+add("해석 유형","Analysis type","解析の種類");
+add("포대식 저장고 · 형상 사전 검사","Bagged storage · Geometry precheck","袋詰め倉庫 · 形状の事前検査");
+add("액침냉각용","For immersion cooling","液浸冷却用");
+add("식량 저장고용","For grain storage","穀物倉庫用");
+add("설정 이름","Config name","Config名");
+add("설정 저장","Save Config","Configを保存");
+add("현재 프로젝트","Current project","現在のプロジェクト");
+add("현재 Viewer 프로젝트의 데이터와 지금 선택한 레이어·카메라·재생 배속을 기준으로 내보냅니다.","Export uses the current Viewer project and selected layers, camera and playback speed","現在のViewerプロジェクトと選択中のレイヤー・カメラ・再生速度で書き出し");
+add("시뮬레이션 영상","Simulation video","シミュレーション動画");
+add("현재 화면 옵션으로 첫 프레임부터 끝까지 재생·녹화합니다.","Play and record from the first to the last frame using current display options","現在の表示設定で最初から最後のフレームまで再生・録画");
+add("현재 3D 화면","Current 3D view","現在の3D画面");
+add("현재 카메라와 레이어를 그대로 한 장의 고해상도 PNG로 저장합니다.","Save a high-resolution PNG with the current camera and layers","現在のカメラとレイヤーで高解像度PNGを保存");
+add("문제 보고 시 개인정보와 저장 경로를 제외한 오류 로그를 첨부해 주세요.","Attach error logs without personal information or storage paths when reporting issues","問題報告には個人情報と保存パスを除いたエラーログを添付してください");
+add("연구 대상","Research subject","研究対象");
+add("계산 모델","Calculation model","計算モデル");
+add("결과 필드 단위","Result field units","結果フィールドの単位");
+add("저장본 검사 통과","Saved-data checks passed","保存データ検査に合格");
+add("결과별 통과 기록 없음","No passing check recorded for this result","この結果の検査合格記録なし");
+add("실험 비교","Experimental comparison","実験比較");
+add("독립 실측 비교 기록 없음","No independent measurement comparison recorded","独立した実測との比較記録なし");
+add("이 설정에 별도 기록 없음","No separate record in this Config","このConfigに個別の記録なし");
+add("환경 설정 조회 실패","Unable to load settings","環境設定の取得に失敗");
+add("OpenCFD std::execution GPU 오프로딩 · 단일 GPU · MPI 1개","OpenCFD std::execution GPU offloading · One GPU · One MPI process","OpenCFD std::execution GPUオフロード · GPU 1台 · MPI 1プロセス");
+add("OpenFOAM CPU 계산 · p_rgh 선형해석 GPU","OpenFOAM on CPU · p_rgh linear solve on GPU","OpenFOAMはCPU計算 · p_rgh線形解析はGPU");
+add("OpenFOAM 계산 · 압력 선형해석 CPU","OpenFOAM calculation · Pressure linear solve on CPU","OpenFOAM計算 · 圧力線形解析はCPU");
+add("압력 Pa","Pressure Pa","圧力 Pa");
+add("난류 운동에너지 k (m²/s²)","Turbulent kinetic energy k (m²/s²)","乱流運動エネルギー k (m²/s²)");
+add("속도 m/s","Velocity m/s","速度 m/s");
+add("기포·상분율 무차원","Bubble and phase fraction: dimensionless","気泡・体積分率：無次元");
+add("난류 운동에너지 m²/s²","Turbulent kinetic energy m²/s²","乱流運動エネルギー m²/s²");
+add("Q/C_ref · 벌크 체적 기준","Q/C_ref · Per bulk volume","Q/C_ref · バルク体積基準");
+add("농도 C/C_ref","Concentration C/C_ref","濃度 C/C_ref");
+add("흡착량 Q/C_ref · 벌크 체적 기준","Adsorbed quantity Q/C_ref · Per bulk volume","吸着量 Q/C_ref · バルク体積基準");
+add("증기 형상·부피","Vapor geometry and volume","蒸気の形状・体積");
+add("액체 분포","Liquid distribution","液体分布");
+add("유속·방향","Velocity and direction","流速・方向");
+add("온도 분포","Temperature distribution","温度分布");
+add("압력 분포","Pressure distribution","圧力分布");
+add("정압 출구를 기준으로 한 압력 분포","Pressure distribution relative to the fixed-pressure outlet","固定圧力出口を基準とする圧力分布");
+add("액체에서 발생한 증기 분포","Distribution of vapor generated from liquid","液体から発生した蒸気の分布");
+add("난류장 (k)","Turbulence field (k)","乱流場 (k)");
+add("난류 운동에너지 k 분포","Turbulent kinetic energy k distribution","乱流運動エネルギーkの分布");
+add("액체 상분율 분포","Liquid phase fraction distribution","液相体積分率の分布");
+add("속도장 · 흐름 마커","Velocity field · Flow markers","速度場 · 流れのマーカー");
+add("공기 속도 U 기반 화살표와 이동 마커","Arrows and moving markers based on air velocity U","空気速度Uに基づく矢印と移動マーカー");
+add("유체 속도 U의 방향과 크기","Direction and magnitude of fluid velocity U","流体速度Uの方向と大きさ");
+add("다공성 저장 영역","Porous storage region","多孔質の貯蔵領域");
+add("다공성 매질로 계산된 저장 영역","Storage region modeled as porous media","多孔質媒体として計算した貯蔵領域");
+add("발열체와 보드 형상","Heat source and board geometry","発熱体と基板の形状");
+add("중앙 유입 덕트","Central inlet duct","中央の流入ダクト");
+add("유체가 유입되는 덕트","Fluid inlet duct","流体が流入するダクト");
+add("냉각 코일 형상","Cooling coil geometry","冷却コイルの形状");
+add("저장고 외곽","Storage enclosure","貯蔵庫の外形");
+add("수조 · 공기층","Tank · Air layer","水槽 · 空気層");
+add("계산 영역의 외곽 형상","Outer geometry of the computational domain","計算領域の外形");
+add("수조와 상부 공간 형상","Tank and upper-space geometry","水槽と上部空間の形状");
+add("저장 영역 상단","Top of storage region","貯蔵領域の上端");
+add("다공성 저장 영역의 상단 경계","Upper boundary of the porous storage region","多孔質貯蔵領域の上端境界");
+add("계산 시작 시 액체 계면 기준선","Liquid interface reference at calculation start","計算開始時の液体界面基準線");
+add("시각화 데이터가 있는 프로젝트를 먼저 선택하세요","Select a project with visualization data first","可視化データがあるプロジェクトを先に選択してください");
+add("3D 영상·이미지 내보내기","Export 3D video and image","3D動画・画像を書き出す");
+add("이 브라우저는 MP4 녹화를 지원하지 않아 WebM을 사용합니다.","This browser does not support MP4 recording; WebM will be used","このブラウザーはMP4録画に非対応のためWebMを使用");
+add("녹화를 종료하고 영상 저장","Stop recording and save video","録画を終了して動画を保存");
+add("녹화 시작 — 현재 레이어·카메라·배속으로 끝까지 재생합니다","Recording started — playing to the end with current layers, camera and speed","録画開始 — 現在のレイヤー・カメラ・速度で最後まで再生");
+add("이미지 생성 실패","Image generation failed","画像生成に失敗");
+add("스크린샷을 저장할 프로젝트를 선택하세요","Select a project for the screenshot","スクリーンショットを保存するプロジェクトを選択してください");
+add("이미지 변환 실패","Image conversion failed","画像変換に失敗");
+add("저장 실패","Save failed","保存に失敗");
+add("PNG 화면","PNG screenshot","PNG画面");
+add("처음으로","Go to start","最初へ");
+add("재생 준비 중","Preparing playback","再生準備中");
+add("재생 버퍼 준비 중…","Preparing playback buffer…","再生バッファを準備中…");
+add("재생 파일 읽기 실패 — 시각화 업데이트 후 다시 시도하세요","Unable to read playback files — update visualization and try again","再生ファイルの読み込みに失敗 — 可視化を更新して再試行してください");
+add("재생 버퍼","Playback buffer","再生バッファ");
+add("재생 버퍼를 준비하지 못했습니다. 선택한 레이어 데이터를 확인하세요","Unable to prepare playback buffer; check selected layer data","再生バッファを準備できません · 選択したレイヤーデータを確認してください");
+add("전체 데이터 로딩 후 자동 재생합니다","Playback starts automatically after all data loads","全データ読み込み後に自動再生");
+add("아직 로딩 안 됨","Not loaded yet","未読み込み");
+add("하단 비전도 액체","Lower dielectric liquid","下層の絶縁性液体");
+add("DI수","Deionized water","脱イオン水");
+add("솔버 기록 없음","No solver record","ソルバー記録なし");
+add("액침냉각 · 설정 기반 해석","Immersion cooling · Config-based analysis","液浸冷却 · Configに基づく解析");
+add("유전체층","Dielectric layer","絶縁液層");
+add("상단 액체","Upper liquid","上層の液体");
+add("셀 수","Cell count","セル数");
+add("현재 시간 · 전체 저장 프레임 수","Current time · Total saved frame count","現在時刻 · 保存フレーム総数");
+add("아이언보우","Ironbow","アイアンボウ");
+add("카메라를 기본 시점으로 재조정했습니다","Camera reset to the default view","カメラを既定の視点に戻しました");
+add("결과 읽기 실패","Failed to read results","結果の読み込みに失敗");
+add("현재 3D 화면 저장","Save current 3D view","現在の3D画面を保存");
+add("다공성 곡물","Porous grain","多孔質の穀物");
+add("중앙 통로 단면","Central aisle section","中央通路の断面");
+add("측정점","Measurement points","測定点");
+add("시간·원본 정보","Time and source information","時刻・元データ情報");
+add("원본 정보","Source information","元データ情報");
+add("온도 범위","Temperature range","温度範囲");
+add("농도 범위","Concentration range","濃度範囲");
+add("최대 유속","Maximum velocity","最大流速");
+add("층별 평균","Layer averages","層別平均");
+add("정규화 시험","Normalized test","正規化試験");
+add("ClO₂ 가정 기반 계산","ClO₂ calculation based on assumptions","仮定に基づくClO₂計算");
+add("계산 격자","Computational mesh","計算メッシュ");
+add("셀","Cells","セル");
+add("표시","Displayed","表示");
+add("농도 표본최대","Sample maximum concentration","濃度サンプル最大値");
+add("해당 없음","Not applicable","該当なし");
+add("결과 불러오는 중","Loading results","結果を読み込み中");
+add("결과 시간 순서를 확인해 주세요","Check the order of result times","結果の時刻順を確認してください");
+add("첫 표시 프레임을 읽지 못했습니다","Unable to read the first displayed frame","最初の表示フレームを読み込めませんでした");
+add("프레임 간 셀 좌표 또는 표본 순서가 다릅니다","Cell coordinates or sample order differ between frames","フレーム間でセル座標またはサンプル順が異なります");
+add("흡착량 Q/C_ref","Adsorbed quantity Q/C_ref","吸着量 Q/C_ref");
+add("다공성 적재 영역","Porous loading region","多孔質の積載領域");
+add("공급 영역","Source region","供給領域");
+add("계산 영역","Computational domain","計算領域");
+add("경계","Boundary","境界");
+add("이 결과에 별도 기록 없음","No separate record for this result","この結果に個別の記録なし");
+add("정규화 비반응 추적자 (실제 가스 물성 미적용)","Normalized nonreactive tracer (actual gas properties not applied)","正規化した非反応トレーサー（実ガス物性は未適用）");
+add("표시 단위","Display units","表示単位");
+add("농도 C/C_ref (공극), 흡착량 Q/C_ref (벌크 체적)","Concentration C/C_ref (pores), adsorbed quantity Q/C_ref (bulk volume)","濃度 C/C_ref（空隙）、吸着量 Q/C_ref（バルク体積）");
+add("통과 기록 없음","No passing check recorded","合格記録なし");
+add("검증 기록 없음","No validation recorded","検証記録なし");
+add("계산 시간 간격","Calculation time step","計算時間刻み");
+add("공급 시작","Source start","供給開始");
+add("공급 종료","Source end","供給終了");
+add("공급 없음","No source","供給なし");
+add("종료 기준","Termination criteria","終了条件");
+add("정상상태","Steady state","定常状態");
+add("지정 시간","Specified time","指定時間");
+add("최대 모사 시간","Maximum simulation time","最大シミュレーション時間");
+add("상대 변화율 허용치","Relative change tolerance","相対変化率の許容値");
+add("절대 변화율 허용치","Absolute change tolerance","絶対変化率の許容値");
+add("유지 시간","Sustain duration","維持時間");
+add("판정 시작","Start evaluation","判定開始");
+add("구조 격자","Structured mesh","構造格子");
+add("가스 수송 필드 형식 오류","Invalid gas transport field format","ガス輸送フィールドの形式エラー");
+add("농도 격자 불일치","Concentration mesh mismatch","濃度メッシュの不一致");
+add("농도 공간 범위 불일치","Concentration domain mismatch","濃度の空間範囲の不一致");
+add("유효하지 않은 농도","Invalid concentration","無効な濃度");
+add("농도 프레임 읽기 실패","Failed to read concentration frame","濃度フレームの読み込みに失敗");
+add("농도장의 0초 초기 상태 또는 시간 순서가 잘못되었습니다","The concentration field initial state at 0 s or time order is invalid","濃度場の0秒初期状態または時刻順が不正です");
+add("첫 결과 프레임을 읽지 못했습니다","Unable to read the first result frame","最初の結果フレームを読み込めませんでした");
+add("프레임","Frames","フレーム");
+add("시각화 데이터 준비 완료","Visualization data ready","可視化データ準備完了");
+add("프로젝트를 선택해 주세요","Select a project","プロジェクトを選択してください");
+add("이 프로젝트는 이미 변환 중입니다","This project is already being converted","このプロジェクトは変換中です");
+add("변환 요청 중 서버 응답이 끊겼습니다","Server connection lost during the conversion request","変換要求中にサーバーの応答が途切れました");
+add("원본 CFD 데이터를 찾을 수 없습니다","Original CFD data not found","元のCFDデータが見つかりません");
+add("시각화 데이터 상태를 확인합니다","Checking visualization data status","可視化データの状態を確認中");
+add("이 프로젝트는 변환 중입니다 — 위 진행바를 확인하세요","Project conversion is in progress — see the progress bar above","プロジェクトを変換中 — 上の進行状況を確認してください");
+add("이 프로젝트에 생성할 시각화 데이터가 없습니다","No visualization data to generate for this project","このプロジェクトには生成する可視化データがありません");
+add("셀 좌표 C를 복구할 원본 CFD 데이터를 찾을 수 없습니다","Original CFD data for restoring cell coordinates C was not found","セル座標Cの復元に必要な元のCFDデータが見つかりません");
+add("셀 좌표(C) 복구 중입니다 · 완료되면 기포를 자동으로 표시합니다","Restoring cell coordinates C · Bubbles will display when complete","セル座標Cを復元中 · 完了後に気泡を自動表示");
+add("셀 좌표(C) 복구 작업을 확인 중입니다","Checking cell coordinate C recovery","セル座標Cの復元処理を確認中");
+add("셀 좌표(C) 복구 요청에 실패했습니다","Cell coordinate C recovery request failed","セル座標Cの復元要求に失敗");
+add("일부 시각화 파일을 읽지 못했습니다. 업데이트에서 자동으로 다시 확인합니다","Some visualization files could not be read; an update will check them again","一部の可視化ファイルを読み込めませんでした · 更新時に再確認");
+add("이 프로젝트에 시각화할 데이터가 없습니다","This project has no visualization data","このプロジェクトには可視化データがありません");
+add("재생 프레임 · 불러오는 중","Playback frames · Loading","再生フレーム · 読み込み中");
+add("취소된 로딩","Loading cancelled","読み込みをキャンセル");
+add("파일 읽기 실패","File read failed","ファイルの読み込みに失敗");
+add("로딩됨","Loaded","読み込み済み");
+add("✓ 확인됨","✓ Confirmed","✓ 確認済み");
+add("식량 저장고","Grain storage","穀物倉庫");
+add("액침냉각","Immersion cooling","液浸冷却");
+add("계산 완료","Calculation completed","計算完了");
+add("수렴 완료","Converged","収束完了");
+add("수렴 미도달","Not converged","未収束");
+add("기준 미달","Criteria not met","基準未達");
+add("보관됨","Archived","保管済み");
+add("실행 중에는 새 프로젝트를 만들 수 없습니다 — [중단] 후 진행하세요","Cannot create a project while running — stop the run first","実行中はプロジェクトを作成できません — 中断してから操作してください");
+add("서버 응답 없음","Server not responding","サーバー応答なし");
+add("WSL 연결 안 됨","WSL disconnected","WSL未接続");
+add("케이스 폴더 없음","Case folder not found","Caseフォルダーなし");
+add("솔버 실행 중","Solver running","ソルバー実行中");
+add("수렴 미도달 · 반복 한도 종료","Not converged · Iteration limit reached","未収束 · 反復回数の上限に到達");
+add("연결됨 · 대기","Connected · Idle","接続済み · 待機");
+add("실행 재개","Resume execution","実行再開");
+add("실행 시작 실패","Unable to start execution","実行開始に失敗");
+add("실행 시 선택하지 않은 출력","Output not selected for this run","実行時に選択されていない出力");
+add("열전대 온도 (°C)","Thermocouple temperature (°C)","熱電対温度 (°C)");
+add("T6 출구(계산)","T6 outlet (calculated)","T6 出口（計算）");
+add("벌크 체적 기준","Per bulk volume","バルク体積基準");
+add("유속 m/s","Velocity m/s","流速 m/s");
+add("영상 저장 실패","Video save failed","動画保存に失敗");
+add("스크린샷 저장 실패","Screenshot save failed","スクリーンショット保存に失敗");
+add("화면 저장 실패","View save failed","画面保存に失敗");
+add("불러오기 실패","Load failed","読み込みに失敗");
+add("동기화 실패","Synchronization failed","同期に失敗");
+add("다시 읽기 실패","Reload failed","再読み込みに失敗");
+add("설정 삭제 실패","Config deletion failed","Config削除に失敗");
+add("▪ 값 수정: 화면의 숫자 입력 또는","▪ Edit values: use the numeric inputs or","▪ 値の編集：画面の数値入力または");
+add("하나(형상·물성·가열·냉각·층높이·격자) 편집 후 실행 — 코드 수정 불필요","Edit one file (geometry, properties, heating, cooling, layers and mesh), then run — no code changes needed","1ファイル（形状・物性・加熱・冷却・層高・メッシュ）を編集して実行 — コード変更不要");
+add("▪ 외부 결과:","▪ External results:","▪ 外部結果：");
+add("cfd_studio\\Project\\프로젝트명","cfd_studio\\Project\\project_name","cfd_studio\\Project\\プロジェクト名");
+add("폴더에 config.json · C · bub_*/alpha.vapour_* · phase_*.bin · flow_*.bin · therm_*.bin을 넣으면 자동 인식","Files config.json, C, bub_*/alpha.vapour_*, phase_*.bin, flow_*.bin and therm_*.bin in the folder are detected automatically","フォルダー内のconfig.json・C・bub_*/alpha.vapour_*・phase_*.bin・flow_*.bin・therm_*.binを自動認識");
+add("한동대학교 CGLAB","Handong Global University CGLAB","韓東大学校 CGLAB");
+add("한동대학교 Credo Flagship","Handong Global University Credo Flagship","韓東大学校 Credo Flagship");
+add("한동대학교","Handong Global University","韓東大学校");
+add("— 이중 액침냉각 실증 실험 및 실측 데이터 제공.\n      이 소프트웨어는 그 실험을 CFD로 재현하기 위해 만들어졌습니다.","— Provided double-immersion cooling experiments and measurements. This software was created to reproduce those experiments using CFD.","— 二重液浸冷却の実証実験と実測データを提供 · 本ソフトウェアはその実験をCFDで再現するために開発");
+add("OpenCFD feature-gpu 전용 bashrc가 없습니다","OpenCFD feature-gpu bashrc not found","OpenCFD feature-gpu専用のbashrcがありません");
+add("NVIDIA HPC SDK nvc++가 없습니다","NVIDIA HPC SDK nvc++ not found","NVIDIA HPC SDKのnvc++がありません");
+add("OpenFOAM이 Nvidia-gpu 아키텍처로 빌드되지 않았습니다","OpenFOAM was not built for the Nvidia-gpu architecture","OpenFOAMがNvidia-gpuアーキテクチャ用にビルドされていません");
+add("GPU 빌드 icoReactingMultiphaseInterFoam이 없습니다","GPU build of icoReactingMultiphaseInterFoam not found","GPU版icoReactingMultiphaseInterFoamがありません");
+add("WSL에서 NVIDIA GPU를 사용할 수 없습니다","NVIDIA GPU unavailable in WSL","WSLでNVIDIA GPUを使用できません");
+add("공식 GPU 테스트와 CFD Studio 3상 smoke 검증이 완료되지 않았습니다","Official GPU tests and CFD Studio three-phase smoke tests are incomplete","公式GPUテストとCFD Studioの三相動作確認テストが未完了です");
+add("단일 GPU 전용 실행 준비 완료","Single-GPU execution ready","単一GPUでの実行準備完了");
+add("사용자가 계산을 중단했습니다.","Calculation stopped by the user","ユーザーが計算を中断しました");
+add("실행이 실패했지만 상세 오류가 기록되지 않았습니다.","Execution failed without a detailed error record","実行に失敗しましたが、詳細なエラーは記録されていません");
+add("실행 환경과 솔버 로그를 확인한 뒤 다시하기를 선택하세요.","Check the runtime environment and solver log, then select Retry","実行環境とソルバーログを確認してから再試行を選択してください");
+add("저장 시점 또는 종료 시점이 목표와 일치하지 않음","Saved time or end time does not match the target","保存時点または終了時点が目標と一致しません");
+add("저장된 검사 기록에서 실행·보존 검사를 통과하지 못했습니다.","Execution or conservation checks failed in the saved record","保存された検査記録で実行・保存則の検査に合格していません");
+add("검사 기록을 확인하세요. 같은 Config로 다시 계산하면 동일한 검사 미달이 반복될 수 있습니다.","Review the check results; rerunning the same Config may fail the same checks","検査記録を確認してください。同じConfigで再計算すると同じ検査に不合格となる可能性があります");
+add("Config 보기에서 이 Config로 새 Case를 선택하고 입력값을 수정하세요.","In View Config, select New Case from this Config and edit the inputs","Config表示で「このConfigで新規Case」を選択し、入力値を修正してください");
+add("이 실행기는 저장 지점 재개가 연결되어 있지 않습니다. 다시하기는 새 실행 기록에서 처음부터 계산합니다.","This runner does not support resuming from a saved point. Retry starts a new execution from the beginning","この実行機能は保存時点からの再開に対応していません。再試行すると、新しい実行記録で最初から計算します");
+add("이 Case의 재시작 데이터 연결이 없습니다.","No restart data is linked to this Case","このCaseに再開用データが接続されていません");
+add("이어하기를 선택하면 확인된 저장 지점부터 계산합니다.","Select Resume to calculate from the verified saved point","再開を選択すると、確認済みの保存時点から計算します");
+add("재시작 데이터를 확인할 수 없습니다.","Unable to verify restart data","再開用データを確認できません");
+add("Y = — (이 X의 저장값 없음)","Y = — (No saved value at this X)","Y = —（このXの保存値なし）");
 const api={translate,get language(){return language;},supported:Object.freeze(supported),messages};
 root.CFDI18n=api;
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 if(!root.document)return;
 const doc=root.document,originals=new WeakMap(),attributes=new WeakMap();
-const exclude='script,style,textarea,pre:not([data-i18n-text]),code,output,[translate="no"],[data-i18n-ignore],.ew-project strong,.ew-run-top strong,.ew-case-name,.ew-form-row strong,#ewTitle,#ewDescription,#ewGoals,.ew-queue-row>span:first-child,.ew-recovery-body>h3,#settingsPreset option:not([value=""]),#settingsDialog header h2,#ewConfigSummary,#ewFacts,#dsName,#dsSelection,#viewerHeading,#appContext,.fc-group>summary>span,.fc-json';
+const exclude='script,style,textarea,pre:not([data-i18n-text]),code,output,[translate="no"],[data-i18n-ignore],.ew-project strong,.ew-run-top strong,.ew-case-name,.ew-form-row strong,#ewTitle,#ewDescription,#ewGoals,.ew-queue-row>span:first-child,.ew-recovery-body>h3,#settingsPreset option:not([value=""]),#settingsDialog header h2,#ewFacts,#dsName,#appContext,.fc-group>summary>span,.fc-json';
 const attrNames=['title','placeholder','aria-label','aria-valuetext','label'];
 let observer,scheduled=false;const pending=new Set();
 function skipped(el){return !el||!!el.closest(exclude);}
@@ -999,6 +1366,7 @@ function walk(node){
  if(node.nodeType===3){updateText(node);return;}
  if(node.nodeType!==1)return;
  updateAttributes(node);
+ if(node.tagName==='OPTION'&&node.hasAttribute('data-i18n-name')){const value=node.dataset.i18nName+(node.dataset.i18nSuffix?' · '+translate(node.dataset.i18nSuffix):'');if(node.textContent!==value)node.textContent=value;return;}
  if(skipped(node))return;
  for(const child of node.childNodes)walk(child);
 }

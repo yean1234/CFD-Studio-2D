@@ -107,7 +107,7 @@
       if(!`${r.name} ${r.model} ${modelName(r)}`.toLowerCase().includes(search))continue;
       const row=button('',()=>selectRun(r.id),'ew-run-card');row.classList.toggle('selected',r.id===runId);row.setAttribute('aria-pressed',String(r.id===runId));
       const top=node('div',null,'ew-run-top'),name=node('strong',r.name);name.title=r.name;top.append(name,badge(stateText(r)+(r.status==='draft'?' · 초안':''),r.status));
-      const meta=node('div',null,'ew-run-meta');meta.append(node('span',modelName(r)),node('span',stopText(r.termination,r.end_s)));
+      const meta=node('div',null,'ew-run-meta'),modelLabel=node('span',modelName(r));modelLabel.setAttribute('translate','no');meta.append(modelLabel,node('span',stopText(r.termination,r.end_s)));
       const bottom=node('div',null,'ew-run-meta');bottom.append(node('span',r.differences?.length?`Config ${r.differences.length}개 변경`:Array.isArray(r.differences)?'Config 동일':'비교 기준 없음'),node('span',resultText(r)));row.append(top,meta,bottom);
       row.title=`${r.name}
 마지막 저장 ${r.last_saved==null?'—':r.last_saved+' '+(r.time_unit||'s')} · 수치 검사 ${numericalText(r)}`;rows.append(row);
@@ -131,7 +131,7 @@
   function showDetail(value){
     detail=value;const row=currentProject()?.runs.find(r=>r.id===value.id);if(row){for(const k of ['result_status','last_saved','numerical_status','has_results','frame_counts'])if(k in value)row[k]=value[k];renderRuns();renderSidebarAction();}$('ewRunTitle').setAttribute('translate','no');$('ewRunTitle').textContent=value.name;if(value.log)$('ewLog').removeAttribute('data-i18n-text');else $('ewLog').setAttribute('data-i18n-text','');$('ewLog').textContent=value.log||'보존된 솔버 로그 없음';
     $('ewStatus').replaceChildren(badge(stateText(value),value.status));
-    $('ewConfigSummary').textContent=CFDSettings.summary(value.config,value.form_snapshot||forms.find(f=>f.id===value.form_id));$('ewSettings').disabled=false;
+    const summaryForm=value.form_snapshot||forms.find(f=>f.id===value.form_id),summaryBox=$('ewConfigSummary');summaryBox.replaceChildren();if(summaryForm?.name){const name=node('span',summaryForm.name);name.setAttribute('translate','no');summaryBox.append(name);}const summaryText=CFDSettings.summary(value.config,summaryForm?{...summaryForm,name:undefined}:undefined);if(summaryText&&(!summaryForm?.name||summaryText!=='보관된 Case Config'))summaryBox.append((summaryForm?.name?' · ':'')+summaryText);$('ewSettings').disabled=false;
     const checks=value.checks||{};
     $('ewFacts').textContent=modelName(value);
     $('ewStats').replaceChildren();
@@ -146,7 +146,7 @@
     $('ewSettings').lastChild.textContent=value.editable?'Config 편집':'Config 보기';
     $('ewEnqueue').disabled=value.status!=='draft';$('ewEnqueue').hidden=!value.editable;$('ewStop').hidden=value.status!=='running';$('ewFolder').disabled=!value.path;
     $('ewCSV').disabled=!value.path||csvPending.has(value.id);$('ewCSV').textContent=csvPending.has(value.id)?'CSV 생성 중…':'전체 CSV';
-    const comparison=differenceView(value);$('ewDifferences').textContent=comparison.text;
+    const comparison=differenceView(value),comparisonBox=$('ewDifferences');comparisonBox.setAttribute('data-i18n-text','');comparisonBox.replaceChildren(node('span',comparison.heading||comparison.text));if(comparison.rows?.length){const raw=node('span','\n\n'+comparison.rows.join('\n'));raw.setAttribute('translate','no');comparisonBox.append(raw);}
     $('ewGoals').textContent=value.goals||'';$('ewDifferenceCount').textContent=comparison.label;
   }
   async function selectRun(id){
@@ -197,7 +197,7 @@
     if(!Array.isArray(value.differences))return {label:'기준 없음',text:'비교 기준이 저장되지 않은 기존 결과입니다'};
     const basis=value.preset_id?'Case 생성 당시 프리셋':'Case 최초 저장 설정';
     const rows=value.differences.map(x=>x.path+': '+JSON.stringify(x.before)+' → '+JSON.stringify(x.after));
-    return {label:rows.length?rows.length+'개 변경':'변경 없음',text:'기준: '+basis+'\n\n'+(rows.join('\n')||'기준 설정과 차이 없음')};
+    return {label:rows.length?rows.length+'개 변경':'변경 없음',heading:'기준: '+basis+(rows.length?'':'\n\n기준 설정과 차이 없음'),rows,text:'기준: '+basis+'\n\n'+(rows.join('\n')||'기준 설정과 차이 없음')};
   }
   function resultText(r){return {ready:'준비됨',update:'새 데이터',preparing:'변환 중',none:'없음'}[r.result_status]||'없음';}
   function renderForms(){
@@ -332,7 +332,7 @@
       path.oninput=()=>{customPath=true;};
       f.elements.name.oninput=()=>{if(!customPath){const name=f.elements.name.value.trim().replace(/[\\/:*?"<>|]/g,'_');path.value=name?defaults.base_path.replace(/[\\/]$/,'')+(defaults.base_path.includes('\\')?'\\':'/')+name:'';}};
       f.querySelector('.ew-path-note').textContent=edit?'위치 변경 시 기존 데이터를 복사·검증합니다. 원본은 보존됩니다':'이 폴더에 설정·Case·원본·시각화 데이터를 저장합니다';
-      for(const item of forms){const option=new Option(item.name+(item.definition_only?' · 실행 연결 필요':''),item.id);option.setAttribute('translate','no');f.elements.form_id.append(option);}
+      for(const item of forms){const option=new Option(item.name+(item.definition_only?' · 실행 연결 필요':''),item.id);option.setAttribute('translate','no');option.dataset.i18nName=item.name;option.dataset.i18nSuffix=item.definition_only?'실행 연결 필요':'';f.elements.form_id.append(option);}
       let projectConfig=null,configEpoch=0;
       const configArea=node('div',null,'ew-form-config'),configStatus=node('p','Config 입력 필요'),configButton=button('Config 입력',async()=>{
         try{const selected=forms.find(x=>x.id===f.elements.form_id.value);if(!selected)throw Error('CFD Template을 선택하세요');const token=++configEpoch;
@@ -361,7 +361,7 @@
               if(!flow.active||!d.open)return;
               forms=latest.forms;presetReply.presets=latestPresets.presets;
               f.elements.form_id.replaceChildren(new Option('해석 대상 선택',''));
-              for(const item of forms){const option=new Option(item.name+(item.definition_only?' · 실행 연결 필요':''),item.id);option.setAttribute('translate','no');f.elements.form_id.append(option);}
+              for(const item of forms){const option=new Option(item.name+(item.definition_only?' · 실행 연결 필요':''),item.id);option.setAttribute('translate','no');option.dataset.i18nName=item.name;option.dataset.i18nSuffix=item.definition_only?'실행 연결 필요':'';f.elements.form_id.append(option);}
               f.elements.form_id.value=saved.id;configEpoch++;filterPresets();configButton.textContent='Config 입력';
             }catch(e){flow.error('Template 저장 완료 · '+e.message);}
           }

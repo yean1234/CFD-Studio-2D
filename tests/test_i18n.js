@@ -38,3 +38,12 @@ test('dynamic Config labels and validation messages translate without changing i
  assert.equal(ui.translate('X 최소','ja'),'X 最小');
  assert.equal(ui.translate('geometry.region: 지원하지 않는 shape cone','en'),'geometry.region: unsupported shape cone');
 });
+
+
+test('Studio notices and delayed hardware status translate',()=>{
+ const messages=['비교 기준이 저장되지 않은 기존 결과입니다','비교 기준이 저장되지 않은 기존 결과입니다.','코어 자동 감지','기준: Case 최초 저장 설정\n\n기준 설정과 차이 없음','NVIDIA HPC SDK nvc++가 없습니다','OpenFOAM이 Nvidia-gpu 아키텍처로 빌드되지 않았습니다','공식 GPU 테스트와 CFD Studio 3상 smoke 검증이 완료되지 않았습니다','읽음 12 / 30 값','X = 10 회 · 저장 시점','Y = — (이 X의 저장값 없음)'];
+ for(const locale of ['en','ja'])for(const message of messages)assert.doesNotMatch(ui.translate(message,locale),/[가-힣]/,locale+': '+message);
+ assert.equal(ui.translate('내 프로젝트 시각화 준비','ja'),'내 프로젝트 可視化準備');
+ assert.equal(ui.translate('내 템플릿 수정','en'),'Edit 내 템플릿');
+ assert.equal(ui.translate('0 ~ 2 범위로 입력하세요.','en'),'Enter a value between 0 and 2');
+});

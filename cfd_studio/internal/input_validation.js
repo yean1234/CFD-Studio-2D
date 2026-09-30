@@ -45,7 +45,7 @@
      const min=node.getAttribute('min'),max=node.getAttribute('max');
      if(min!==null&&value<Number(min)||max!==null&&value>Number(max))throw Error(min!==null&&max!==null?min+' ~ '+max+' 범위로 입력하세요.':min!==null?min+' 이상으로 입력하세요.':max+' 이하로 입력하세요.');
     }
-   }catch(e){message=e.message;}node.setCustomValidity(message);
+   }catch(e){message=e.message;}node.setCustomValidity(globalThis.CFDI18n?.translate(message)||message);
   }
   if(!message&&!node.validity.valid){const v=node.validity;message=v.badInput?'숫자를 입력하세요.':v.valueMissing?'값을 입력하세요.':v.stepMismatch?'허용된 간격에 맞는 값을 입력하세요.':v.rangeUnderflow?node.min+' 이상으로 입력하세요.':v.rangeOverflow?node.max+' 이하로 입력하세요.':node.validationMessage;}
   if(show)present(node,editing&&type&&message&&!node.value.trim()?'':editing&&['number','integer'].includes(type)&&acceptsEdit(node.value,type)&&!numeric.test(node.value)?'':message);return !message;
@@ -74,5 +74,6 @@
   check(e.target,{editing:event==='input'});
  });
  document.addEventListener('invalid',e=>check(e.target),true);
+ globalThis.addEventListener('cfd-language-change',()=>{for(const node of document.querySelectorAll('[aria-invalid="true"]'))check(node);});
  globalThis.CFDInput={parseValue,acceptsEdit,bind,check,assertValid,reset(node){const record=records.get(node);if(record)record.last=node.value;node.setCustomValidity('');present(node,'');node.removeAttribute('aria-invalid');}};
 })();
