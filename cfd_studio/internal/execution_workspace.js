@@ -90,7 +90,7 @@
     }
     $('ewTitle').textContent=currentProject()?.name||'프로젝트';
     $('ewDescription').textContent=currentProject()?.description||'';
-    $('ewDefault').textContent=(forms.find(f=>f.id===currentProject()?.form_id)?.name||'CFD Template 미지정')+' · 기본 프리셋: '+(presets.find(p=>p.id===currentProject()?.default_preset)?.name||(currentProject()?'직접 입력':'미지정'));
+    $('ewDefault').replaceChildren();for(const [text,raw] of [[forms.find(f=>f.id===currentProject()?.form_id)?.name||'CFD Template 미지정',true],[' · 기본 프리셋: ',false],[presets.find(p=>p.id===currentProject()?.default_preset)?.name||(currentProject()?'직접 입력':'미지정'),!!currentProject()?.default_preset]]){const part=node('span',text);if(raw)part.setAttribute('translate','no');$('ewDefault').append(part);}
     $('ewRename').disabled=!currentProject();$('ewNewRun').disabled=!currentProject()||pending||currentProject()?.storage_available===false;const path=$('ewStorage');if(path){path.textContent=currentProject()?.storage_available===false?'프로젝트 폴더 연결 필요':'';path.title='';path.classList.toggle('offline',currentProject()?.storage_available===false);}renderSidebarAction();
     $('appContext').textContent='CFD Studio · '+(currentProject()?.name||'프로젝트');renderViewerCases();
     $('stTxt').textContent=data.busy?'계산 중':'실행 대기';$('stDot').className=data.busy?'dot run':'dot ok';
@@ -124,11 +124,11 @@
     if(recent)await selectRun(recent.id);else{clearDetail();if(viewMode==='viewer')showEmptyViewer('아직 CFD Case가 없습니다');else showList();}
   }
   function clearDetail(){
-    $('ewRunTitle').textContent='실행 선택';$('ewLog').textContent='목록에서 실행을 선택하세요';
+    $('ewRunTitle').removeAttribute('translate');$('ewRunTitle').textContent='실행 선택';$('ewLog').setAttribute('data-i18n-text','');$('ewLog').textContent='목록에서 실행을 선택하세요';
     $('ewStatus').replaceChildren();$('ewStats').replaceChildren();$('ewProgress').hidden=true;$('ewRunError').textContent='';$('ewStopLabel').textContent='—';$('ewDifferenceCount').textContent='';$('ewConfigSummary').textContent='';$('ewFacts').textContent='';$('ewView').disabled=true;$('ewSettings').disabled=true;$('ewEnqueue').disabled=true;$('ewFolder').disabled=true;$('ewCSV').disabled=true;$('ewStop').hidden=true;$('ewRecovery').hidden=true;$('ewDifferences').textContent='';$('ewGoals').textContent='';
   }
   function showDetail(value){
-    detail=value;const row=currentProject()?.runs.find(r=>r.id===value.id);if(row){for(const k of ['result_status','last_saved','numerical_status','has_results','frame_counts'])if(k in value)row[k]=value[k];renderRuns();renderSidebarAction();}$('ewRunTitle').textContent=value.name;$('ewLog').textContent=value.log||'보존된 솔버 로그 없음';
+    detail=value;const row=currentProject()?.runs.find(r=>r.id===value.id);if(row){for(const k of ['result_status','last_saved','numerical_status','has_results','frame_counts'])if(k in value)row[k]=value[k];renderRuns();renderSidebarAction();}$('ewRunTitle').setAttribute('translate','no');$('ewRunTitle').textContent=value.name;if(value.log)$('ewLog').removeAttribute('data-i18n-text');else $('ewLog').setAttribute('data-i18n-text','');$('ewLog').textContent=value.log||'보존된 솔버 로그 없음';
     $('ewStatus').replaceChildren(badge(stateText(value),value.status));
     $('ewConfigSummary').textContent=CFDSettings.summary(value.config,value.form_snapshot||forms.find(f=>f.id===value.form_id));$('ewSettings').disabled=false;
     const checks=value.checks||{};
@@ -150,7 +150,7 @@
   }
   async function selectRun(id){
     const token=++generation;runId=id;selectedRuns.set(projectId,id);detail=null;DataSheetViewer.begin(null);cancelViewerLoad();renderRuns();renderViewerCases();suspendWarehouseViewer();setPlay(false,true);
-    clearDetail();$('ewRunTitle').textContent='불러오는 중';
+    clearDetail();$('ewRunTitle').removeAttribute('translate');$('ewRunTitle').textContent='불러오는 중';
     try{const value=await api('/detail?id='+encodeURIComponent(id));if(token!==generation)return;showDetail(value);renderViewerCases();message('');if(viewMode==='viewer')await viewResult();}
     catch(e){if(token===generation){clearDetail();message(e.message);if(viewMode==='viewer')showEmptyViewer('결과를 불러오지 못했습니다');}}
   }
@@ -271,8 +271,8 @@
       content.append(node('p',r.action));
       if(r.resume)content.append(node('p',r.resume_reason));
       const actions=node('div',null,'ew-bar');
-      const recover=async action=>{for(const b of actions.querySelectorAll('button'))b.disabled=true;try{const response=await api('/recover',{id,action});d.close();await refresh();await selectRun(response.result.id);message('대기열에 추가했습니다. 대기열 시작을 누르면 계산합니다');}catch(e){error.textContent=e.message;}finally{for(const b of actions.querySelectorAll('button'))b.disabled=b.textContent==='이어하기'&&!r.resume;}};
-      if(value.status==='stopped'){const resume=button('이어하기',()=>recover('continue_case'));resume.disabled=!r.resume;resume.title=r.resume_reason||'';actions.append(resume);}
+      const recover=async action=>{for(const b of actions.querySelectorAll('button'))b.disabled=true;try{const response=await api('/recover',{id,action});d.close();await refresh();await selectRun(response.result.id);message('대기열에 추가했습니다. 대기열 시작을 누르면 계산합니다');}catch(e){error.textContent=e.message;}finally{for(const b of actions.querySelectorAll('button'))b.disabled=b.dataset.recoveryAction==='resume'&&!r.resume;}};
+      if(value.status==='stopped'){const resume=button('이어하기',()=>recover('continue_case'));resume.dataset.recoveryAction='resume';resume.disabled=!r.resume;resume.title=r.resume_reason||'';actions.append(resume);}
       if(r.retry)actions.append(button('다시하기',()=>recover('retry')));
       if(r.retry)content.append(node('p','다시하기는 기존 기록을 보존하고 처음부터 계산합니다'));
       const error=node('p');error.setAttribute('role','alert');actions.append(button('닫기',()=>d.close()));content.append(error,actions);d.append(content);d.onclose=()=>d.remove();document.body.append(d);d.showModal();
@@ -327,7 +327,7 @@
       path.oninput=()=>{customPath=true;};
       f.elements.name.oninput=()=>{if(!customPath){const name=f.elements.name.value.trim().replace(/[\\/:*?"<>|]/g,'_');path.value=name?defaults.base_path.replace(/[\\/]$/,'')+(defaults.base_path.includes('\\')?'\\':'/')+name:'';}};
       f.querySelector('.ew-path-note').textContent=edit?'위치 변경 시 기존 데이터를 복사·검증합니다. 원본은 보존됩니다':'이 폴더에 설정·Case·원본·시각화 데이터를 저장합니다';
-      for(const item of forms){const option=new Option(item.name+(item.definition_only?' · 실행 연결 필요':''),item.id);f.elements.form_id.append(option);}
+      for(const item of forms){const option=new Option(item.name+(item.definition_only?' · 실행 연결 필요':''),item.id);option.setAttribute('translate','no');f.elements.form_id.append(option);}
       let projectConfig=null,configEpoch=0;
       const configArea=node('div',null,'ew-form-config'),configStatus=node('p','Config 입력 필요'),configButton=button('Config 입력',async()=>{
         try{const selected=forms.find(x=>x.id===f.elements.form_id.value);if(!selected)throw Error('CFD Template을 선택하세요');const token=++configEpoch;
@@ -341,7 +341,7 @@
       });configArea.append(configStatus,configButton);
       const presetSave=node('label'),presetCheck=node('input'),presetName=node('input');presetSave.className='ew-preset-save';presetCheck.type='checkbox';presetCheck.checked=false;presetName.placeholder='새 프리셋 이름';presetName.setAttribute('aria-label','새 프리셋 이름');presetName.hidden=true;presetCheck.onchange=()=>{presetName.hidden=!presetCheck.checked;};presetSave.append(presetCheck,node('span','프리셋에 저장'));
       if(!edit)f.querySelector('.ew-form-choice').after(configArea,presetSave,presetName);
-      const filterPresets=()=>{f.elements.preset.replaceChildren(new Option('직접 입력',''));projectConfig=null;configButton.disabled=!f.elements.form_id.value;configStatus.textContent='Config 입력 필요';for(const item of presetReply.presets.filter(x=>x.form_id===f.elements.form_id.value))f.elements.preset.append(new Option(item.name,item.id));f.elements.preset.disabled=!f.elements.form_id.value;};
+      const filterPresets=()=>{f.elements.preset.replaceChildren(new Option('직접 입력',''));projectConfig=null;configButton.disabled=!f.elements.form_id.value;configStatus.textContent='Config 입력 필요';for(const item of presetReply.presets.filter(x=>x.form_id===f.elements.form_id.value)){const option=new Option(item.name,item.id);option.setAttribute('translate','no');f.elements.preset.append(option);}f.elements.preset.disabled=!f.elements.form_id.value;};
       f.elements.form_id.value=p?.form_id||'';f.elements.form_id.disabled=edit;filterPresets();f.elements.preset.value=p?.default_preset||(p?'form:'+p.form_id:'');f.elements.form_id.onchange=()=>{configEpoch++;filterPresets();};f.elements.preset.onchange=()=>{configEpoch++;projectConfig=null;configStatus.textContent=f.elements.preset.value?'선택한 프리셋 적용':'Config 입력 필요';configButton.textContent='Config 입력';};
       const pick=f.querySelector('[data-pick]');pick.onclick=async()=>{pick.disabled=true;f.querySelector('[role=alert]').textContent='폴더 선택 창에서 폴더를 선택하거나 취소하세요';try{const r=await api('/project-pick',{path:path.value||defaults.base_path});if(!r.result.cancelled){path.value=r.result.path;customPath=true;}f.querySelector('[role=alert]').textContent='';}catch(e){f.querySelector('[role=alert]').textContent=e.message;}finally{pick.disabled=false;}};
       f.querySelector('[data-cancel]').onclick=()=>d.close();d.onclose=()=>d.remove();

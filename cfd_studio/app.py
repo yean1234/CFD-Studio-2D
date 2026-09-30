@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, unquote
 
-APP_VER   = "v219"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
+APP_VER   = "v220"         # 화면 우상단·콘솔에 표시 — 업데이트 반영 확인용
 PROCESS_STARTED = time.time()
 HERE      = os.path.dirname(os.path.abspath(__file__))
 # The bundled isolated Python also needs the application and repository modules.
@@ -3703,7 +3703,7 @@ class H(BaseHTTPRequestHandler):
 
     def _do_GET(self):
         u = urlparse(self.path)
-        if (u.path.startswith("/api/executions") or u.path in ("/execution_workspace.js", "/form_config_editor.js", "/form_wizard.js", "/config_editor.js", "/input_validation.js", "/warehouse_viewer.js", "/data_sheet_viewer.js")) and execution_get(self, EXECUTION_WORKSPACE):
+        if (u.path.startswith("/api/executions") or u.path in ("/execution_workspace.js", "/form_config_editor.js", "/form_wizard.js", "/config_editor.js", "/input_validation.js", "/warehouse_viewer.js", "/data_sheet_viewer.js", "/i18n.js", "/i18n_help.js")) and execution_get(self, EXECUTION_WORKSPACE):
             return
         if u.path.startswith(('/studies', '/api/studies', '/api/attempts', '/api/study-packages', '/api/capabilities')):
             if study_http.get(self, study_http.service(HERE, SCFG, PROJECT_DIR)):
@@ -5371,6 +5371,8 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <details><summary>3D Virtual Viewer 조작</summary><ul><li>왼쪽 상단 <b>3D Virtual</b> 버튼 클릭 → 중앙 3D 화면 표시. 선택한 모드는 파란 테두리와 배경으로 표시</li><li>아래 파란 <b>▶</b>: 재생·일시정지. 시간 막대: 시점 선택. 오른쪽 <b>1×</b>: 재생 배속</li><li>시간 표시: <b>0.00s (전체 프레임 수)</b></li><li>드래그: 회전. 휠: 확대·축소. 더블클릭: 기본 시점 복원</li><li>오른쪽 패널 맨 위 <b>표시 밀도</b>: <b>표준 / 세밀 / 매우 세밀</b> 선택. 속도 벡터 표시 개수 조절</li><li>오른쪽 <b>결과 데이터 / 설계 레이어</b>: 물리량·형상 표시. 항목은 Case의 저장 데이터에 따라 변경</li></ul></details>
    <details><summary>Data Sheet Viewer 전환 및 수치 조회</summary><ul><li>왼쪽 상단 <b>Data Sheet</b> 버튼 클릭 → 그래프 화면 표시. <b>3D Virtual</b> 버튼으로 3D 화면 전환</li><li>왼쪽 <b>전체 평균</b>: 윗줄 <b>그래프 형식 → 선 / 막대 / 산점도</b> 선택 → 아랫줄 <b>요소 1 / 2 / 3</b>에서 최대 3개 물리량 선택. 단위별 Y축 사용. <b>요소 2 / 3 → 선택 안 함</b>으로 해제. 형식 변경 시 물리량·조회 시점 유지. 그래프 클릭·드래그 → 세로 점선과 X·Y 수치 확인</li><li>두 그래프 배경 패널의 높이와 그래프·상세값 위치 정렬 · 좁은 화면에서는 세로 배치</li><li>일반 문구는 선택 방지. Config 입력값·조회값과 Viewer 하단 상세 수치는 선택·복사 가능</li><li>그래프에 초점을 둔 뒤 <b>← / →</b>로 시점 이동. 이 화면에는 재생 버튼 없음</li><li>전체 저장 구간을 조회하려면 그래프 위 <b>전체 구간 읽기</b> · 읽는 중 <b>읽기 중지</b>, 완료 후 <b>다시 읽기</b> 표시. 그래프 저장: 각 그래프 상단 <b>Export</b> → <b>PNG 이미지 / CSV 데이터</b></li><li>오른쪽 <b>좌표 조회</b>: 결과 항목 선택 → 입력란의 <b>최소값 ~ 최대값</b> 확인 → <b>X·Y·Z</b>(m) 입력 → <b>조회</b>. 범위 밖 입력은 확정·조회 불가. 가장 가까운 저장 셀의 시간별 값 표시</li><li>3D 화면 전환: 왼쪽 상단 <b>3D Virtual</b> 버튼 클릭</li></ul></details>
    <details><summary>영상·이미지·CSV 내보내기</summary><ul><li><b>3D Virtual</b>: 하단 재생 바 오른쪽 <b>Export</b> → <b>영상 내보내기</b> 또는 <b>현재 화면 PNG</b></li><li>영상 녹화 종료: 재생 바의 <b>녹화 종료</b></li><li><b>Data Sheet</b>: 저장할 그래프 상단 <b>Export</b> → <b>PNG 이미지</b> 또는 <b>CSV 데이터</b></li><li>그래프 이미지는 현재 축·곡선·조회 위치를 포함하며, CSV는 해당 그래프에 읽어온 구간의 수치를 저장</li><li>전체 저장 구간이 필요한 경우 해당 그래프의 <b>전체 구간 읽기</b> 완료 후 Export</li></ul></details>
+   <h4>언어변환</h4>
+   <ul><li>오른쪽 상단 <b>환경 설정 → 언어변환 → 한국어 / English / 日本語</b></li><li>즉시 적용 · 별도 저장 없이 현재 브라우저에 보관 · 같은 주소로 재접속하면 복원</li><li>계산 중에도 언어 변경 가능 · 프로젝트명·입력값·원본 로그·JSON 키는 원문 유지</li><li>다른 브라우저·접속 주소를 사용하거나 브라우저 데이터를 삭제하면 다시 선택</li></ul>
    <h4>설치 및 프로그램 실행</h4>
    <ul><li>최초 설치: WSL2 Ubuntu 설치·사용자 초기화 → <b>cfd_studio/설치.bat</b> → <b>cfd_studio/실행.bat</b></li><li>설치 완료 후 실행: <b>실행.bat</b> 더블클릭. Windows Python 포함. 전용 솔버·GPU 환경은 별도 준비</li></ul>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>사용법</b></a> · <a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/cfd_studio/README.md" target="_blank" rel="noopener noreferrer">설치</a> · 모델·단위·검증 범위는 위 <b>설명서</b> 탭</p>
@@ -5403,6 +5405,8 @@ INDEX_HTML = r'''<!DOCTYPE html>
 
 <div id="settingsBg" class="mbg" onclick="if(event.target===this)closeSettings()"><div class="mbox" style="width:620px">
  <h3>환경 설정 <span class="badge">PC별</span><button class="mini x" onclick="closeSettings()">닫기 ✕</button></h3>
+ <div class="language-row"><span>화면 언어</span><button class="btn" id="languageToggle" type="button" aria-expanded="false" aria-controls="languageOptions">언어변환 <span aria-hidden="true">⌄</span></button></div>
+ <div id="languageOptions" class="language-options" role="group" aria-label="화면 언어" hidden><button class="btn" type="button" data-language="ko" lang="ko" translate="no" aria-pressed="true">한국어</button><button class="btn" type="button" data-language="en" lang="en" translate="no" aria-pressed="false">English</button><button class="btn" type="button" data-language="ja" lang="ja" translate="no" aria-pressed="false">日本語</button><small style="flex-basis:100%;color:var(--muted)">이 브라우저에 저장되며 즉시 적용됩니다</small></div>
  <p class="mhint">현재 PC에서 계산에 사용할 CPU·MPI·GPU 자원을 지정합니다. 저장한 변경은 다음 계산 시작·재개 시 적용됩니다. 프로젝트별 물성·경계조건·격자는 Case의 Config에서 입력합니다.</p>
  <div class="setrow"><label>CPU 사용 상한<span>계산에 배정할 논리 CPU 비율입니다. 다른 작업의 여유를 남기며, 최대 80%까지 지정할 수 있습니다.</span></label><div><input id="setCpu" type="number" min="1" max="80" step="1"></div></div>
  <div class="setrow"><label>MPI 작업자<span id="setMpiHint">CPU 상한 안에서 자동 배정</span></label><div><select id="setMpi"></select></div></div>
@@ -7914,7 +7918,7 @@ function infoTab(i){ INFOTAB=i;
 // ══════════════ PC별 환경 설정 ══════════════
 let STUDIOSET=null;
 async function showSettings(){
- if(runBusyNow()){toast('실행 중에는 설정을 할 수 없습니다',true);return;}
+ const busy=runBusyNow();for(const id of ['setCpu','setMpi','setGpu','setPressureMode','setSave'])document.getElementById(id).disabled=busy;
  document.getElementById('settingsBg').style.display='flex';
  document.getElementById('setSummary').textContent='현재 PC의 CPU·GPU와 계산 환경을 확인 중입니다.';
  try{const r=await fetch('/api/settings?refresh=1'),j=await r.json();if(!r.ok||!j.ok)throw Error(j.msg||'설정 조회 실패');renderSettingsModal(j.settings);}
@@ -8656,6 +8660,8 @@ __TRACER_VIEWER__
 <script src="/form_wizard.js"></script>
 <script src="/data_sheet_viewer.js"></script>
 <script src="/execution_workspace.js"></script>
+<script src="/i18n.js"></script>
+<script src="/i18n_help.js"></script>
 </body></html>
 '''
 INDEX_HTML = INDEX_HTML.replace("__APP_VER__", APP_VER)

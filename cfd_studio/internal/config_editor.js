@@ -59,7 +59,7 @@
     return {title,unit};
   }
   const normalizeSearch = value => String(value).normalize('NFKC').toLowerCase().replace(/\s+/g,'');
-  function matchesSearch(query,...terms){const text=normalizeSearch(terms.join(' '));return text.includes(normalizeSearch(query))||String(query).trim().split(/\s+/).every(word=>text.includes(normalizeSearch(word)));}
+  function matchesSearch(query,...terms){const translated=terms.map(x=>globalThis.CFDI18n?.translate(String(x))||x);const text=normalizeSearch([...terms,...translated].join(' '));return text.includes(normalizeSearch(query))||String(query).trim().split(/\s+/).every(word=>text.includes(normalizeSearch(word)));}
   function searchFields(config,query,{managed=false,readonly=false,sections={}}={}){
     const found=[];
     const visit=(value,path)=>{

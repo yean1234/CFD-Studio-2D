@@ -5,12 +5,12 @@ async page => {
  const onerror=e=>errors.push(e.message);page.on('pageerror',onerror);
  let releasePressure;const pressureGate=new Promise(resolve=>releasePressure=resolve);
  const metrics=[{id:'temperature',name:'온도',unit:'°C'},{id:'velocity',name:'유속',unit:'m/s'},{id:'pressure',name:'압력',unit:'Pa'}];
- await page.route('**/chart-panel-test',r=>r.fulfill({contentType:'text/html',body:`<!doctype html><html><head><style>:root{--page:#10100f;--surface:#1b1b19;--surface2:#252523;--line:#383835;--ink:#e5e5df;--muted:#a4a49b;--s1:#3987e5;--s3:#ef776d}section{padding:13px 16px 14px;border-bottom:1px solid #333}body{margin:0;font-family:Arial,sans-serif;background:var(--page);color:var(--ink)}#viz{position:absolute;inset:0}.btn{background:var(--surface2);color:var(--ink);border:1px solid var(--line);border-radius:6px}button,select{cursor:pointer}</style></head><body class="grouped execution-viewer"><div id="viz"></div><script>function setPlay(){};window.downloads=[];function exportDownload(blob,name){window.downloads.push({blob,name});}</script><script src="/input_validation.js"></script><script src="/data_sheet_viewer.js"></script></body></html>`}));
+ await page.route('**/chart-panel-test',r=>r.fulfill({contentType:'text/html',body:`<!doctype html><html><head><style>:root{--page:#10100f;--surface:#1b1b19;--surface2:#252523;--line:#383835;--ink:#e5e5df;--muted:#a4a49b;--s1:#3987e5;--s3:#ef776d}section{padding:13px 16px 14px;border-bottom:1px solid #333}body{margin:0;font-family:Arial,sans-serif;background:var(--page);color:var(--ink)}#viz{position:absolute;inset:0}.btn{background:var(--surface2);color:var(--ink);border:1px solid var(--line);border-radius:6px}button,select{cursor:pointer}</style></head><body class="grouped execution-viewer"><div id="viz"></div><script>function setPlay(){};window.downloads=[];function exportDownload(blob,name){window.downloads.push({blob,name});}</script><script src="/input_validation.js"></script><script src="/data_sheet_viewer.js"></script><script src="/i18n.js"></script></body></html>`}));
  await page.route('**/api/executions/chart-catalog?*',r=>r.fulfill({json:{axis:'time',metrics:metrics.flatMap(m=>['mean','min','max'].map(stat=>({...m,id:m.id+'.'+stat,scope:'global'}))),point_metrics:metrics.map(m=>({...m,bounds_m:[[0,2],[0,2],[0,2]]}))}}));
  await page.route('**/api/executions/chart?*',async r=>{const q=new URL(r.request().url()).searchParams,metric=q.get('metric').split('.')[0];if(metric==='pressure')await pressureGate;const values=metric==='temperature'?[10,20,30]:metric==='velocity'?[.1,.2,.3]:[100,200,300];try{await r.fulfill({json:{points:values.map((v,i)=>[i,v]),next:3,total:3,errors:[],basis:'UI 검사용 데이터'}});}catch(_){} });
  await page.route('**/api/executions/point-chart?*',r=>{const q=new URL(r.request().url()).searchParams,field=q.get('field'),x=Number(q.get('x')),values=field==='velocity'?[.1,.2,.3]:[11,21,31];return r.fulfill({json:{points:values.map((v,i)=>[i,v*x]),next:3,total:3,errors:[]}});});
  try{
-  await page.setViewportSize({width:1360,height:850});await page.goto(origin+'/chart-panel-test');
+  await page.setViewportSize({width:1360,height:850});await page.goto(origin+'/chart-panel-test');await page.evaluate(()=>CFDI18n.setLanguage('ko'));
   await page.evaluate(()=>{const run={id:'fixture',name:'검사 데이터'};DataSheetViewer.setSelection({id:'fixture-project',name:'그래프 검사',runs:[run]},[run]);DataSheetViewer.setMode('data');});
   await page.waitForFunction(()=>document.querySelectorAll('#dsField2 option').length===3);
   check(await page.locator('#dsField option').count()===3,'left menu contains means only');
@@ -120,6 +120,17 @@ async page => {
   await page.waitForFunction(()=>document.querySelectorAll('#dsField2 option').length===3);
   check(await page.locator('#dsCoordinates input[name=x]').inputValue()===''&&await page.locator('#dsPlot2 path').count()===0,'Case change clears previous point coordinates and data');
   check(await page.locator('#dsCoordinates input[name=x]').getAttribute('aria-invalid')!=='true','Case change clears previous coordinate error');
+  await page.setViewportSize({width:1360,height:850});
+  for(const [locale,caption] of [['en','Chart type'],['ja','グラフ形式']]){
+   const metric=await page.locator('#dsField').inputValue();
+   await page.evaluate(l=>CFDI18n.setLanguage(l),locale);
+   check(await page.locator('.ds-kind').innerText().then(t=>t.includes(caption)),locale+' graph controls localized');
+   check(await page.locator('#dsField').inputValue()===metric,locale+' metric identifier preserved');
+   check(await page.locator('#dsName').innerText()==='그래프 검사',locale+' project title preserved');
+   check(await page.locator('#dataSheet').evaluate(n=>n.scrollWidth<=n.clientWidth),locale+' graph panels fit');
+  }
+  await page.screenshot({path:'output/playwright/language-ja-charts.png'});
+  await page.evaluate(()=>CFDI18n.setLanguage('ko'));
   check(errors.length===0,'no browser runtime errors');return {checks};
  }finally{releasePressure();page.off('pageerror',onerror);await page.unrouteAll({behavior:'ignoreErrors'});}
 }
