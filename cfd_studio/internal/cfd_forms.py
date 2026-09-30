@@ -97,7 +97,15 @@ class CFDForms:
         known = {b[0] for b in BUILTINS}
         models = set()
         for key in project.get('runs', []):
-            record = (records or {}).get(key, {})
+            record = (records or {}).get(key)
+            # Unavailable historical paths are retained in the catalog, but do not
+            # describe the currently accessible analysis model.
+            if record is None:
+                continue
+            # Archived normalized-tracer results have no runnable Template. They
+            # can accompany an identified model without assigning one themselves.
+            if record.get('kind') == 'legacy' and record.get('model') == 'gas_transport':
+                continue
             model = 'warehouse' if record.get('kind') == 'warehouse' else record.get('model')
             if model not in known:
                 return None

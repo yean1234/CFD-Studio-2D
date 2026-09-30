@@ -113,3 +113,40 @@ class FormMetadataTests(unittest.TestCase):
         self.assertIsNone(self.w.project_form({'runs': ['a', 'b']}, records))
         self.assertEqual(self.w.project_form({'runs': ['a']}, records), 'immersion')
         self.assertEqual(self.w.project_form({'runs': ['w']}, {'w': {'kind': 'warehouse', 'model': 'normalized_gable_verification'}}), 'warehouse')
+
+    def test_unavailable_legacy_paths_do_not_hide_known_form(self):
+        project={'runs':['legacy:old-name','legacy:moved','legacy:current']}
+        records={'legacy:current':{'kind':'legacy','model':'immersion'}}
+        before=copy.deepcopy(project)
+        self.assertEqual(self.w.project_form(project,records),'immersion')
+        self.assertEqual(project,before)
+        self.assertIsNone(self.w.project_form(project,{}))
+
+    def test_archived_tracer_results_do_not_override_warehouse_form(self):
+        project={'runs':['w','tracer','missing']}
+        records={'w':{'kind':'warehouse','model':'clo2_coupled_scenario'},
+                 'tracer':{'kind':'legacy','model':'gas_transport'}}
+        self.assertEqual(self.w.project_form(project,records),'warehouse')
+        self.assertIsNone(self.w.project_form({'runs':['tracer']},records))
+        records['cooling']={'kind':'legacy','model':'immersion'}
+        self.assertIsNone(self.w.project_form({'runs':['w','tracer','cooling']},records))
+        self.assertEqual(self.w.project_form({'form_id':'explicit','runs':['w']},records),'explicit')
+
+    def test_inferred_legacy_form_is_used_when_saving_new_case(self):
+        project=self.w.create_project('Imported',storage_path=str(self.base/'imported'))
+        data=read_json(self.w.folder/'projects.json')
+        next(p for p in data['projects'] if p['id']==project['id'])['runs']=['missing','legacy:current']
+        self.w.persist_catalog(data)
+        record={'id':'legacy:current','kind':'legacy','model':'immersion','created':1,'status':'saved'}
+        with patch.object(self.w,'discover',return_value={'legacy:current':record}):
+            before=read_json(self.w.folder/'projects.json')
+            snapshot=self.w.snapshot()
+            self.assertEqual(snapshot['projects'][0]['form_id'],'immersion')
+            saved=self.w.save_case(project['id'],'New Case',self.w.template('form:immersion'),preset_id='form:immersion')
+            case=self.w.queue_data()['cases'][saved['run_key']]
+            self.assertEqual(case['form_id'],'immersion')
+            self.assertEqual(case['form_snapshot']['id'],'immersion')
+            self.assertEqual(case['status'],'draft')
+            self.assertEqual(read_json(self.w.folder/'projects.json'),before)
+            with self.assertRaises(ValueError):
+                self.w.save_case(project['id'],'Wrong model',self.w.template('warehouse'))
