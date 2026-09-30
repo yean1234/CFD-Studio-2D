@@ -41,6 +41,8 @@ add("전위","Electric potential","電位");
 add("전기전도도","Electrical conductivity","電気伝導率");
 add("총 발열량","Total heat rate","総発熱量");
 add("초기 형상 JSON","Initial geometry JSON","初期形状 JSON");
+add("Windows GPU 엔진 사용률","Windows GPU engine utilization","Windows GPUエンジン使用率");
+add("측정값 없음","Reading unavailable","測定値なし");
 // Exact source strings keep translations independent of solver/configuration values.
 add("언어변환","Language","言語切替");
 add("화면 언어","Display language","表示言語");

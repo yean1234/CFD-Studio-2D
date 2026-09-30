@@ -427,3 +427,17 @@
 - [OpenFOAM interFoam 설명](https://doc.openfoam.com/2312/tools/processing/solvers/rtm/multiphase/interFoam/): 비압축성·등온·비혼화성 2상 유동
 - [OpenFOAM 다상 열전달 솔버 설명](https://www.openfoam.com/news/main-news/openfoam-v1806/solver-and-physics): icoReactingMultiphaseInterFoam의 다상 유동 및 상간 열·물질 전달
 - 위 지원 범위를 바탕으로 Studio 설문의 일반 목적과 기존 솔버 양식을 연결 · 새로운 솔버 실행 기능이 추가되는 것은 아님
+
+## 하드웨어 사용률
+
+- CPU: Windows 시스템 시간의 차이로 계산한 전체 프로세서 활동 비율
+- GPU: Windows GPU Engine 성능 카운터에서 프로세스별 사용률을 같은 엔진 단위로 합산한 뒤 가장 높은 엔진 사용률 표시
+- NVIDIA 장치 UUID와 Windows LUID를 연결해 GPU별 값을 구분 · 카드 순서만으로 측정값을 배정하지 않음
+- 작업 관리자와 같은 GPU 집계 원칙 사용 · 측정 구간과 갱신 시점 차이로 순간 표시값은 다를 수 있음
+- VRAM: NVIDIA NVML의 사용량·전체 용량 · GPU 활동 비율과 별도
+- C·D 등 드라이브: 저장공간 점유율 · 디스크 입출력 활동률과 다름
+- 수집·화면 갱신: 약 1초 주기 · CFD·WSL 상태 조회와 독립
+- 4초 이상 지난 값과 측정 실패는 현재 사용률로 표시하지 않음
+- Windows GPU 엔진을 읽지 못하면 다른 기준의 NVIDIA 활동률로 대체하지 않고 **—** 표시
+- 현재 GPU 측정 연결: NVIDIA Windows 드라이버·CUDA 장치 식별·Windows GPU Engine 카운터 필요 · 별도 CUDA Toolkit 설치 불필요
+- 기준: [Microsoft GPU 집계 설명](https://devblogs.microsoft.com/directx/gpus-in-the-task-manager/), [NVIDIA 메모리 측정](https://docs.nvidia.com/deploy/nvml-api/index.html)

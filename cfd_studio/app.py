@@ -8447,28 +8447,25 @@ function renderHardwareUsage(hw){
  const storageText=d=>{if(!valid(d.total_bytes)||d.total_bytes<=0)return '—';const total=(d.total_bytes/1e9).toFixed(1),used=valid(d.free_bytes)?(Math.max(0,d.total_bytes-d.free_bytes)/1e9).toFixed(1):'—';return used+' / '+total+' GB';};
  // nvidia-smi reports memory.used and memory.total in MiB.
  const vramText=g=>{const used=valid(g.mu)&&g.mu>=0?(g.mu/1024).toFixed(1):'—',total=valid(g.mt)&&g.mt>0?(g.mt/1024).toFixed(1):'—';return 'VRAM '+used+' / '+total+' GiB';};
+ const fresh=sample=>!hw?.stale&&!sample?.stale&&valid(sample?.sampled_at)&&Date.now()/1000-sample.sampled_at<4;
  const drives=Array.isArray(hw?.drives)?hw.drives:[];
  const gpus=Array.isArray(hw?.gpus)?hw.gpus:[];
- const items=[['cpu','CPU',percent(hw?.cpu),'컴퓨터 전체 CPU 사용률','cpu'],...drives.map(d=>['disk:'+d.drive,d.drive,capacity(d),'드라이브 저장공간 사용률','disk',storageText(d)]),...gpus.map(g=>['gpu:'+g.i,g.i==null?'GPU':'GPU '+g.i,percent(g.u),'GPU 사용률','gpu',vramText(g)])];
+ const items=[['cpu','CPU',fresh({sampled_at:hw?.cpu_sampled_at??hw?.sampled_at})?percent(hw?.cpu):null,'컴퓨터 전체 CPU 사용률','cpu'],...drives.map(d=>['disk:'+d.drive,d.drive,fresh(hw)?capacity(d):null,'드라이브 저장공간 사용률','disk',storageText(d)]),...gpus.map(g=>['gpu:'+g.i,g.i==null?'GPU':'GPU '+g.i,fresh(g)?percent(g.u):null,'Windows GPU 엔진 사용률','gpu',fresh(g)?vramText(g):'VRAM — / — GiB'])];
  const icons={cpu:'M7 7h10v10H7ZM9 2v5m6-5v5M9 17v5m6-5v5M2 9h5m-5 6h5m10-6h5m-5 6h5',disk:'M5 4h14l2 11v5H3v-5ZM3 15h18M7 18h.01M11 18h.01',gpu:'M3 6h18v12H3ZM8 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM16 10h2m-2 4h2M6 18v3m5-3v3'};
  const previous=new Map([...row.children].map(n=>[n.dataset.key,n]));
  for(const [key,label,value,tip,kind,capacityText='']of items){
   let item=previous.get(key);if(item)previous.delete(key);else{item=document.createElement('div');item.className='hw-item';item.dataset.key=key;const icon=document.createElementNS('http://www.w3.org/2000/svg','svg');icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('aria-hidden','true');const path=document.createElementNS(icon.namespaceURI,'path');path.setAttribute('d',icons[kind]);icon.append(path);const name=document.createElement('b'),output=document.createElement('output'),track=document.createElement('div'),fill=document.createElement('span');track.className='hw-track';fill.className='hw-fill';track.append(fill);const size=document.createElement('small');size.className='hw-capacity';size.title='사용 용량 / 전체 용량';item.append(icon,name,output,track,size);row.append(item);}
-  item.title=tip;item.querySelector('b').textContent=label;item.querySelector('output').textContent=value===null?'—':value.toFixed(1)+'%';item.querySelector('.hw-fill').style.width=(value??0)+'%';item.setAttribute('aria-label',label+' '+item.querySelector('output').textContent);item.classList.toggle('hw-unavailable',value===null);item.querySelector('.hw-capacity').textContent=capacityText;item.setAttribute('aria-label',label+' '+item.querySelector('output').textContent+(capacityText?' · '+capacityText:''));
+  const gpu=kind==='gpu'?gpus.find(g=>'gpu:'+g.i===key):null;item.title=tip+(gpu?.name?' · '+gpu.name:'')+(gpu?.engine?' · '+gpu.engine:'')+(gpu?.source?' · '+gpu.source:'')+(value===null?' · 측정값 없음':'');item.querySelector('b').textContent=label;item.querySelector('output').textContent=value===null?'—':value.toFixed(1)+'%';item.querySelector('.hw-fill').style.width=(value??0)+'%';item.setAttribute('aria-label',label+' '+item.querySelector('output').textContent);item.classList.toggle('hw-unavailable',value===null);item.querySelector('.hw-capacity').textContent=capacityText;item.setAttribute('aria-label',label+' '+item.querySelector('output').textContent+(capacityText?' · '+capacityText:''));
  }
  for(const obsolete of previous.values())obsolete.remove();
  // Keep CPU, drives and GPUs in the same order when devices appear or disappear.
  items.forEach(([key],i)=>{const child=[...row.children].find(n=>n.dataset.key===key);if(row.children[i]!==child)row.insertBefore(child,row.children[i]||null);});
- card.style.display='';card.dataset.stale=String(!hw||!!hw.stale||!!hw.sampled_at&&Date.now()/1000-hw.sampled_at>15);
+ card.style.display='';card.dataset.stale=String(!hw||!!hw.stale||!!hw.sampled_at&&Date.now()/1000-hw.sampled_at>=4);
 }
 async function poll(){
  if(POLLING) return; POLLING = true;
  try{
-  const [s,hw]=await Promise.all([
-   fetch('/api/status').then(r=>r.json()),
-   fetch('/api/sys').then(r=>{if(!r.ok)throw Error('Hardware unavailable');return r.json();}).then(hw=>{renderHardwareUsage(hw);return hw;}).catch(()=>{renderHardwareUsage(null);return null;})
-  ]);
-  if(hw&&hw.sampled_at)s.sys=hw;              // 느린 WSL 상태와 분리해 가장 최근 실측값 사용
+  const s=await fetch('/api/status').then(r=>r.json());
   LASTST=s; setStatus(s); updateLiveProjectProgress(s);
   if(EXBUSY&&s.extract&&!s.extract.busy&&!isWatching(CURC)){SRVDIRTY=true;refreshSrvInfo();}  // 자동 동기화 변환 완료 → 준비 개수 갱신
   EXBUSY=!!(s.extract&&s.extract.busy);
@@ -8551,7 +8548,14 @@ async function poll(){
  }
 }
 
-renderHardwareUsage(null);
+let hardwareLast=null;
+async function pollHardware(){
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),2000);
+ try{const response=await fetch('/api/sys',{signal:controller.signal,cache:'no-store'});if(!response.ok)throw Error('Hardware unavailable');hardwareLast=await response.json();renderHardwareUsage(hardwareLast);}
+ catch(_){renderHardwareUsage(hardwareLast?{...hardwareLast,stale:true}:null);}
+ finally{clearTimeout(timeout);setTimeout(pollHardware,1000);}
+}
+renderHardwareUsage(null);pollHardware();
 let POLLING=false;
 let POLLT=Date.now();
 setInterval(()=>{                                        // 15초 넘게 갱신이 없으면 폴링 체인 재기동
@@ -9214,64 +9218,31 @@ def _drive_usage():
         drives.append(item)
     return drives
 
+_HARDWARE_MONITOR = None
+
 def _sys_collect():
-    flags = 0x08000000 if os.name == "nt" else 0          # CREATE_NO_WINDOW — 창 깜빡임 방지
-    d, errors = {}, []
-    try:
-        if not POWERSHELL_EXE:
-            raise FileNotFoundError("powershell")
-        r = subprocess.run([POWERSHELL_EXE, "-NoProfile", "-Command",
-            "$c=(Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter \"Name='_Total'\").PercentProcessorTime;"
-            "$o=Get-CimInstance Win32_OperatingSystem;"
-            "$n=(Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors;"
-            "\"$c $($o.FreePhysicalMemory) $($o.TotalVisibleMemorySize) $n\""],
-            capture_output=True, timeout=10, creationflags=flags)
-        p = r.stdout.decode(errors="replace").split()
-        cpu = round(float(p[0]), 1); free = int(p[1]); tot = int(p[2]); logical = max(1, int(p[3]))
-        d = {"cpu": cpu, "ram_u": (tot - free) // 1024, "ram_t": tot // 1024,
-             "logical": logical}
-    except Exception as e:
-        errors.append("host:" + type(e).__name__)
-    try:
-        if not NVIDIA_SMI:
-            raise FileNotFoundError("nvidia-smi")
-        r = subprocess.run([NVIDIA_SMI, "--query-gpu=index,utilization.gpu,memory.used,memory.total",
-                            "--format=csv,noheader,nounits"],
-                           capture_output=True, timeout=10, creationflags=flags)
-        g = []
-        for ln in r.stdout.decode(errors="replace").splitlines():
-            q = [x.strip() for x in ln.split(",")]
-            if len(q) >= 4:
-                g.append({"i": int(float(q[0])), "u": int(float(q[1])),
-                          "mu": int(float(q[2])), "mt": int(float(q[3]))})
-        if g: d["gpus"] = g
-    except Exception as e:
-        errors.append("gpu:" + type(e).__name__)
-    try:
-        d["drives"] = _drive_usage()
-    except Exception as e:
-        errors.append("drives:" + type(e).__name__)
-    if errors:
-        d["_errors"] = errors
-    if d: d["sampled_at"] = time.time()
-    return d
+    global _HARDWARE_MONITOR
+    if _HARDWARE_MONITOR is None:
+        from cfd_studio.hardware_monitor import Monitor
+        _HARDWARE_MONITOR = Monitor(smi=NVIDIA_SMI, drives=_drive_usage)
+    return _HARDWARE_MONITOR.sample()
 
 def _sys_refresh():
     """하드웨어 현재값을 한 번 갱신한다.
 
-    폴링 스레드가 WSL 시작 지연과 겹쳐도 중복 powershell/wsl.exe가 쌓이지 않게
-    단일 실행만 허용한다. 일시 실패 시에는 마지막 정상 측정값을 숨기지 않고
-    stale 표지만 남겨 화면이 통째로 사라지는 현상을 막는다.
+    WSL 상태 조회와 독립된 수집기를 사용한다. 장치 식별은 유지하되
+    측정 실패는 None으로 전달하고 오래된 사용률을 현재 값으로 표시하지 않는다.
     """
+    global SYSSTAT
     if not _SYS_COLLECT_LK.acquire(blocking=False):
         return False
     try:
-        SYSSTAT["last_attempt_at"] = time.time()
+        attempted_at = time.time()
+        SYSSTAT["last_attempt_at"] = attempted_at
         d = _sys_collect()
         if d:
-            SYSSTAT.clear(); SYSSTAT.update(d)
-            SYSSTAT.update(ok=True, stale=False)
-            return True
+            SYSSTAT = {**d, "last_attempt_at": attempted_at}
+            return bool(d.get("ok"))
         if SYSSTAT.get("sampled_at"):
             SYSSTAT.update(ok=True, stale=True)
         else:
@@ -9282,11 +9253,12 @@ def _sys_refresh():
 
 def sys_loop():
     while True:
+        started = time.monotonic()
         try:
             _sys_refresh()
         except Exception:
             pass
-        time.sleep(3)
+        time.sleep(max(.1, 1 - (time.monotonic() - started)))
 
 def storage_loop():
     while True:
