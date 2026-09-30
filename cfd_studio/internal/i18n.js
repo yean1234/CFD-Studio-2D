@@ -4,6 +4,12 @@
 const supported=['ko','en','ja'],key='cfd-studio-language';
 const messages=Object.create(null);
 function add(source,en,ja){messages[source]=[en,ja];}
+add("종류","Type","種類");
+add("경계조건 종류","Boundary condition type","境界条件の種類");
+add("열물성 구성 방식","Thermophysical formulation","熱物性の構成方式");
+add("양식으로 돌아가기","Back to form","フォームに戻る");
+add("입력창 미리보기 · 예시는 저장되지 않으며 실제 값은 프로젝트에서 입력","Input preview · Examples are not saved; enter actual values in the project","入力欄プレビュー · 例は保存されません · 実際の値はプロジェクトで入力");
+add("경계에서 값을 지정하는 방식 · fixedValue는 지정값 사용","How values are specified at a boundary · fixedValue uses a prescribed value","境界での値の指定方法 · fixedValueは指定値を使用");
 // Exact source strings keep translations independent of solver/configuration values.
 add("언어변환","Language","言語切替");
 add("화면 언어","Display language","表示言語");
