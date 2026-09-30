@@ -65,7 +65,14 @@
  }
  function assertValid(root){let first;for(const node of root.querySelectorAll('input,textarea,select'))if(!check(node)&&!first)first=node;
   if(first){for(let p=first.parentElement;p&&p!==root;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;first.focus();throw Error('빨간색으로 표시된 입력값을 수정하세요.');}}
- for(const event of ['input','change','focusout'])document.addEventListener(event,e=>check(e.target,{editing:event==='input'}));
+ for(const event of ['input','change','focusout'])document.addEventListener(event,e=>{
+  // Submit-only forms defer feedback until native submission validation.
+  if(e.target.closest?.('form[data-validation="submit"]')){
+   if(event!=='focusout')present(e.target,'');
+   return;
+  }
+  check(e.target,{editing:event==='input'});
+ });
  document.addEventListener('invalid',e=>check(e.target),true);
  globalThis.CFDInput={parseValue,acceptsEdit,bind,check,assertValid,reset(node){const record=records.get(node);if(record)record.last=node.value;node.setCustomValidity('');present(node,'');node.removeAttribute('aria-invalid');}};
 })();

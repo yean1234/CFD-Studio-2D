@@ -304,11 +304,11 @@
   }
   async function findProject(){
     const d=node('dialog');d.className='ew-dialog';
-    d.innerHTML='<form><h2>프로젝트 찾기</h2><label>프로젝트 폴더<div class="ew-path"><input name="storage_path" required spellcheck="false" placeholder="D:\\CFD Projects\\프로젝트 이름"><button class="btn" type="button" data-pick>찾기</button></div></label><p class="ew-path-note">CFD Studio에서 생성한 프로젝트 폴더를 선택하세요. 파일 형식과 실행 목록을 검증한 후 등록합니다</p><p role="status" aria-live="polite"></p><div class="ew-bar"><button class="btn pri" type="submit">추가</button><button class="btn" type="button" data-cancel>취소</button></div></form>';
+    d.innerHTML='<form data-validation="submit"><h2>프로젝트 찾기</h2><label>프로젝트 폴더<div class="ew-path"><input name="storage_path" required spellcheck="false" placeholder="D:\\CFD Projects\\프로젝트 이름"><button class="btn" type="button" data-pick>찾기</button></div></label><p class="ew-path-note">CFD Studio에서 생성한 프로젝트 폴더를 선택하세요. 파일 형식과 실행 목록을 검증한 후 등록합니다</p><p role="status" aria-live="polite"></p><div class="ew-bar"><button class="btn pri" type="submit">추가</button><button class="btn" type="button" data-cancel>취소</button></div></form>';
     const f=d.querySelector('form'),path=f.elements.storage_path,pick=f.querySelector('[data-pick]'),submit=f.querySelector('[type=submit]'),cancel=f.querySelector('[data-cancel]'),notice=f.querySelector('[role=status]');
     let working=false;
     const busy=value=>{working=value;path.disabled=value;pick.disabled=value;submit.disabled=value;cancel.disabled=value;};
-    pick.onclick=async()=>{busy(true);notice.textContent='폴더 선택 창에서 폴더를 선택하거나 취소하세요';try{const reply=await api('/project-pick',{path:path.value});if(!reply.result.cancelled)path.value=reply.result.path;notice.textContent='';}catch(e){notice.textContent=e.message;}finally{busy(false);}};
+    pick.onclick=async()=>{globalThis.CFDInput?.reset(path);busy(true);notice.textContent='폴더 선택 창에서 폴더를 선택하거나 취소하세요';try{const reply=await api('/project-pick',{path:path.value});if(!reply.result.cancelled)path.value=reply.result.path;notice.textContent='';}catch(e){notice.textContent=e.message;}finally{busy(false);}};
     cancel.onclick=()=>d.close();d.oncancel=e=>{if(working)e.preventDefault();};d.onclose=()=>d.remove();
     f.onsubmit=async e=>{e.preventDefault();if(working||pending)return;const location=path.value;busy(true);pending=true;renderSidebarAction();notice.textContent='프로젝트 검증 중…';
       try{const reply=await api('/project-open',{storage_path:location});showList();await refresh();await selectProject(reply.result.id);message('프로젝트 등록 완료');d.close();}
