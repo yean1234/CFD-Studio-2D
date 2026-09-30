@@ -8,7 +8,7 @@ async page=>{
   CFDFormConfig.open({config:spaceOriginal,onSave:v=>spaceSaved.push(v)});
  });
  const form=page.locator('.fc-dialog');
- check(await form.locator('.fc-tools').getByRole('button',{name:'+ Field',exact:true}).count()===1,'field and file actions are in the right toolbar');
+ check(await form.locator('.fc-tools').getByRole('button',{name:'JSON',exact:true}).count()===1,'JSON actions are in the right toolbar');
  await form.screenshot({path:'output/playwright/spatial-toolbar.png'});
  await form.getByRole('button',{name:'공간 JSON',exact:true}).click();
  let dialog=page.locator('.sp-dialog'),area=dialog.getByRole('textbox',{name:'공간 JSON',exact:true});
@@ -23,16 +23,16 @@ async page=>{
  await dialog.getByRole('button',{name:'취소',exact:true}).click();await dialog.waitFor({state:'detached'});
  await form.getByRole('button',{name:'공간 JSON',exact:true}).click();dialog=page.locator('.sp-dialog');area=dialog.getByRole('textbox',{name:'공간 JSON',exact:true});check(await area.inputValue()===initial,'Cancel preserves the parent draft');
  const changed=JSON.parse(initial);changed.geometry.regions[0].max=[6,2,3];await area.fill(JSON.stringify(changed));await dialog.getByRole('button',{name:'적용',exact:true}).click();await dialog.waitFor({state:'detached'});
- await form.getByRole('button',{name:'Apply',exact:true}).click();await form.waitFor({state:'detached'});
+ await form.getByRole('button',{name:'적용',exact:true}).click();await form.waitFor({state:'detached'});
  check(await page.evaluate(()=>spaceSaved[0].geometry.regions[0].max[0]===6&&spaceSaved[0].numerics.dt===.02&&spaceOriginal.geometry.regions[0].max[0]===4),'Apply updates only draft geometry and preserves the source');
  await page.evaluate(()=>{const schema=CFDFormConfig.fromConfig({geometry:{regions:{domain:{shape:'box',unit:'m',min:[0,0,0],max:[2,3,4]}}},numerics:{dt:1}});window.schemaSaved=[];CFDFormConfig.open({schema,schemaOnly:true,onSave:(v,s)=>schemaSaved.push({v,s})});});
  await page.locator('.fc-dialog').getByRole('button',{name:'공간 JSON',exact:true}).click();dialog=page.locator('.sp-dialog');
  await dialog.getByRole('button',{name:'형상 확인',exact:true}).click();await dialog.locator('canvas').waitFor();
  await dialog.getByRole('button',{name:'적용',exact:true}).click();await dialog.waitFor({state:'detached'});
- await page.locator('.fc-dialog').getByRole('button',{name:'Apply',exact:true}).click();await page.locator('.fc-dialog').waitFor({state:'detached'});
+ await page.locator('.fc-dialog').getByRole('button',{name:'적용',exact:true}).click();await page.locator('.fc-dialog').waitFor({state:'detached'});
  check(await page.evaluate(()=>schemaSaved[0].v.numerics.dt===null&&schemaSaved[0].v.geometry.regions.domain.max.length===0),'Template preview dimensions do not become defaults');
  await page.evaluate(()=>CFDSettings.open({config:spaceOriginal,readonly:true,name:'Snapshot'}));
- await page.locator('#settingsDialog').getByRole('button',{name:'공간 JSON',exact:true}).click();dialog=page.locator('.sp-dialog');
+ await page.locator('#settingsDialog nav').getByText('형상·격자',{exact:true}).click();await page.locator('#settingsDialog nav').getByRole('button',{name:'치수',exact:true}).click();await page.locator('#settingsDialog main').getByRole('button',{name:'공간 JSON',exact:true}).click();dialog=page.locator('.sp-dialog');
  check(await dialog.locator('textarea').getAttribute('readonly')!==null&&await dialog.getByRole('button',{name:'적용',exact:true}).count()===0,'snapshot geometry stays read-only');
  await dialog.getByRole('button',{name:'닫기',exact:true}).click();await dialog.waitFor({state:'detached'});await page.locator('#settingsDialog header').getByRole('button',{name:'닫기',exact:true}).click();
  for(const fixture of [{tank:{width_mm:456,depth_mm:70,liquid_height_mm:800},board:{x0:80,x1:380,y0:0,y1:300,z0:15,z1:23}},{geometry_spec:{geometry:{length_m:78,width_m:25,eaves_m:7.2,roof_rise_m:3.5}},loading:{blocks:[{min_m:[2,1,.15],max_m:[13.5,11.5,3]}]}}]){

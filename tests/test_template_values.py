@@ -46,6 +46,18 @@ class TemplateValuesTests(unittest.TestCase):
         self.assertEqual(fresh.snapshot()['projects'][0]['initial_config'],config)
         self.assertEqual(read_json(Path(project['storage_path'])/'project.cfdproj')['initial_config'],config)
         with self.assertRaises(ValueError):fresh.save_case(project['id'],'Run',config)
+    def test_display_labels_survive_save_and_restart_without_changing_config(self):
+        result,_=filled()
+        schema=result['config_schema']
+        field=schema['fields'][0]
+        field['label']='해석 개요';field['description']='저장된 설문과 솔버'
+        before=copy.deepcopy(result['config'])
+        form=self.w.save_form('Labels','solver_definition','icoFoam',before,config_schema=schema,input_schema=schema)
+        fresh=ExecutionWorkspace(ROOT,[],**self.kw).form(form['id'])
+        self.assertEqual(fresh['input_schema']['fields'][0]['label'],'해석 개요')
+        self.assertEqual(fresh['input_schema']['fields'][0]['description'],'저장된 설문과 솔버')
+        self.assertEqual(fresh['blank_config'],before)
+
     def test_missing_input_wrong_metadata_and_cross_template_presets_fail(self):
         result,config=filled();forms=[self.w.save_form(name,'solver_definition','icoFoam',result['config'],config_schema=result['config_schema']) for name in ('A','B')]
         with self.assertRaises(ValueError):self.w.create_project('Empty',form_id=forms[0]['id'],initial_config=result['config'])

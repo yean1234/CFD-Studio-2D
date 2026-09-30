@@ -28,6 +28,6 @@ async page=>{
  const form=page.locator('.ew-form-dialog');await form.locator('[data-config]').click();await page.locator('.fc-dialog').getByRole('button',{name:'JSON',exact:true}).click();
  const definition=JSON.parse(await page.locator('.fc-json').inputValue());
  check(await page.evaluate(s=>{const c=CFDFormConfig.toConfig(s);return Object.keys(c.materials.fluids).length===2&&Object.hasOwn(c.initial_conditions.fields,'alpha.phase_1')},definition),'multiphase fields are retained for a general flow intention');
- await page.locator('.fc-dialog').getByRole('button',{name:'Cancel',exact:true}).click();await form.getByRole('button',{name:'취소',exact:true}).click();
+ await page.locator('.fc-dialog').getByRole('button',{name:'취소',exact:true}).click();await form.getByRole('button',{name:'취소',exact:true}).click();
  return {checks};
 }

@@ -12,3 +12,16 @@ test('nullable number placeholders remain editable and survive JSON roundtrip',(
 
 test('quantity units follow edited JSON units',()=>{const old=fromConfig({length:{value:2,unit:'m'}});const next=fromConfig({length:{value:200,unit:'cm'}},old);assert.equal(next.fields[0].fields[0].unit,'cm');});
 test('required field annotations survive JSON edits without treating optional fields as required',()=>{const schema={version:1,fields:[{key:'nu',type:'number',nullable:true,value:null,unit:'m^2/s',required:true},{key:'rho',type:'number',nullable:true,value:null,required:false}]};const result=fromConfig({nu:0.000001,rho:null},schema);assert.equal(result.fields[0].required,true);assert.equal(result.fields[1].required,false);assert.equal(toConfig(result).nu,0.000001);});
+
+test('display names survive JSON editing without changing solver keys or values',()=>{
+ const schema=fromConfig({density:1.2,optional:null});schema.fields[0].label='공기 밀도';schema.fields[0].description='실험 조건의 밀도';schema.fields[1].required=false;
+ const next=fromConfig({density:1.4,optional:null},schema);assert.equal(next.fields[0].label,'공기 밀도');assert.equal(next.fields[0].description,'실험 조건의 밀도');assert.deepEqual(toConfig(next),{density:1.4,optional:null});
+});
+test('required and conditional classification keeps boundary inputs accessible',()=>{
+ const {fieldStatus}=require('../cfd_studio/internal/form_config_editor.js');
+ assert.equal(fieldStatus({key:'density',type:'object',fields:[{key:'value',type:'number',required:true}]}),'required');
+ assert.equal(fieldStatus({key:'value',type:'number',required:false},['boundary_conditions','inlet','fields','p']),'conditional');
+ assert.equal(fieldStatus({key:'probes',type:'array',required:false}),'optional');
+ assert.equal(fieldStatus({key:'algorithm',type:'string',readonly:true}),'fixed');
+ assert.equal(newField([]).value,null);
+});
