@@ -816,6 +816,10 @@ add("여러 항목을 하나로 묶는 그룹","A group containing related field
 add("여러 값의 목록 · JSON 배열로 입력","A list of values · Enter as a JSON array","複数の値のリスト · JSON配列で入力");
 add("선택 항목의 기존값은 유지됩니다 · 전체 항목에서 확인","Existing optional values are retained · Check All fields","任意項目の既存値は保持されます · すべての項目で確認");
 add("m, s, kg 등","e.g. m, s, kg","例: m, s, kg");
+add("컴퓨터 전체 CPU 사용률","Whole-computer CPU utilization","コンピューター全体のCPU使用率");
+add("Studio 설치 드라이브의 저장공간 사용률","Storage capacity used on the Studio installation drive","Studioインストールドライブの保存容量使用率");
+add("GPU 전체 사용률 · 여러 장치가 있으면 가장 높은 값","Whole-device GPU utilization · Highest value across multiple GPUs","GPU全体の使用率 · 複数の場合は最大値");
+add("SSD 저장공간","SSD storage","SSD保存容量");
 const api={translate,get language(){return language;},supported:Object.freeze(supported),messages};
 root.CFDI18n=api;
 if(typeof module!=='undefined'&&module.exports)module.exports=api;

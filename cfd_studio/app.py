@@ -8440,12 +8440,21 @@ function clearDash(){
  HIST=[];HISTV=[];HISTC=[];LIVET5=null;LIVET6=null;      // 이전 실행 이력도 함께 리셋 → 라벨·차트 재유입 방지
  METR=[]; {const mc=document.getElementById('metCard'); if(mc)mc.style.display='none';}
 }
+function renderHardwareUsage(hw){
+ const card=document.getElementById('sysCard'),row=document.getElementById('sysRow');if(!card||!row)return;
+ const valid=v=>typeof v==='number'&&Number.isFinite(v),percent=v=>valid(v)?Math.max(0,Math.min(100,v)):null;
+ const storage=hw?.storage,ssd=valid(storage?.disk_total_bytes)&&storage.disk_total_bytes>0&&valid(storage.disk_free_bytes)?percent(100*(1-storage.disk_free_bytes/storage.disk_total_bytes)):null;
+ const gpuValues=(hw?.gpus||[]).filter(g=>valid(g.u));const gpu=gpuValues.length?Math.max(...gpuValues.map(g=>g.u)):null;
+ const items=[['CPU',percent(hw?.cpu),'컴퓨터 전체 CPU 사용률'],['SSD 저장공간',ssd,'Studio 설치 드라이브의 저장공간 사용률'],['GPU',percent(gpu),'GPU 전체 사용률 · 여러 장치가 있으면 가장 높은 값']];
+ row.replaceChildren();for(const [label,value,tip] of items){const item=document.createElement('div');item.className='hw-item';item.title=tip;const name=document.createElement('b');name.textContent=label;const track=document.createElement('div');track.className='hw-track';const fill=document.createElement('span');fill.className='hw-fill';fill.style.width=(value??0)+'%';track.append(fill);const output=document.createElement('output');output.textContent=value===null?'—':value.toFixed(1)+'%';item.setAttribute('aria-label',label+' '+output.textContent);item.append(name,track,output);row.append(item);}
+ card.style.display='';card.dataset.stale=String(!hw||!!hw.stale||!!hw.sampled_at&&Date.now()/1000-hw.sampled_at>15);
+}
 async function poll(){
  if(POLLING) return; POLLING = true;
  try{
   const [s,hw]=await Promise.all([
    fetch('/api/status').then(r=>r.json()),
-   fetch('/api/sys').then(r=>r.json()).catch(()=>null)
+   fetch('/api/sys').then(r=>{if(!r.ok)throw Error('Hardware unavailable');return r.json();}).then(hw=>{renderHardwareUsage(hw);return hw;}).catch(()=>{renderHardwareUsage(null);return null;})
   ]);
   if(hw&&hw.sampled_at)s.sys=hw;              // 느린 WSL 상태와 분리해 가장 최근 실측값 사용
   LASTST=s; setStatus(s); updateLiveProjectProgress(s);
@@ -8520,28 +8529,6 @@ async function poll(){
    else if(s.running){el.innerHTML='<span style="color:#8a8880">솔버가 실행 중입니다 · 첫 로그 출력까지 잠시 기다려 주세요 (격자·초기화 단계에서는 콘솔 창에 진행이 표시됩니다)</span>';}
    else if(!HASRUN&&s.case&&s.dbg&&!s.log&&!pSel){el.innerHTML='<span style="color:#fab219">[연결 진단 — 로그가 비어 있어 상태를 점검합니다]</span>\\n'+esc(s.dbg)
     +'\\n\\n해석: LOG=[]이면 케이스 폴더에 log 파일이 없는 것(솔버가 이 폴더에서 실행된 적 없음/정리됨), pp: 아래에 probesT가 없으면 계측 데이터가 없는 것입니다.';}}
-  {const sc=document.getElementById('sysCard'),sr=document.getElementById('sysRow');
-   if(sc&&sr){ if(s.sys&&(s.sys.cpu!=null||s.sys.ram_t)){
-    const bar=(v,max,w)=>'<span class="pbar" style="width:'+w+'px;height:7px;display:inline-block;vertical-align:middle;margin:0 7px 0 8px"><span style="display:block;height:100%;border-radius:99px;background:var(--s1);width:'+Math.min(100,100*v/max)+'%"></span></span>';
-    const age=s.sys.sampled_at?Math.max(0,Date.now()/1000-s.sys.sampled_at):0;
-    let h='<span class="sst" title="컴퓨터 전체 CPU·RAM·GPU 사용량을 3초마다 다시 측정합니다">현재 측정'+(age>8?' · 갱신 지연':' · 3초 갱신')+'</span>';
-    if(s.sys.cpu!=null)h+='<span title="Windows 성능 카운터의 현재 컴퓨터 전체 CPU 사용률"><b>CPU 전체</b>'+bar(s.sys.cpu,100,90)+(+s.sys.cpu).toFixed(1)+'%</span>';
-    if(s.sys.ram_t)h+='<span title="Windows 전체 물리 메모리의 현재 사용량"><b>RAM 전체</b>'+bar(s.sys.ram_u,s.sys.ram_t,90)+(s.sys.ram_u/1024).toFixed(1)+' / '+(s.sys.ram_t/1024).toFixed(1)+' GB</span>';
-    if(s.sys.gpus)for(const g of s.sys.gpus)
-     h+='<span title="nvidia-smi가 보고한 현재 GPU 전체 사용률과 VRAM 사용량"><b>'+(s.sys.gpus.length>1?'GPU '+g.i+' 전체':'GPU 전체')+'</b>'+bar(g.u,100,90)+g.u+'%'
-       +(g.mt?(' <span class="sst">VRAM '+(g.mu/1024).toFixed(1)+'/'+(g.mt/1024).toFixed(1)+' GB</span>'):'')+'</span>';
-    {const ds=s.sys.storage;
-     if(ds&&ds.total_bytes!=null){
-      const fb=b=>{b=+b||0;const u=['B','KB','MB','GB','TB'];let i=0;while(b>=1024&&i<u.length-1){b/=1024;i++;}return b.toFixed(i<3?0:(b<10?2:1))+' '+u[i];};
-      const tip='Windows Project·Trash '+fb(ds.windows_bytes||0)+(ds.wsl_bytes!=null?' · WSL 케이스 '+fb(ds.wsl_bytes):' · WSL 원본 계산 대기')
-       +(ds.archive_bytes!=null?(ds.archive_embedded?' · 프로젝트 내 Raw 포함':' · 외부 Raw '+fb(ds.archive_bytes)):'')+' · '+(ds.drive||'현재 드라이브');
-      h+='<span title="'+tip+'"><b>데이터 총용량</b>'+fb(ds.total_bytes)+'</span>';
-      if(ds.disk_total_bytes)h+='<span title="CFD Studio가 있는 '+(ds.drive||'드라이브')+' 전체 가용 공간"><b>SSD 여유</b>'+bar(ds.disk_total_bytes-ds.disk_free_bytes,ds.disk_total_bytes,90)+fb(ds.disk_free_bytes)+'</span>';
-      if(ds.archive_enabled)h+='<span title="원본 데이터 보관 위치 '+(ds.archive_path||'')+'"><b>원본 보관 여유</b>'+
-       (ds.archive_disk_total_bytes?bar(ds.archive_disk_total_bytes-ds.archive_disk_free_bytes,ds.archive_disk_total_bytes,90)+fb(ds.archive_disk_free_bytes):'연결 안 됨')+'</span>';
-     }}
-    sr.innerHTML=h; sc.style.display='';
-   } else {sr.innerHTML='<span class="sst">하드웨어 사용량 측정 준비 중</span>';sc.style.display='';}}}
   if(!isWatching(CURC)) showExtract(s.extract,CURC);
  }catch(_){ const d=document.getElementById('stDot');d.className='dot off';
   document.getElementById('stTxt').textContent='서버 응답 없음'; }
@@ -8552,6 +8539,7 @@ async function poll(){
  }
 }
 
+renderHardwareUsage(null);
 let POLLING=false;
 let POLLT=Date.now();
 setInterval(()=>{                                        // 15초 넘게 갱신이 없으면 폴링 체인 재기동
