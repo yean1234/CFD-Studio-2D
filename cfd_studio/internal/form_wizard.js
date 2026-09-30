@@ -34,9 +34,9 @@
     }
     dialog.onclose=()=>dialog.remove();render();document.body.append(dialog);dialog.showModal();
   }
-  function recommend({options,answers={},selected='',fixedSolver=null,replace=false,loadRecommendations,generate,onApply}){
+  function recommend({options,answers={},selected='',fixedSolver=null,replace=false,loadRecommendations,generate,onApply,onOpen=null,onDismiss=null}){
     ensureStyle();
-    let step=0,busy=false,candidates=[],chosen='',summary=null;
+    let step=0,busy=false,candidates=[],chosen='',summary=null,applied=false;
     const values={};for(const [key,items] of Object.entries(options))if(items.some(x=>x.value===answers[key]))values[key]=answers[key];
     const steps=[['해석 대상','medium','purpose'],['유동·시간','regime','time_mode'],['영역·종료','domain','mesh','termination'],['솔버 선택']];
     const titles={medium:'어떤 유체를 해석하나요?',purpose:'어떤 해석을 구성하나요?',regime:'유동 모델은 무엇인가요?',time_mode:'시간에 따른 변화를 계산하나요?',domain:'해석 영역은 어디인가요?',mesh:'격자는 어떻게 준비하나요?',termination:'어떤 기준으로 종료하나요?'};
@@ -60,7 +60,7 @@
       const snapshot={...values};
       try{
         if(step===2){summary=await loadRecommendations(snapshot);if(!d.isConnected)return;candidates=summary.candidates.filter(x=>!fixedSolver||x.solver===fixedSolver);chosen=candidates.some(x=>x.solver===selected)?selected:'';step=3;}
-        else{const result=await generate(chosen,snapshot);if(!d.isConnected)return;await onApply({solver:chosen,answers:snapshot,result});if(d.isConnected)d.close();return;}
+        else{const result=await generate(chosen,snapshot);if(!d.isConnected)return;await onApply({solver:chosen,answers:snapshot,result});applied=true;if(d.isConnected)d.close();return;}
       }catch(e){if(d.isConnected)error.textContent=e.message;}
       finally{busy=false;if(d.isConnected)render();}
     },'pri');actions.append(cancel,back,next);d.append(title,progress,body,unsupported,error,actions);
@@ -87,7 +87,7 @@
       }
       showUnsupported();
     }
-    d.onclose=()=>d.remove();render();document.body.append(d);d.showModal();
+    d.onclose=()=>{d.remove();if(!applied)onDismiss?.();};render();document.body.append(d);if(onOpen?.(d)===false){d.remove();return;}d.showModal();
   }
 
   window.CFDFormWizard={open,recommend};

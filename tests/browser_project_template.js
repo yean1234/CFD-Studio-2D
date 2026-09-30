@@ -1,0 +1,41 @@
+// Isolated registry only; no project creation or CFD execution.
+async page=>{
+ const checks=[],errors=[];const check=(v,s)=>{if(!v)throw Error(s);checks.push(s);};const onerror=e=>errors.push(e.message);page.on('pageerror',onerror);
+ await page.goto('http://127.0.0.1:18760');await page.setViewportSize({width:1500,height:1000});await page.evaluate(()=>CFDI18n.setLanguage('ko'));
+ await page.locator('#ewCreateProject').click();const project=page.locator('.ew-project-dialog'),add=project.locator('[data-new-template]');
+ await add.click();let wizard=page.locator('.fw-recommend-dialog');await wizard.waitFor();await page.waitForTimeout(350);
+ const left=await project.boundingBox(),right=await wizard.boundingBox();check(right.x>=left.x+left.width&&Math.abs(left.height-right.height)<1,'project and survey attach side by side at equal height');
+ check(await project.locator('[aria-invalid=true]').count()===0,'plus does not trigger required project validation');
+ await page.screenshot({path:'output/playwright/project-template-pair.png',clip:{x:left.x,y:left.y,width:right.x+right.width-left.x,height:left.height}});
+ await wizard.getByRole('button',{name:'취소',exact:true}).click();await wizard.waitFor({state:'detached'});check(!await add.isDisabled(),'cancel restores project controls');
+ await project.locator('[name=name]').fill('Template workflow');await project.locator('[name=description]').fill('Preserved project input');await project.locator('[name=storage_path]').fill('D:\\Projects\\Preserved');
+ await project.locator('[name=form_id]').selectOption('immersion');await project.locator('[name=preset]').selectOption('form:immersion');
+ await add.click();wizard=page.locator('.fw-recommend-dialog');await wizard.waitFor();await wizard.press('Escape');await wizard.waitFor({state:'detached'});
+ check(await project.locator('[name=form_id]').inputValue()==='immersion'&&await project.locator('[name=preset]').inputValue()==='form:immersion','Escape preserves selected Template and preset');
+ await add.click();wizard=page.locator('.fw-recommend-dialog');await wizard.waitFor();
+ await wizard.locator('input[name=medium][value=gas]').check();await wizard.locator('input[name=purpose][value=flow]').check();await wizard.getByRole('button',{name:'다음',exact:true}).click();
+ await wizard.locator('input[name=regime][value=laminar]').check();await wizard.locator('input[name=time_mode][value=transient]').check();await wizard.getByRole('button',{name:'다음',exact:true}).click();
+ for(const [k,v]of Object.entries({domain:'internal',mesh:'import',termination:'physical_time'}))await wizard.locator(`input[name=${k}][value=${v}]`).check();
+ await wizard.getByRole('button',{name:'솔버 추천',exact:true}).click();await wizard.locator('input[value=icoFoam]').check();await wizard.getByRole('button',{name:'양식 생성',exact:true}).click();
+ const template=page.locator('.ew-form-dialog');await template.waitFor();await wizard.waitFor({state:'detached'});await page.waitForTimeout(350);
+ check(await project.evaluate(e=>e.classList.contains('ew-project-attached')),'attached layout persists into Template editor');
+ const name='Inline Template '+Date.now();await template.locator('[name=name]').fill(name);
+ await template.getByRole('button',{name:'Template 저장',exact:true}).click();await template.waitFor({state:'detached'});
+ const selected=await project.locator('[name=form_id] option:checked').innerText();check(selected.includes(name),'saved Template selected automatically');
+ check(await project.locator('[name=preset]').inputValue()==='','old Template preset does not carry into new Template');
+ check(await project.locator('[name=name]').inputValue()==='Template workflow'&&await project.locator('[name=description]').inputValue()==='Preserved project input'&&await project.locator('[name=storage_path]').inputValue()==='D:\\Projects\\Preserved','project name description and folder preserved');
+ await project.locator('[data-cancel]').click();await project.waitFor({state:'detached'});
+ check(await page.locator('#ewFormList strong').filter({hasText:name}).count()===1,'new Template remains in sidebar');
+ await page.locator('#mViz').click();const modes=page.locator('#ewSidebarActions');
+ check(await modes.locator('button').first().innerText()==='3D Virtual'&&await modes.locator('button').last().innerText()==='Data Sheet','3D left and Data Sheet right');
+ await modes.getByRole('button',{name:'Data Sheet',exact:true}).click();
+ check(await modes.getByRole('button',{name:'Data Sheet',exact:true}).getAttribute('aria-pressed')==='true','Data selected state updates');
+ await page.waitForTimeout(320);
+ const offset=await modes.evaluate(e=>new DOMMatrix(getComputedStyle(e,'::after').transform).m41);check(offset>0,'selection border moves to right');
+ await modes.getByRole('button',{name:'3D Virtual',exact:true}).click();await page.waitForTimeout(320);check(await modes.evaluate(e=>new DOMMatrix(getComputedStyle(e,'::after').transform).m41)===0,'selection border returns left');
+ await page.emulateMedia({reducedMotion:'reduce'});check(await modes.evaluate(e=>getComputedStyle(e,'::after').transitionDuration)==='0s','reduced motion honored');await page.emulateMedia({reducedMotion:'no-preference'});
+ await page.locator('#mCFD').click();check(await modes.locator('button').first().innerText()==='프로젝트 찾기','CFD actions restored');
+ await page.setViewportSize({width:900,height:800});await page.locator('#ewCreateProject').click();await page.locator('.ew-project-dialog [data-new-template]').click();wizard=page.locator('.fw-recommend-dialog');await wizard.waitFor();
+ const box=await wizard.boundingBox();check(box.x>=0&&box.x+box.width<=900,'Template remains usable on a narrow screen');await wizard.getByRole('button',{name:'취소',exact:true}).click();await wizard.waitFor({state:'detached'});await page.locator('.ew-project-dialog [data-cancel]').click();
+ check(errors.length===0,'no browser errors: '+errors.join('; '));page.off('pageerror',onerror);return {checks};
+}

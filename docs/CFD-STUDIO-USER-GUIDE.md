@@ -57,7 +57,14 @@
 - 창 하단 **저장** 클릭 → 왼쪽 목록에 프로젝트 표시
 - 기존 프로젝트 사용: 왼쪽 목록에서 프로젝트 이름 클릭
 
-- 선택할 Template이 없으면 **CFD Template 리스트 → +**에서 먼저 생성
+- 선택할 Template이 없으면 선택란 오른쪽 **+** 클릭
+- 프로젝트 창이 왼쪽으로 이동하고 오른쪽에 Template 생성 화면 표시
+- 설문 작성 → 솔버 선택 → 양식 생성 → 이름 입력 → **Template 저장**
+- 저장한 Template 자동 선택 · 프로젝트 이름·폴더·설명 유지
+- 생성 취소 시 기존 Template·프리셋 선택 유지
+- 좁은 화면에서는 Template 생성 화면을 중앙에 표시
+
+![프로젝트에서 Template 생성](assets/project-template/create.png)
 - **실행 연결 필요**로 표시된 Template은 프로젝트·입력값 저장 가능, CFD Case 실행은 별도 실행기 연결 필요
 
 ### 프로젝트 정보 및 저장 폴더 변경
@@ -220,7 +227,10 @@
 - **화면 진입**: 상단 **Viewer** 탭 또는 CFD 화면에서 Case의 **열기** 버튼 클릭
 - **기본 순서**: 프로젝트 선택 → CFD Case 선택 → 시각화율 확인 → 3D 또는 그래프 조회 → 내보내기
 
-![Viewer 모드 버튼](assets/project-controls/viewer.png)
+- 왼쪽 **3D Virtual** · 오른쪽 **Data Sheet**
+- 클릭 시 선택 테두리가 해당 버튼으로 이동
+
+![Viewer 모드 버튼](assets/project-template/viewer.png)
 
 ### 프로젝트 및 CFD Case 선택
 
@@ -233,7 +243,7 @@
 
 ![Viewer](assets/common-viewer-20260929/immersion.png)
 
-- 사진: 이중액침 결과 예시. 왼쪽 하단에 **CFD Case** 목록 표시. 모드 선택은 현재 **Data Sheet / 3D Virtual** 버튼 사용
+- 사진: 이중액침 결과 예시. 왼쪽 하단에 **CFD Case** 목록 표시. 모드 선택은 현재 **3D Virtual / Data Sheet** 버튼 사용
 
 ### 데이터 시각화율 확인 및 업데이트
 

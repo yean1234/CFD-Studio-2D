@@ -66,8 +66,9 @@
   function renderSidebarAction(){
     const first=$('ewFindProject'),second=$('ewCreateProject');if(!first||!second)return;
     const viewer=document.body.classList.contains('execution-viewer');
+    const actions=$('ewSidebarActions');actions.classList.toggle('viewer',viewer);actions.dataset.viewerMode=DataSheetViewer.mode;
     for(const [control,label,action,selected] of viewer
-      ? [[first,'Data Sheet',()=>selectViewerMode('data'),DataSheetViewer.mode==='data'],[second,'3D Virtual',()=>selectViewerMode('3d'),DataSheetViewer.mode==='3d']]
+      ? [[first,'3D Virtual',()=>selectViewerMode('3d'),DataSheetViewer.mode==='3d'],[second,'Data Sheet',()=>selectViewerMode('data'),DataSheetViewer.mode==='data']]
       : [[first,'프로젝트 찾기',findProject,false],[second,'새 프로젝트',createProject,false]]){
       control.textContent=label;control.title=label;control.setAttribute('aria-label',label);
       control.classList.toggle('selected',selected);control.onclick=action;control.disabled=!viewer&&pending;
@@ -214,12 +215,13 @@
     }
     list.scrollTop=changedProject?0:scrollTop;
   }
-  async function formEditor(id=null,prepared=null){
+  async function formEditor(id=null,prepared=null,flow=null){
     try{
       const [reply,catalogReply,surveyReply]=await Promise.all([api('/forms'),api('/solvers'),api('/form-survey')]);
+      if(flow&&!flow.active)return;
       const existing=reply.forms.find(f=>f.id===id),connected=existing&&!existing.definition_only;
-      const survey=(settings,onApply)=>CFDFormWizard.recommend({options:surveyReply.options,...settings,loadRecommendations:async answers=>(await api('/form-recommend',{answers})).result,generate:async(solver,answers)=>(await api('/form-from-survey',{solver,answers})).result,onApply});
-      if(!existing&&!prepared){survey({},selection=>formEditor(null,selection));return;}
+      const survey=(settings,onApply,root=false)=>CFDFormWizard.recommend({options:surveyReply.options,...settings,onOpen:flow?.attach,onDismiss:root?flow?.finish:null,loadRecommendations:async answers=>(await api('/form-recommend',{answers})).result,generate:async(solver,answers)=>(await api('/form-from-survey',{solver,answers})).result,onApply});
+      if(!existing&&!prepared){survey({},selection=>formEditor(null,selection,flow),true);return;}
       let solvers=catalogReply.solvers,installation=catalogReply.installation;
       let config=structuredClone(prepared?.result.config||existing?.blank_config||{}),schema=prepared?.result.config_schema|| (existing?.input_schema?structuredClone(existing.input_schema):CFDFormConfig.fromConfig({})),configured=!!(existing||prepared);
       const d=node('dialog');d.className='ew-dialog ew-form-dialog';
@@ -244,10 +246,10 @@
       f.querySelector('[data-check]').onclick=async()=>{const check=f.querySelector('[data-check]');check.disabled=true;f.querySelector('[data-install-result]').textContent='설치 확인 중';try{const r=await api('/solver-check',{});if(!d.isConnected)return;solvers=r.result.solvers;installation=r.result.installation;draw();}catch(e){f.querySelector('[data-install-result]').textContent=e.message;}finally{check.disabled=false;}};
       f.querySelector('[data-config]').onclick=()=>CFDFormConfig.open({config,schema,schemaOnly:true,title:'Config 양식',onSave:async(value,definition)=>{config=value;schema=definition;draw();}});
       f.querySelector('[data-wizard]').onclick=()=>survey({answers:{...config?.analysis?.choices,time_mode:config?.analysis?.time_mode},selected:solver().id,fixedSolver:existing?.solver||null,replace:configured},async selection=>{config=selection.result.config;schema=selection.result.config_schema;f.elements.solver.value=selection.solver;configured=true;draw();});
-      f.querySelector('[data-cancel]').onclick=()=>d.close();d.onclose=()=>d.remove();
-      f.onsubmit=async e=>{e.preventDefault();const submit=f.querySelector('[type=submit]');submit.disabled=true;try{if(!configured)throw Error('설문을 완료하고 솔버를 선택하세요');await api('/form',{id,revision:existing?.revision,name:f.elements.name.value,model:existing?.model||'solver_definition',solver:solver().id,description:f.elements.description.value,config:connected?existing.config:config,sections:existing?.sections||{},input_schema:schema});d.close();await refresh();}catch(e){f.querySelector('[role=alert]').textContent=e.message;}finally{submit.disabled=false;}};
-      draw();document.body.append(d);d.showModal();
-    }catch(e){message(e.message);}
+      f.querySelector('[data-cancel]').onclick=()=>d.close();d.onclose=()=>{d.remove();flow?.finish();};d.oncancel=e=>{if(f.querySelector('[type=submit]').disabled)e.preventDefault();};
+      f.onsubmit=async e=>{e.preventDefault();const submit=f.querySelector('[type=submit]');submit.disabled=true;f.querySelector('[data-cancel]').disabled=true;try{if(!configured)throw Error('설문을 완료하고 솔버를 선택하세요');const saved=await api('/form',{id,revision:existing?.revision,name:f.elements.name.value,model:existing?.model||'solver_definition',solver:solver().id,description:f.elements.description.value,config:connected?existing.config:config,sections:existing?.sections||{},input_schema:schema});await flow?.onSaved(saved.result);d.close();await refresh();}catch(e){f.querySelector('[role=alert]').textContent=e.message;}finally{submit.disabled=false;f.querySelector('[data-cancel]').disabled=false;}};
+      draw();document.body.append(d);if(flow?.attach(d)===false){d.remove();return;}d.showModal();
+    }catch(e){if(flow){flow.error(e.message);flow.finish();}else message(e.message);}
   }
   function renderQueue(){const q=data.queue||{},box=$('ewQueue');box.replaceChildren();$('ewQueueCard').hidden=!q.active&&!q.order?.length&&!q.failure&&!q.service_error;const all=data.projects.flatMap(p=>p.runs);$('ewQueueState').textContent=q.failure?'실패 확인 필요':q.paused?(q.active?'현재 실행 후 일시정지':'일시정지'):q.active||q.order?.length?'순차 실행':'대기열 완료';
     for(const [i,id] of (q.order||[]).entries()){const r=all.find(r=>r.id===id),row=node('div',null,'ew-bar ew-queue-row');row.append(node('span',(i+1)+'. '+(data.projects.find(p=>p.id===r?.project_id)?.name||'프로젝트')+' / '+(r?.name||id)));const move=delta=>{const order=[...q.order],j=i+delta;if(j<0||j>=order.length)return;[order[i],order[j]]=[order[j],order[i]];queueAction('reorder',{ids:order});};const up=button('↑',()=>move(-1)),down=button('↓',()=>move(1));up.title='실행 순서 위로';down.title='실행 순서 아래로';up.disabled=i===0;down.disabled=i===q.order.length-1;row.append(up,down,button('제외',()=>queueAction('remove',{id})));box.append(row);}
@@ -319,8 +321,8 @@
   async function projectDialog(edit=false){
     try {
       const [presetReply,defaults]=await Promise.all([api('/presets'),api('/storage-defaults')]);
-      const p=edit?currentProject():null,d=node('dialog');d.className='ew-dialog';
-      d.innerHTML='<form><h2></h2><label>프로젝트 이름<input name="name" required maxlength="80"></label><label>프로젝트 폴더<div class="ew-path"><input name="storage_path" required spellcheck="false" placeholder="D:\\CFD Projects\\프로젝트 이름"><button class="btn" type="button" data-pick>찾기</button></div></label><p class="ew-path-note"></p><label>프로젝트 설명<textarea name="description" maxlength="4000" rows="3"></textarea></label><div class="ew-form-choice"><label>CFD Template<select name="form_id" required><option value="">해석 대상 선택</option></select></label><label>기본 프리셋<select name="preset" disabled><option value="">FORM 선택 후 선택</option></select></label></div><p role="alert"></p><div class="ew-bar"><button class="btn pri" type="submit">저장</button><button class="btn" type="button" data-cancel>취소</button></div></form>';
+      const p=edit?currentProject():null,d=node('dialog');d.className='ew-dialog ew-project-dialog';
+      d.innerHTML='<form data-validation="submit"><h2></h2><label>프로젝트 이름<input name="name" required maxlength="80"></label><label>프로젝트 폴더<div class="ew-path"><input name="storage_path" required spellcheck="false" placeholder="D:\\CFD Projects\\프로젝트 이름"><button class="btn" type="button" data-pick>찾기</button></div></label><p class="ew-path-note"></p><label>프로젝트 설명<textarea name="description" maxlength="4000" rows="3"></textarea></label><div class="ew-form-choice"><label>CFD Template<div class="ew-template-select"><select name="form_id" required><option value="">해석 대상 선택</option></select><button type="button" class="btn ew-template-add" data-new-template aria-label="새 CFD Template" title="새 CFD Template">+</button></div></label><label>기본 프리셋<select name="preset" disabled><option value="">FORM 선택 후 선택</option></select></label></div><p role="alert"></p><div class="ew-bar"><button class="btn pri" type="submit">저장</button><button class="btn" type="button" data-cancel>취소</button></div></form>';
       d.querySelector('h2').textContent=edit?'프로젝트 관리':'새 프로젝트';
       const f=d.querySelector('form'),path=f.elements.storage_path;
       f.elements.name.value=p?.name||'';f.elements.description.value=p?.description||'';
@@ -345,6 +347,26 @@
       if(!edit)f.querySelector('.ew-form-choice').after(configArea,presetSave,presetName);
       const filterPresets=()=>{f.elements.preset.replaceChildren(new Option('직접 입력',''));projectConfig=null;configButton.disabled=!f.elements.form_id.value;configStatus.textContent='Config 입력 필요';for(const item of presetReply.presets.filter(x=>x.form_id===f.elements.form_id.value)){const option=new Option(item.name,item.id);option.setAttribute('translate','no');f.elements.preset.append(option);}f.elements.preset.disabled=!f.elements.form_id.value;};
       f.elements.form_id.value=p?.form_id||'';f.elements.form_id.disabled=edit;filterPresets();f.elements.preset.value=p?.default_preset||(p?'form:'+p.form_id:'');f.elements.form_id.onchange=()=>{configEpoch++;filterPresets();};f.elements.preset.onchange=()=>{configEpoch++;projectConfig=null;configStatus.textContent=f.elements.preset.value?'선택한 프리셋 적용':'Config 입력 필요';configButton.textContent='Config 입력';};
+      const addTemplate=f.querySelector('[data-new-template]');addTemplate.hidden=edit;
+      addTemplate.onclick=()=>{
+        if(addTemplate.disabled)return;addTemplate.disabled=true;f.querySelector('[role=alert]').textContent='';
+        const flow={active:true,
+          attach:child=>{if(!flow.active||!d.open)return false;d.classList.add('ew-project-attached');child.classList.add('ew-template-attached');},
+          error:text=>{if(d.isConnected)f.querySelector('[role=alert]').textContent=text;},
+          finish:()=>{if(!flow.active)return;flow.active=false;d.classList.remove('ew-project-attached');addTemplate.disabled=false;if(d.open)addTemplate.focus({preventScroll:true});},
+          onSaved:async saved=>{
+            try{
+              const [latest,latestPresets]=await Promise.all([api('/forms'),api('/presets')]);
+              if(!flow.active||!d.open)return;
+              forms=latest.forms;presetReply.presets=latestPresets.presets;
+              f.elements.form_id.replaceChildren(new Option('해석 대상 선택',''));
+              for(const item of forms){const option=new Option(item.name+(item.definition_only?' · 실행 연결 필요':''),item.id);option.setAttribute('translate','no');f.elements.form_id.append(option);}
+              f.elements.form_id.value=saved.id;configEpoch++;filterPresets();configButton.textContent='Config 입력';
+            }catch(e){flow.error('Template 저장 완료 · '+e.message);}
+          }
+        };
+        formEditor(null,null,flow);
+      };
       const pick=f.querySelector('[data-pick]');pick.onclick=async()=>{pick.disabled=true;f.querySelector('[role=alert]').textContent='폴더 선택 창에서 폴더를 선택하거나 취소하세요';try{const r=await api('/project-pick',{path:path.value||defaults.base_path});if(!r.result.cancelled){path.value=r.result.path;customPath=true;}f.querySelector('[role=alert]').textContent='';}catch(e){f.querySelector('[role=alert]').textContent=e.message;}finally{pick.disabled=false;}};
       f.querySelector('[data-cancel]').onclick=()=>d.close();d.onclose=()=>d.remove();
       f.onsubmit=async e=>{e.preventDefault();if(pending)return;pending=true;renderProjects();
@@ -405,9 +427,19 @@ body.grouped #warehouseDetails details{margin-top:8px}body.grouped #warehouseDet
 }
 
 
-#ewSidebarActions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;width:100%}
+#ewSidebarActions{position:relative;isolation:isolate;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;width:100%}
 #ewSidebarActions>.btn{display:flex;align-items:center;justify-content:center;width:100%;height:38px;min-height:38px;box-sizing:border-box;padding:0 6px;white-space:nowrap}
-#ewSidebarActions>.btn.selected{background:rgba(57,135,229,.18);border-color:var(--s1);color:#8fc3ff;box-shadow:inset 0 0 0 1px var(--s1)}
+#ewSidebarActions>.btn{transition:background-color .25s,color .25s}#ewSidebarActions>.btn.selected{background:rgba(57,135,229,.12);color:#8fc3ff}
+#ewSidebarActions::after{content:'';position:absolute;inset:0 auto 0 0;width:calc((100% - 8px)/2);box-sizing:border-box;border:1px solid var(--s1);border-radius:8px;box-shadow:inset 0 0 0 1px var(--s1);pointer-events:none;opacity:0;transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .15s}
+#ewSidebarActions.viewer::after{opacity:1}#ewSidebarActions.viewer[data-viewer-mode=data]::after{transform:translateX(calc(100% + 8px))}
+.ew-template-select{display:flex;align-items:center;gap:8px}.ew-dialog .ew-template-select select{flex:1;min-width:0;margin:0;height:36px}.ew-template-select .ew-template-add{width:36px;height:36px;flex:none;padding:0;display:grid;place-items:center;font-size:24px;line-height:1;border-radius:8px}.ew-template-add[hidden]{display:none}
+.ew-project-dialog{transition:transform .28s cubic-bezier(.2,.8,.2,1),width .28s,height .28s}
+.ew-project-attached{width:min(420px,36vw);height:min(820px,90vh);transform:translateX(calc((min(700px,56vw) + 16px)/-2))}
+dialog.ew-template-attached[class]{box-sizing:border-box;width:min(700px,56vw);max-width:none;height:min(820px,90vh);max-height:90vh;transform:translateX(calc((min(420px,36vw) + 16px)/2));animation:ew-template-enter .28s cubic-bezier(.2,.8,.2,1)}
+dialog.ew-template-attached::backdrop{background:transparent}
+@keyframes ew-template-enter{from{opacity:0;translate:20px 0}to{opacity:1;translate:0 0}}
+@media(max-width:1100px){.ew-project-attached{width:min(500px,90vw);height:auto;transform:none}dialog.ew-template-attached[class]{width:94vw;height:auto;transform:none}dialog.ew-template-attached::backdrop{background:#0009}}
+@media(prefers-reduced-motion:reduce){.ew-project-dialog,#ewSidebarActions::after,#ewSidebarActions>.btn{transition:none}dialog.ew-template-attached[class]{animation:none}}
 
 `;document.head.append(style);
     const sidebar=node('section',null);sidebar.id='ewSidebar';const create=button('새 프로젝트',createProject);create.id='ewCreateProject';const find=button('프로젝트 찾기',findProject);find.id='ewFindProject';const actions=node('div');actions.id='ewSidebarActions';actions.append(find,create);const projectHeading=node('div',null,'ew-project-heading');projectHeading.append(node('h2','프로젝트'));sidebar.append(projectHeading,actions);

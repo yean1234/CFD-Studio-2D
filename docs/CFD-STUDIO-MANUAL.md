@@ -2,7 +2,7 @@
 
 - 대상: CFD Studio 사용자
 - 내용: Template·Config·저장 구조·결과 표시·지원 범위
-- 사용법과 화면 명칭 기준: v225
+- 사용법과 화면 명칭 기준: v227
 - 화면 조작: [사용법](CFD-STUDIO-USER-GUIDE.md)
 
 ## 설치 환경
@@ -375,3 +375,16 @@
   }
 }
 ```
+
+
+## 프로젝트에서 Template 생성
+
+- 새 프로젝트의 CFD Template 선택란 옆 **+**: 기존 Template 생성 설문 열기
+- 넓은 화면: 프로젝트 입력창을 왼쪽으로 이동하고 같은 높이의 Template 생성창을 오른쪽에 표시
+- 좁은 화면: Template 생성창을 중앙에 표시
+- 생성 중 프로젝트 입력은 보존 · 취소하면 기존 Template·프리셋·Config 유지
+- 저장 성공 시 새 Template을 자동 선택하고 이전 Template의 프리셋·Config 선택 해제
+- Template 저장과 프로젝트 저장은 별도 · 프로젝트 생성을 취소해도 저장한 Template은 유지
+- 프로젝트 관리에서는 해석 Template을 변경할 수 없어 **+**를 표시하지 않음
+- Viewer: 왼쪽 3D Virtual, 오른쪽 Data Sheet · 현재 모드의 테두리가 좌우로 이동
+- 운영체제의 동작 줄이기 설정을 사용하는 경우 이동 애니메이션 비활성
