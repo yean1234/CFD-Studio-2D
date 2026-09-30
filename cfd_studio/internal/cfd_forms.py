@@ -150,9 +150,10 @@ class CFDForms:
         from cfd_studio.execution_workspace import label, config_kind, read_json, atomic_json
         name = label(name)
         if input_schema is not None:
-            from cfd_studio.form_schema import config_from_schema, blank_schema
+            from cfd_studio.form_schema import config_from_schema, blank_schema, apply_initial_geometry
             config_from_schema(input_schema)
             input_schema=blank_schema(config,input_schema)
+            config=apply_initial_geometry(config,input_schema)
         json.dumps(config, allow_nan=False)
         from cfd_studio.execution_workspace import validate_settings
         from cfd_studio.solver_catalog import definition as solver_definition, validate_draft

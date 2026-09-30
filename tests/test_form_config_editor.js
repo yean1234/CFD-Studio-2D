@@ -25,3 +25,11 @@ test('required and conditional classification keeps boundary inputs accessible',
  assert.equal(fieldStatus({key:'algorithm',type:'string',readonly:true}),'fixed');
  assert.equal(newField([]).value,null);
 });
+
+test('Template layout survives blanking without storing operating values',()=>{
+ const {blankDefinition}=require('../cfd_studio/internal/form_config_editor.js');
+ const source={geometry:{regions:[{name:'A',shape:'box',unit:'m',min:[0,0,0],max:[1,2,3],config_bindings:[['materials','fluid']]}]},coil:{x0:1,x1:2,h_W_m2K:20},materials:{fluid:{density:1000}}};
+ const schema=fromConfig(source),before=structuredClone(schema),blank=toConfig(blankDefinition(schema));
+ assert.deepEqual(blank.geometry,source.geometry);assert.equal(blank.coil.x0,1);assert.equal(blank.coil.h_W_m2K,null);assert.equal(blank.materials.fluid.density,null);assert.deepEqual(schema,before);
+ blank.geometry.regions[0].max[0]=9;assert.equal(source.geometry.regions[0].max[0],1);
+});

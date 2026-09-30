@@ -30,3 +30,13 @@ test('blank and unsupported geometry is explicitly reported',()=>{
  assert.match(shapes({geometry:{source:'mesh.stl'}}).notes.join(' '),/외부 형상/);
  const result=shapes({domain:{shape:'custom',unit:'m'}});assert.equal(result.items.length,0);assert.match(result.notes.join(' '),/지원하지 않는 shape/);
 });
+
+test('element selection uses exact paths, including punctuated user names',()=>{
+ const c={geometry:{regions:{'a.b':{name:'User <name>',shape:'box',unit:'m',min:[0,0,0],max:[1,1,1]}}}};
+ const {elements,at}=require('../cfd_studio/internal/spatial_editor.js'),e=elements(c)[0];
+ assert.deepEqual(e.path,['geometry','regions','a.b']);assert.equal(at(c,e.path).name,'User <name>');assert.equal(shapes(c).items[0].id,e.id);
+});
+test('an incomplete new element does not erase existing preview shapes',()=>{
+ const c={geometry:{regions:[{name:'A',shape:'box',unit:'m',min:[0,0,0],max:[1,2,3]},{name:'B',shape:'box',unit:'m',min:[0,0,0],max:[null,null,null]}]}};
+ const result=shapes(c);assert.equal(result.items.length,1);assert.match(result.notes.join(' '),/치수 미입력/);
+});

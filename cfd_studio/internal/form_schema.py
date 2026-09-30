@@ -60,16 +60,51 @@ def validate_schema(schema,config):
         raise ValueError('Config and field schema do not match')
 
 
+def is_geometry_path(path):
+    root=path[0] if path else ''
+    key=path[1] if len(path)>1 else ''
+    if root in ('geometry','domain','regions','geometry_spec','loading','silo','published','probes_mm'):return True
+    if root in ('tank','board','coil'):return key in ('width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','config_bindings')
+    if root=='layers':return key in ('dielectric_mm','air_mm')
+    return root=='heater' and key=='cpus'
+
+
 def blank_schema(config, schema=None):
     """Separate definition metadata from user values without rewriting legacy presets."""
     from cfd_studio.form_wizard import make_schema
     result=copy.deepcopy(schema or make_schema(config))
+    # Restore geometry from older templates whose input schema blanked dimensions.
+    if schema and schema.get('spatial_version')!=1:
+        def with_metadata(source,old):
+            value=copy.deepcopy(source)
+            for key in ('label','description','required'):
+                if key in old:value[key]=copy.deepcopy(old[key])
+            if value['type']=='object' and old['type']=='object':
+                prior={f['key']:f for f in old['fields']}
+                value['fields']=[with_metadata(f,prior[f['key']]) if f['key'] in prior else f for f in value['fields']]
+            return value
+        def restore(fields,original,path=()):
+            by_key={f['key']:f for f in original}
+            for i,field in enumerate(fields):
+                p=path+(field['key'],);source=by_key.get(field['key'])
+                if source is None:continue
+                if is_geometry_path(p):fields[i]=with_metadata(source,field)
+                elif field['type']=='object' and source['type']=='object':restore(field['fields'],source['fields'],p)
+        restore(result['fields'],make_schema(config)['fields'])
+    result['spatial_version']=1
     def visit(fields,path=()):
         for field in fields:
             p=path+(field['key'],)
             fixed=(p[0]=='analysis' or (field['key']=='unit' and bool(field.get('value'))) or str(p[0]).startswith('_')
                    or p in (('numerics','algorithm'),('physics','flow_regime'),('termination','mode'),('openfoam_mapping','solver'),('openfoam_mapping','pressure_velocity_coupling'),('run','time_basis'),('outputs','fields'))
                    or field['key'] in ('model_options','method','state'))
+            if is_geometry_path(p):
+                def editable(f):
+                    f.pop('readonly',None)
+                    if f['type']=='object':
+                        for child in f['fields']:editable(child)
+                editable(field)
+                continue
             if field['type']=='object':visit(field['fields'],p)
             elif fixed:field['readonly']=True
             else:
@@ -81,6 +116,43 @@ def blank_schema(config, schema=None):
     return result
 
 
+def apply_initial_geometry(config,schema):
+    """Copy editable layout defaults only; never replace operating preset values."""
+    result=copy.deepcopy(config)
+    def visit(fields,target,path=()):
+        for field in fields:
+            key=field['key'];p=path+(key,)
+            if is_geometry_path(p):target[key]=config_from_schema({'version':1,'fields':[field]})[key]
+            elif field['type']=='object' and isinstance(target.get(key),dict):visit(field['fields'],target[key],p)
+    visit(schema['fields'],result)
+    return result
+
+
+def validate_geometry(config):
+    """Check supported primitive dimensions before a project can use them."""
+    def number(value):return type(value) in (int,float) and math.isfinite(value)
+    def vector(value):return isinstance(value,list) and len(value)==3 and all(number(v) for v in value)
+    def region(value):
+        if not isinstance(value,dict):return
+        shape=value.get('shape',value.get('type'))
+        if shape not in ('box','sphere','cylinder'):return  # External/custom geometry has its own adapter.
+        if value.get('unit') not in ('m','cm','mm'):raise ValueError('형상 단위에 m, cm 또는 mm를 입력하세요')
+        if shape=='box':
+            low,high=value.get('min'),value.get('max')
+            if not vector(low) or not vector(high) or any(a>=b for a,b in zip(low,high)):raise ValueError('형상의 최소·최대 좌표를 확인하세요')
+        else:
+            if not vector(value.get('center')) or not number(value.get('radius')) or value['radius']<=0:raise ValueError('형상의 중심 좌표와 반지름을 확인하세요')
+            if shape=='cylinder' and (not number(value.get('height')) or value['height']<=0 or value.get('axis') not in ('x','y','z')):raise ValueError('원기둥의 높이와 중심축을 확인하세요')
+    def collection(value,unit=None):
+        for item in value if isinstance(value,list) else value.values() if isinstance(value,dict) else ():
+            if isinstance(item,dict):region({'unit':unit,**item})
+    geometry=config.get('geometry',{})
+    if isinstance(geometry,dict):
+        region(geometry)
+        for key in ('regions','fluid_regions','solid_regions'):collection(geometry.get(key),geometry.get('unit'))
+    region(config.get('domain'));collection(config.get('regions'))
+
+
 def validate_values(schema,config):
     """Validate Template keys/types and fixed metadata, preserving entered values."""
     def visit(fields,obj,path=''):
@@ -89,10 +161,18 @@ def validate_values(schema,config):
             key=field['key'];name=path+'.'+key if path else key
             if key not in obj:raise ValueError(name+' 항목이 없습니다')
             value=obj[key]
+            # Geometry collections are project-owned: additions/removals are permitted.
+            if is_geometry_path(tuple(name.split('.'))):
+                from cfd_studio.form_wizard import make_schema
+                if field['type']=='object':
+                    if not isinstance(value,dict):raise ValueError(name+' JSON 객체를 입력하세요')
+                    config_from_schema(make_schema(value))
+                else:config_from_schema({'version':1,'fields':[{**field,'value':value}]})
+                continue
             if field['type']=='object':visit(field['fields'],value,name)
             else:
                 if field.get('required') and not field.get('readonly') and value in (None,'',[],{}):raise ValueError(name+' 값을 입력하세요')
                 if field.get('readonly') and value!=field.get('value'):raise ValueError(name+' Template 정의는 변경할 수 없습니다')
                 trial={'version':1,'fields':[{**field,'value':value}]}
                 config_from_schema(trial)
-    _json_value(config);visit(schema['fields'],config)
+    _json_value(config);visit(schema['fields'],config);validate_geometry(config)
