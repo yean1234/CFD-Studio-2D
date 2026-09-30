@@ -61,12 +61,58 @@ def validate_schema(schema,config):
 
 
 def is_geometry_path(path):
+    if 'properties' in path:return False
     root=path[0] if path else ''
     key=path[1] if len(path)>1 else ''
     if root in ('geometry','domain','regions','geometry_spec','loading','silo','published','probes_mm'):return True
+    if root in ('dielectric_fluid','water'):return key in ('name','role','config_bindings')
     if root in ('tank','board','coil'):return key in ('width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','config_bindings')
     if root=='layers':return key in ('dielectric_mm','air_mm')
     return root=='heater' and key=='cpus'
+
+
+def _blank_property_values(value):
+    if isinstance(value,list):
+        for item in value:_blank_property_values(item)
+    elif isinstance(value,dict):
+        properties=value.get('properties')
+        if isinstance(properties,dict):
+            for record in properties.values():
+                if isinstance(record,dict) and record.get('type') in TYPES and 'value' in record:
+                    record['value']=[] if record['type']=='array' else '' if record['type']=='string' else None
+        for item in value.values():_blank_property_values(item)
+
+
+def _blank_property_fields(fields):
+    for field in fields:
+        if field['type']=='object':
+            if field['key']=='properties':
+                for record in field['fields']:
+                    parts={f['key']:f for f in record.get('fields',[])}
+                    kind=parts.get('type',{}).get('value')
+                    if kind in TYPES and 'value' in parts:
+                        item=parts['value'];item.pop('readonly',None);item['nullable']=True
+                        item['value']=[] if kind=='array' else '' if kind=='string' else None
+            _blank_property_fields(field['fields'])
+        elif isinstance(field.get('value'),(dict,list)):_blank_property_values(field['value'])
+
+
+def _inherit_property_values(layout, previous):
+    """Template dimensions can change; values stay attached to matching named parts."""
+    if isinstance(layout,list) and isinstance(previous,list):
+        named={x.get('name'):x for x in previous if isinstance(x,dict) and x.get('name')}
+        for i,item in enumerate(layout):
+            prior=named.get(item.get('name'),{}) if isinstance(item,dict) and item.get('name') else previous[i] if i<len(previous) else None
+            _inherit_property_values(item,prior)
+    elif isinstance(layout,dict) and isinstance(previous,dict):
+        for key,value in layout.items():
+            prior=previous.get(key)
+            if key=='properties' and isinstance(value,dict) and isinstance(prior,dict):
+                for name,record in value.items():
+                    old=prior.get(name)
+                    if isinstance(record,dict) and isinstance(old,dict) and 'value' in record and old.get('type')==record.get('type'):
+                        record['value']=copy.deepcopy(old.get('value'))
+            else:_inherit_property_values(value,prior)
 
 
 def blank_schema(config, schema=None):
@@ -98,6 +144,7 @@ def blank_schema(config, schema=None):
             fixed=(p[0]=='analysis' or (field['key']=='unit' and bool(field.get('value'))) or str(p[0]).startswith('_')
                    or p in (('numerics','algorithm'),('physics','flow_regime'),('termination','mode'),('openfoam_mapping','solver'),('openfoam_mapping','pressure_velocity_coupling'),('run','time_basis'),('outputs','fields'))
                    or field['key'] in ('model_options','method','state'))
+            if field['key']=='properties' and field['type']=='object' and all(r['type']=='object' and {'type','value'} <= {f['key'] for f in r['fields']} for r in field['fields']):continue
             if is_geometry_path(p):
                 def editable(f):
                     f.pop('readonly',None)
@@ -112,6 +159,7 @@ def blank_schema(config, schema=None):
                 field['nullable']=True
                 field['value']=[] if field['type']=='array' else '' if field['type']=='string' else None
     visit(result['fields'])
+    _blank_property_fields(result['fields'])
     config_from_schema(result)
     return result
 
@@ -122,7 +170,10 @@ def apply_initial_geometry(config,schema):
     def visit(fields,target,path=()):
         for field in fields:
             key=field['key'];p=path+(key,)
-            if is_geometry_path(p):target[key]=config_from_schema({'version':1,'fields':[field]})[key]
+            if is_geometry_path(p):
+                layout=config_from_schema({'version':1,'fields':[field]})[key]
+                _inherit_property_values(layout,target.get(key))
+                target[key]=layout
             elif field['type']=='object' and isinstance(target.get(key),dict):visit(field['fields'],target[key],p)
     visit(schema['fields'],result)
     return result

@@ -43,3 +43,10 @@ test('JSON section edits reject wrong types and unsafe keys without changing ori
  const valid=structuredClone(original);valid.geometry.regions[0].max[0]=2;validateValueEdits(original,valid);
  assert.equal(JSON.stringify(original),before);
 });
+
+test('part property definitions survive Template blanking while values remain project inputs',()=>{
+ const {blankDefinition}=require('../cfd_studio/internal/form_config_editor.js');
+ const c={geometry:{regions:[{name:'Custom part',role:'user role',shape:'sphere',unit:'m',center:[0,0,0],radius:2,properties:{voltage:{name:'Voltage',type:'number',unit:'V',value:24}}}]},coil:{x0:1,x1:2,properties:{enabled:{name:'Enable',type:'boolean',unit:'',value:true}}}};
+ const schema=fromConfig(c),before=structuredClone(schema),blank=toConfig(blankDefinition(schema));
+ assert.equal(blank.geometry.regions[0].radius,2);assert.equal(blank.geometry.regions[0].role,'user role');assert.deepEqual(blank.geometry.regions[0].properties.voltage,{name:'Voltage',type:'number',unit:'V',value:null});assert.equal(blank.coil.properties.enabled.value,null);assert.equal(blank.coil.properties.enabled.type,'boolean');assert.deepEqual(schema,before);
+});

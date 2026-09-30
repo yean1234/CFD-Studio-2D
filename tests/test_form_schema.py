@@ -68,3 +68,32 @@ class FormSchemaTests(unittest.TestCase):
             self.assertEqual(w.forms(),before)
 
 if __name__=='__main__':unittest.main()
+
+class PartPropertySchemaTests(unittest.TestCase):
+    def test_definitions_blank_values_and_inherit_preset_values_by_part_name(self):
+        from cfd_studio.form_schema import blank_schema,apply_initial_geometry
+        from cfd_studio.form_wizard import make_schema
+        c={'geometry':{'regions':[{'name':'A','shape':'box','unit':'m','min':[0,0,0],'max':[1,2,3],'role':'user role','properties':{'voltage':{'name':'Potential','type':'number','unit':'V','value':24}}}]},'coil':{'x0':1,'x1':2,'properties':{'enabled':{'name':'Enable','type':'boolean','unit':'','value':True}}}}
+        before=copy.deepcopy(c);schema=blank_schema(c,make_schema(c));blank=config_from_schema(schema)
+        self.assertIsNone(blank['geometry']['regions'][0]['properties']['voltage']['value'])
+        self.assertEqual(blank['geometry']['regions'][0]['properties']['voltage']['name'],'Potential')
+        self.assertIsNone(blank['coil']['properties']['enabled']['value'])
+        restored=apply_initial_geometry(c,schema)
+        self.assertEqual(restored['geometry']['regions'][0]['properties']['voltage']['value'],24)
+        self.assertEqual(restored['coil']['properties']['enabled']['value'],True)
+        self.assertEqual(c,before)
+        material=blank_schema({'materials':{'properties':{'density':999}}})
+        self.assertIsNone(config_from_schema(material)['materials']['properties']['density'])
+
+    def test_template_property_definition_survives_registry_restart(self):
+        from cfd_studio.form_schema import blank_schema
+        source={'geometry':{'regions':[{'name':'Part A','role':'custom role','shape':'sphere','unit':'m','center':[0,0,0],'radius':1,'properties':{'density':{'name':'Density','type':'number','unit':'kg/m³','value':950}}}]}}
+        schema=blank_schema(source);config=config_from_schema(schema)
+        with tempfile.TemporaryDirectory() as folder:
+            options={'folder':Path(folder)/'registry','output':Path(folder)/'output'}
+            workspace=ExecutionWorkspace(ROOT,[],**options)
+            saved=workspace.save_form('Custom parts','solver_definition','simpleFoam',config,input_schema=schema)
+            restored=ExecutionWorkspace(ROOT,[],**options).form(saved['id'])
+            part=restored['config']['geometry']['regions'][0]
+            self.assertEqual(part['role'],'custom role')
+            self.assertEqual(part['properties']['density'],{'name':'Density','type':'number','unit':'kg/m³','value':None})

@@ -1,6 +1,6 @@
 /* Spatial JSON editor and geometry preview. Never executes user code or a solver. */
 (()=>{
- const keys=['geometry','geometry_spec','domain','regions','tank','layers','board','coil','loading','silo','published','probes_mm','heater'];
+ const keys=['dielectric_fluid','water','geometry','geometry_spec','domain','regions','tank','layers','board','coil','loading','silo','published','probes_mm','heater'];
  const clone=x=>structuredClone(x),isObject=x=>x&&typeof x==='object'&&!Array.isArray(x);
  function parse(text){
   if(text.length>1000000)throw Error('공간 JSON은 1 MB 이하로 입력하세요');
@@ -14,7 +14,7 @@
  // A spatial document groups original Config paths without inventing dimensions.
  // Mixed legacy components keep all properties so their geometry remains reproducible.
  const documentGroups={
-  geometry:['geometry','geometry_spec','domain','regions','coordinate_system','tank','layers','board','coil','heater','loading','silo','published'],
+  geometry:['geometry','geometry_spec','domain','regions','coordinate_system','tank','layers','board','coil','heater','loading','silo','published','dielectric_fluid','water'],
   mesh:['mesh','porous_mesh'],
   boundaries:['interfaces','boundary_conditions'],
   observations:['probes','probes_mm']
@@ -46,6 +46,8 @@
  // Only geometry is inherited; operating values in legacy components remain project inputs.
  function isGeometryPath(path){
   const [root,key]=path;
+  if(path.includes('properties'))return false;
+  if(['dielectric_fluid','water'].includes(root))return ['name','role','config_bindings'].includes(key);
   if(['geometry','domain','regions','geometry_spec','loading','silo','published','probes_mm'].includes(root))return true;
   if(['tank','board','coil'].includes(root))return ['width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','config_bindings'].includes(key);
   if(root==='layers')return ['dielectric_mm','air_mm'].includes(key);
@@ -62,6 +64,7 @@
   if(config.domain)add(['domain']);collection(['regions']);
   if(config.geometry_spec?.geometry)add(['geometry_spec','geometry']);
   for(const key of ['tank','board','coil'])if(config[key])add([key]);
+  if(config.tank&&config.layers)for(const key of ['dielectric_fluid','water'])if(config[key])add([key]);
   collection(['loading','blocks']);collection(['heater','cpus']);
   // Names are presentation only; exact paths retain keys containing punctuation.
   return out.map(e=>({...e,label:typeof e.label==='string'?e.label:e.path.join(' / ')}));
@@ -77,6 +80,13 @@
   if(config.tank){const t=config.tank,a=[t.width_mm,t.liquid_height_mm,t.depth_mm];if(ready(a))box('tank',[0,0,0],a,.001,{path:['tank']});else notes.push('tank: 치수 미입력');
    for(const key of ['board','coil'])if(config[key]){const b=config[key],a=['x0','y0','z0','x1','y1','z1'].map(k=>b[k]);if(ready(a))box(key,a.slice(0,3),a.slice(3),.001,{path:[key]});else notes.push(key+': 치수 미입력');}
    for(const [i,cpu]of (config.heater?.cpus||[]).entries()){const a=[cpu.x0,cpu.x1,cpu.y0,cpu.y1,config.board?.z1];if(ready(a)){a.forEach(x=>num(x,'heater.cpus'));if(a[1]<=a[0]||a[3]<=a[2])throw Error('발열면 최대 좌표는 최소 좌표보다 커야 합니다');items.push({kind:'surface',name:'heater.cpus.'+i,path:['heater','cpus',i],center:[(a[0]+a[1])*.0005,(a[2]+a[3])*.0005,a[4]*.001],width:(a[1]-a[0])*.001,height:(a[3]-a[2])*.001});}else notes.push('heater.cpus.'+i+': 치수 미입력');}
+   const l=config.layers;
+   if(l&&ready([t.width_mm,t.depth_mm,t.liquid_height_mm,l.dielectric_mm])){
+    const lower=num(l.dielectric_mm,'layers.dielectric_mm'),height=num(t.liquid_height_mm,'tank.liquid_height_mm',true);
+    if(lower<0||lower>height)throw Error('유체 영역 높이가 계산 영역을 벗어났습니다');
+    if(config.dielectric_fluid&&lower>0)box('dielectric_fluid',[0,0,0],[t.width_mm,lower,t.depth_mm],.001,{path:['dielectric_fluid']});
+    if(config.water&&lower<height)box('water',[0,lower,0],[t.width_mm,height,t.depth_mm],.001,{path:['water']});
+   }
    notes.push('상분율·계산 격자는 표시하지 않음');
   }
   for(const [i,b]of (config.loading?.blocks||[]).entries())box('loading.blocks['+i+']',b.min_m,b.max_m,1,{path:['loading','blocks',i]});
@@ -103,6 +113,17 @@
   if(!items.length)notes.push('표시할 형상이 없습니다 · 치수와 형식을 확인하세요');
   const names=new Map(elements(config).map(e=>[e.id,e.label]));for(const item of items){item.id=pathId(item.path);item.label=names.get(item.id)||item.name;}
   return {items,notes,up};
+ }
+ // Map existing solver fields to parts without copying or renaming stored inputs.
+ function partBindings(config,path){
+  const links=[];const add=p=>{if(at(config,p)!==undefined)links.push(p);};
+  if(config.tank&&config.layers){
+   const owned={dielectric_fluid:['dielectric_mm','init_T_dielectric_C','init_T_dielectric_top_C'],water:['init_T_water_C','init_T_water_top_C']};
+   if(owned[path[0]])for(const k of owned[path[0]])add(['layers',k]);
+   if(path[0]==='tank')for(const k of Object.keys(config.layers))if(!k.startsWith('_')&&!Object.values(owned).flat().includes(k))add(['layers',k]);
+  }
+  if(path[0]==='heater'&&path[1]==='cpus')for(const k of Object.keys(config.heater||{}))if(k!=='cpus'&&!k.startsWith('_'))add(['heater',k]);
+  return links;
  }
  async function viewer(host,model,{onSelect=null,selected=null,cameraState=null}={}){
   const T=await import('/studies/three.module.js');
@@ -197,5 +218,5 @@
   dialog.append(header,el('p',schemaOnly?'초기 형상은 Template에 저장 · 프로젝트에서 독립적으로 수정 가능':'형상 확인용 미리보기 · 격자 생성·솔버 계산은 별도','sp-note'),body,help,error,actions);
   dialog.onclose=()=>{closed=true;clear();dialog.remove();};document.body.append(dialog);dialog.showModal();return dialog;
  }
- const api={keys,parse,extract,merge,document:spatialDocument,mergeDocument,shapes,elements,isGeometryPath,at,pathId,viewer,open};if(typeof module!=='undefined')module.exports=api;else globalThis.CFDSpatial=api;
+ const api={keys,parse,extract,merge,document:spatialDocument,mergeDocument,shapes,elements,partBindings,isGeometryPath,at,pathId,viewer,open};if(typeof module!=='undefined')module.exports=api;else globalThis.CFDSpatial=api;
 })();

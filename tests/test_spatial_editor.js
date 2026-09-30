@@ -62,3 +62,12 @@ test('spatial document rejects missing sections, misplaced keys and destructive 
  const d=document({});assert.deepEqual(d.sections.geometry,{});assert.deepEqual(mergeDocument({},d),{});
  d.sections.geometry.geometry={unit:'m',regions:[]};assert.deepEqual(mergeDocument({},d),{geometry:{unit:'m',regions:[]}});
 });
+
+test('legacy liquid regions use stored layer geometry and original material paths',()=>{
+ const sp=require('../cfd_studio/internal/spatial_editor.js');const c=JSON.parse(readFileSync('cfd_studio/configs/immersion.json')),before=structuredClone(c);
+ const model=sp.shapes(c),lower=model.items.find(x=>x.name==='dielectric_fluid'),upper=model.items.find(x=>x.name==='water');
+ assert.deepEqual(lower.min,[0,0,0]);assert.equal(lower.max[1],c.layers.dielectric_mm*.001);assert.equal(upper.min[1],lower.max[1]);assert.equal(upper.max[1],c.tank.liquid_height_mm*.001);
+ assert.equal(sp.elements(c).find(x=>x.path[0]==='water').label,c.water.name);
+ assert.ok(sp.partBindings(c,['water']).some(p=>p.join('.')==='layers.init_T_water_C'));assert.deepEqual(c,before);
+ c.layers.dielectric_mm=c.tank.liquid_height_mm+1;assert.throws(()=>sp.shapes(c));
+});
