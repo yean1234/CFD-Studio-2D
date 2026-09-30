@@ -323,7 +323,7 @@
       const [presetReply,defaults,formReply]=await Promise.all([api('/presets'),api('/storage-defaults'),api('/forms')]);
       forms=formReply.forms;
       const p=edit?currentProject():null,d=node('dialog');d.className='ew-dialog ew-project-dialog';
-      d.innerHTML='<form data-validation="submit"><h2></h2><label>프로젝트 이름<input name="name" required maxlength="80"></label><label>프로젝트 폴더<div class="ew-path"><input name="storage_path" required spellcheck="false" placeholder="D:\\CFD Projects\\프로젝트 이름"><button class="btn" type="button" data-pick>찾기</button></div></label><p class="ew-path-note"></p><label>프로젝트 설명<textarea name="description" maxlength="4000" rows="3"></textarea></label><div class="ew-form-choice"><label>CFD Template<div class="ew-template-select"><select name="form_id" required><option value="">해석 대상 선택</option></select><button type="button" class="btn ew-template-add" data-new-template aria-label="새 CFD Template" title="새 CFD Template">+</button></div></label><label>기본 프리셋<select name="preset" disabled><option value="">FORM 선택 후 선택</option></select></label></div><p role="alert"></p><div class="ew-bar"><button class="btn pri" type="submit">저장</button><button class="btn" type="button" data-cancel>취소</button></div></form>';
+      d.innerHTML='<form data-validation="submit"><h2></h2><label>프로젝트 이름<input name="name" required maxlength="80"></label><label>프로젝트 폴더<div class="ew-path"><input name="storage_path" required spellcheck="false" placeholder="D:\\CFD Projects\\프로젝트 이름">'+(edit?'':'<button class="btn" type="button" data-pick>찾기</button>')+'</div></label><p class="ew-path-note"></p><label>프로젝트 설명<textarea name="description" maxlength="4000" rows="3"></textarea></label><div class="ew-form-choice"><label>CFD Template<div class="ew-template-select"><select name="form_id" required><option value="">해석 대상 선택</option></select><button type="button" class="btn ew-template-add" data-new-template aria-label="새 CFD Template" title="새 CFD Template">+</button></div></label><label>기본 프리셋<select name="preset" disabled><option value="">FORM 선택 후 선택</option></select></label></div><p role="alert"></p><div class="ew-bar"><button class="btn pri" type="submit">저장</button><button class="btn" type="button" data-cancel>취소</button></div></form>';
       d.querySelector('h2').textContent=edit?'프로젝트 관리':'새 프로젝트';
       const f=d.querySelector('form'),path=f.elements.storage_path;
       f.elements.name.value=p?.name||'';f.elements.description.value=p?.description||'';
@@ -368,14 +368,14 @@
         };
         formEditor(null,null,flow);
       };
-      const pick=f.querySelector('[data-pick]');pick.onclick=async()=>{pick.disabled=true;f.querySelector('[role=alert]').textContent='폴더 선택 창에서 폴더를 선택하거나 취소하세요';try{const r=await api('/project-pick',{path:path.value||defaults.base_path});if(!r.result.cancelled){path.value=r.result.path;customPath=true;}f.querySelector('[role=alert]').textContent='';}catch(e){f.querySelector('[role=alert]').textContent=e.message;}finally{pick.disabled=false;}};
+      const pick=f.querySelector('[data-pick]');if(pick)pick.onclick=async()=>{pick.disabled=true;f.querySelector('[role=alert]').textContent='폴더 선택 창에서 폴더를 선택하거나 취소하세요';try{const r=await api('/project-pick',{path:path.value||defaults.base_path});if(!r.result.cancelled){path.value=r.result.path;customPath=true;}f.querySelector('[role=alert]').textContent='';}catch(e){f.querySelector('[role=alert]').textContent=e.message;}finally{pick.disabled=false;}};
       f.querySelector('[data-cancel]').onclick=()=>d.close();d.onclose=()=>d.remove();
       f.onsubmit=async e=>{e.preventDefault();if(pending)return;pending=true;renderProjects();
-        const submit=f.querySelector('[type=submit]');submit.disabled=true;pick.disabled=true;
+        const submit=f.querySelector('[type=submit]');submit.disabled=true;if(pick)pick.disabled=true;
         f.querySelector('[role=alert]').textContent=edit&&path.value!==p.storage_path?'프로젝트 복사·검증 중…':'';
         try{if(!edit&&!projectConfig){if(!f.elements.preset.value)throw Error('Config 입력을 완료하세요');projectConfig=(await api('/template?id='+encodeURIComponent(f.elements.preset.value))).config;}if(!edit&&presetCheck.checked&&!presetName.value.trim())throw Error('새 프리셋 이름을 입력하세요');const result=await api(edit?'/project-edit':'/project',{id:p?.id,name:f.elements.name.value,description:f.elements.description.value,default_preset:f.elements.preset.value||null,form_id:f.elements.form_id.value,storage_path:path.value,...(!edit?{initial_config:projectConfig,preset_name:presetCheck.checked?presetName.value.trim():null}:{})});await refresh();await selectProject(result.result.id);d.close();}
         catch(err){f.querySelector('[role=alert]').textContent=err.message;}
-        finally{pending=false;renderProjects();submit.disabled=false;pick.disabled=false;}
+        finally{pending=false;renderProjects();submit.disabled=false;if(pick)pick.disabled=false;}
       };
       document.body.append(d);d.showModal();
     }catch(e){message(e.message);}
