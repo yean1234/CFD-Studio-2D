@@ -7,6 +7,9 @@
 
 ## 설치 환경
 
+- **지원 운영체제: Windows 10/11 x64**
+- **macOS(Mac) 미지원** · 현재 배포판은 Windows 실행 환경과 WSL2를 사용
+
 - [필수 프로그램·설치 BAT·설치 순서](../cfd_studio/README.md)
 - `설치.bat`: 최초 계산 환경 준비. WSL 자체·전용 솔버·GPU 환경 설치와 구분
 - `실행.bat`: 일반 실행

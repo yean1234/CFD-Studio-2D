@@ -7,6 +7,9 @@
 
 ## 설치 및 프로그램 실행
 
+- **지원 운영체제: Windows 10/11 x64**
+- **macOS(Mac) 미지원** · 현재 배포판은 Windows 실행 환경과 WSL2를 사용
+
 - 최초 설치: [설치 안내](../cfd_studio/README.md)에 따라 `설치.bat` 실행
 - 설치 완료 후 실행: `cfd_studio/실행.bat` 더블클릭
 - 열린 브라우저 상단 **CFD** 탭 선택

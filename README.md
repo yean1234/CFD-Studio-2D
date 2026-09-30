@@ -1,6 +1,9 @@
 # CFD Studio
 
 - Windows 기반 OpenFOAM 계산·데이터 보관·3D 시각화
+
+- **지원 운영체제: Windows 10/11 x64**
+- **macOS(Mac) 미지원** · 현재 배포판은 Windows 실행 환경과 WSL2를 사용
 - 포대식 쌀 저장고의 유속·온도·ClO₂ 농도 연결 계산
 - 기존 액침냉각·단상 저장고 기능 포함
 

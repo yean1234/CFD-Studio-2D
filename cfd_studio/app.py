@@ -5374,6 +5374,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <h4>언어변환</h4>
    <ul><li>오른쪽 상단 <b>환경 설정 → 언어변환 → 한국어 / English / 日本語</b></li><li>즉시 적용 · 별도 저장 없이 현재 브라우저에 보관 · 같은 주소로 재접속하면 복원</li><li>계산 중에도 언어 변경 가능 · 프로젝트명·입력값·원본 로그·JSON 키는 원문 유지</li><li>다른 브라우저·접속 주소를 사용하거나 브라우저 데이터를 삭제하면 다시 선택</li></ul>
    <h4>설치 및 프로그램 실행</h4>
+   <p><b>Windows 10/11 x64 지원 · macOS(Mac) 미지원</b></p>
    <ul><li>최초 설치: WSL2 Ubuntu 설치·사용자 초기화 → <b>cfd_studio/설치.bat</b> → <b>cfd_studio/실행.bat</b></li><li>설치 완료 후 실행: <b>실행.bat</b> 더블클릭. Windows Python 포함. 전용 솔버·GPU 환경은 별도 준비</li></ul>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>사용법</b></a> · <a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/cfd_studio/README.md" target="_blank" rel="noopener noreferrer">설치</a> · 모델·단위·검증 범위는 위 <b>설명서</b> 탭</p>
   </div>
