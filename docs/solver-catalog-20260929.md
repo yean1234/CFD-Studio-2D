@@ -3,9 +3,9 @@
 ## 사용법
 
 - **CFD Template 리스트 → +**
-- 이름·설명 입력 → 솔버 선택
+- 해석 조건 설문 → 솔버 추천 → 후보 선택 → 양식 생성
 - 설명의 원작자·원본 소스 링크와 주요 기능 확인
-- **양식 구성 → 양식 편집 → Apply → Template 저장**
+- 이름·설명 입력 → **양식 편집 → Apply → Template 저장**
 - 실제 값은 프로젝트 생성 시 입력 · 프리셋은 Template별 관리
 - **설치 확인**은 실행 파일 존재 확인 · 실행기 연결과 별도
 - [Template 사용법](template-inputs.md) · [입력 검토](solver-template-audit.md)

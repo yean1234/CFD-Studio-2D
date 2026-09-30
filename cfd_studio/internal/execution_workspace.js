@@ -214,18 +214,20 @@
     }
     list.scrollTop=changedProject?0:scrollTop;
   }
-  async function formEditor(id=null){
+  async function formEditor(id=null,prepared=null){
     try{
-      const [reply,catalogReply,profileReply]=await Promise.all([api('/forms'),api('/solvers'),api('/form-profiles')]);
+      const [reply,catalogReply,surveyReply]=await Promise.all([api('/forms'),api('/solvers'),api('/form-survey')]);
       const existing=reply.forms.find(f=>f.id===id),connected=existing&&!existing.definition_only;
+      const survey=(settings,onApply)=>CFDFormWizard.recommend({options:surveyReply.options,...settings,loadRecommendations:async answers=>(await api('/form-recommend',{answers})).result,generate:async(solver,answers)=>(await api('/form-from-survey',{solver,answers})).result,onApply});
+      if(!existing&&!prepared){survey({},selection=>formEditor(null,selection));return;}
       let solvers=catalogReply.solvers,installation=catalogReply.installation;
-      let config=structuredClone(existing?.blank_config||{}),schema=existing?.input_schema?structuredClone(existing.input_schema):CFDFormConfig.fromConfig({}),configured=!!existing;
-      const drafts=new Map(),d=node('dialog');d.className='ew-dialog ew-form-dialog';
+      let config=structuredClone(prepared?.result.config||existing?.blank_config||{}),schema=prepared?.result.config_schema|| (existing?.input_schema?structuredClone(existing.input_schema):CFDFormConfig.fromConfig({})),configured=!!(existing||prepared);
+      const d=node('dialog');d.className='ew-dialog ew-form-dialog';
       d.innerHTML='<form><h2></h2><label>CFD Template 이름<input name="name" required maxlength="80"></label><label>설명<textarea name="description" rows="2" maxlength="4000"></textarea></label><label>솔버<select name="solver"></select></label><section class="ew-solver-card" aria-label="솔버 기능"><div class="ew-solver-heading"><strong data-solver-title></strong><button type="button" class="btn" data-check>설치 확인</button></div><div data-install-result role="status" aria-live="polite"></div><p data-summary></p><p data-authors></p><div class="ew-solver-tags"></div><dl data-features></dl><p data-connection></p><p data-uses></p><details><summary>필수 Config</summary><ul data-required></ul></details><details><summary>선택·조건부 Config</summary><ul data-optional></ul></details><details><summary>계산 범위</summary><p data-inputs></p></details></section><div class="ew-form-config"><div><strong>Config 양식</strong><p data-config-count></p></div><div class="ew-bar"><button type="button" class="btn pri" data-wizard>양식 구성</button><button type="button" class="btn" data-config>양식 편집</button></div></div><p role="alert"></p><div class="ew-bar"><button type="button" class="btn" data-cancel>취소</button><button type="submit" class="btn pri">Template 저장</button></div></form>';
-      const f=d.querySelector('form');f.querySelector('h2').textContent=existing?'CFD Template 수정':'새 CFD Template';
+      const f=d.querySelector('form');f.querySelector('h2').textContent=existing?'CFD Template 수정':'양식 확인';
       for(const dedicated of [false,true]){const group=node('optgroup');group.label=dedicated?'Studio 연결 솔버':'OpenFOAM 솔버';for(const solver of solvers.filter(x=>x.dedicated===dedicated))group.append(new Option(solver.id,solver.id));f.elements.solver.append(group);}
-      f.elements.name.value=existing?.name||'';f.elements.description.value=existing?.description||'';f.elements.solver.value=existing?.solver||solvers[0].id;f.elements.solver.disabled=!!existing;
-      let active=f.elements.solver.value;const solver=()=>solvers.find(x=>x.id===f.elements.solver.value);
+      f.elements.name.value=existing?.name||'';f.elements.description.value=existing?.description||'';f.elements.solver.value=existing?.solver||prepared.solver;f.elements.solver.disabled=true;
+      const solver=()=>solvers.find(x=>x.id===f.elements.solver.value);
       const draw=()=>{
         const item=solver();f.querySelector('[data-solver-title]').textContent=item.id;f.querySelector('[data-summary]').textContent=item.summary;
         const authors=f.querySelector('[data-authors]');authors.replaceChildren();for(const link of item.upstream||[]){if(authors.children.length)authors.append(' · ');const a=node('a',link.label);a.href=link.url;a.target='_blank';a.rel='noopener noreferrer';authors.append(a);}
@@ -235,15 +237,15 @@
         f.querySelector('[data-inputs]').textContent=item.requirements.limit;f.querySelector('[data-uses]').textContent='주요 용도 · '+item.requirements.uses.join(' / ');
         for(const [selector,key] of [['[data-required]','required'],['[data-optional]','optional']])f.querySelector(selector).replaceChildren(...item.requirements[key].map(x=>node('li',x)));
         f.querySelector('[data-connection]').textContent=connected?'연결된 실행 양식 · 입력값은 프로젝트와 프리셋에서 관리':'양식·프로젝트·프리셋 저장 가능 · 계산은 실행기 연결 후 사용';
-        f.querySelector('[data-wizard]').hidden=!!connected;f.querySelector('[data-wizard]').textContent=configured?'양식 다시 구성':'양식 구성';f.querySelector('[data-config]').disabled=!configured;
+        f.querySelector('[data-wizard]').hidden=!!connected;f.querySelector('[data-wizard]').textContent='설문 수정';f.querySelector('[data-config]').disabled=!configured;
         const count=fields=>fields.reduce((n,x)=>n+1+(x.type==='object'?count(x.fields):0),0);f.querySelector('[data-config-count]').textContent=configured?count(schema.fields)+' fields · Key / Type / Unit':'해석 조건을 선택해 빈 입력 양식 구성';
       };
-      f.elements.solver.onchange=()=>{drafts.set(active,{config,schema,configured});active=f.elements.solver.value;const saved=drafts.get(active);config=saved?.config||{};schema=saved?.schema||CFDFormConfig.fromConfig({});configured=!!saved?.configured;draw();};
+
       f.querySelector('[data-check]').onclick=async()=>{const check=f.querySelector('[data-check]');check.disabled=true;f.querySelector('[data-install-result]').textContent='설치 확인 중';try{const r=await api('/solver-check',{});if(!d.isConnected)return;solvers=r.result.solvers;installation=r.result.installation;draw();}catch(e){f.querySelector('[data-install-result]').textContent=e.message;}finally{check.disabled=false;}};
       f.querySelector('[data-config]').onclick=()=>CFDFormConfig.open({config,schema,schemaOnly:true,title:'Config 양식',onSave:async(value,definition)=>{config=value;schema=definition;draw();}});
-      f.querySelector('[data-wizard]').onclick=()=>CFDFormWizard.open({profile:profileReply.profiles.find(x=>x.solver===solver().id),answers:config?.analysis?.choices||{},replace:configured,generate:async answers=>(await api('/form-generate',{solver:solver().id,answers})).result,onApply:async result=>{config=result.config;schema=result.config_schema;configured=true;draw();}});
+      f.querySelector('[data-wizard]').onclick=()=>survey({answers:{...config?.analysis?.choices,time_mode:config?.analysis?.time_mode},selected:solver().id,fixedSolver:existing?.solver||null,replace:configured},async selection=>{config=selection.result.config;schema=selection.result.config_schema;f.elements.solver.value=selection.solver;configured=true;draw();});
       f.querySelector('[data-cancel]').onclick=()=>d.close();d.onclose=()=>d.remove();
-      f.onsubmit=async e=>{e.preventDefault();const submit=f.querySelector('[type=submit]');submit.disabled=true;try{if(!configured)throw Error('양식 구성에서 해석 조건을 선택하세요');await api('/form',{id,revision:existing?.revision,name:f.elements.name.value,model:existing?.model||'solver_definition',solver:solver().id,description:f.elements.description.value,config:connected?existing.config:config,sections:existing?.sections||{},input_schema:schema});d.close();await refresh();}catch(e){f.querySelector('[role=alert]').textContent=e.message;}finally{submit.disabled=false;}};
+      f.onsubmit=async e=>{e.preventDefault();const submit=f.querySelector('[type=submit]');submit.disabled=true;try{if(!configured)throw Error('설문을 완료하고 솔버를 선택하세요');await api('/form',{id,revision:existing?.revision,name:f.elements.name.value,model:existing?.model||'solver_definition',solver:solver().id,description:f.elements.description.value,config:connected?existing.config:config,sections:existing?.sections||{},input_schema:schema});d.close();await refresh();}catch(e){f.querySelector('[role=alert]').textContent=e.message;}finally{submit.disabled=false;}};
       draw();document.body.append(d);d.showModal();
     }catch(e){message(e.message);}
   }

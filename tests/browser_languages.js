@@ -23,11 +23,11 @@ async page=>{
  check(await project.locator('[name=name]').inputValue()==='저장','user name preserved');check(await project.locator('[name=description]').inputValue()==='온도 · 사용자 원문','user description preserved');
  await project.locator('[name=form_id]').selectOption('immersion');check(await project.locator('[name=form_id]').inputValue()==='immersion','Template value unchanged');
  await project.getByRole('button',{name:'Cancel',exact:true}).click();
- await page.locator('#ewCreateForm').click();const form=page.locator('.ew-form-dialog');await form.waitFor();await form.locator('[name=name]').fill('Language template');await form.locator('[name=solver]').selectOption('icoFoam');await form.locator('[data-wizard]').click();
+ await page.locator('#ewCreateForm').click();
  const wizard=page.locator('.fw-dialog');await wizard.waitFor();check(await wizard.innerText().then(t=>t.includes('Which fluid will be analyzed?')),'new questionnaire translated');
  await wizard.locator('input[name=medium][value=gas]').check();await page.evaluate(()=>CFDI18n.setLanguage('ja'));
  check(await wizard.locator('input[name=medium][value=gas]').isChecked(),'questionnaire selection survives language switch');check(await wizard.innerText().then(t=>t.includes('どの流体を解析しますか')),'questionnaire switches to Japanese');
- await wizard.getByRole('button',{name:'キャンセル',exact:true}).click();await form.getByRole('button',{name:'キャンセル',exact:true}).click();
+ await wizard.getByRole('button',{name:'キャンセル',exact:true}).click();
  await page.getByRole('button',{name:'!',exact:true}).click();await page.locator('#ifT1').click();
  check(await page.locator('#ifB1').textContent().then(t=>t.includes('プロジェクトを探す')),'Japanese user guide');
  await page.evaluate(()=>CFDI18n.setLanguage('en'));check(await page.locator('#ifB1').textContent().then(t=>t.includes('Find project')),'English user guide');

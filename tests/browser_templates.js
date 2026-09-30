@@ -4,16 +4,14 @@ async page=>{
  const api=async(path,body)=>{const r=body?await page.request.post('http://127.0.0.1:18760/api/executions'+path,{data:body}):await page.request.get('http://127.0.0.1:18760/api/executions'+path);const d=await r.json();if(d.ok===false)throw Error(d.msg);return d;};
  const suffix=Date.now(),templateName='UI Template '+suffix,projectName='UI Project '+suffix;
  try{
- await page.goto('http://127.0.0.1:18760');await page.setViewportSize({width:1440,height:1100});await page.locator('#ewCreateForm').click();
+ await page.goto('http://127.0.0.1:18760');await page.setViewportSize({width:1440,height:1100});await page.evaluate(()=>CFDI18n.setLanguage('ko'));await page.locator('#ewCreateForm').click();
+ const wizard=page.locator('.fw-recommend-dialog');await wizard.waitFor();
+ for(const values of [{medium:'liquid',purpose:'flow'},{regime:'laminar',time_mode:'transient'},{domain:'internal',mesh:'import',termination:'physical_time'}]){for(const [k,v] of Object.entries(values))await wizard.locator(`input[name=${k}][value=${v}]`).check();await wizard.getByRole('button',{name:values.domain?'솔버 추천':'다음',exact:true}).click();}
+ await wizard.locator('input[name=recommended_solver][value=icoFoam]').check();await wizard.getByRole('button',{name:'양식 생성',exact:true}).click();await wizard.waitFor({state:'detached'});
  let dialog=page.locator('dialog.ew-form-dialog');await dialog.locator('[name=name]').fill(templateName);
  check(await dialog.locator('[name=model]').count()===0,'Config Template selector removed');
  check(await dialog.locator('[name=description]').evaluate(n=>n.closest('label').previousElementSibling.querySelector('[name=name]')!==null),'description immediately follows Template name');
- const catalog=(await api('/solvers')).solvers;
- for(const s of catalog){await dialog.locator('[name=solver]').selectOption(s.id);check(await dialog.locator('[data-authors] a').count()>0,s.id+' has author/source text links');}
- await dialog.locator('[name=solver]').selectOption('icoFoam');await dialog.locator('[data-wizard]').click();
- const wizard=page.locator('.fw-dialog');const profile=(await api('/form-profiles')).profiles.find(p=>p.solver==='icoFoam');
- for(const keys of [['medium'],['purpose','regime'],['domain','mesh','termination']]){for(const k of keys)await wizard.locator('input[name='+k+'][value="'+profile.options[k][0].value+'"]').check();await wizard.getByRole('button',{name:'다음',exact:true}).click();}
- await wizard.getByRole('button',{name:'양식 생성',exact:true}).click();await wizard.waitFor({state:'detached'});
+ check(await dialog.locator('[data-authors] a').count()>0,'selected solver has author/source text links');
  await dialog.locator('[data-config]').click();const editor=page.locator('.fc-dialog');
  check(await editor.locator('input[aria-label$=" Value"]').count()===0,'Template definition editor has no value inputs');
  check(await editor.locator('select[aria-label$=" Type"]').count()>0,'Template definition retains data type controls');

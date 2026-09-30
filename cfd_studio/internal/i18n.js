@@ -592,6 +592,26 @@ add("중력·PIMPLE·전용 격자·경계 연결","Gravity, PIMPLE, custom mesh
 add("다공성 영역별 저항","Resistance by porous region","多孔質領域別抵抗");
 add("스칼라 경계·소스의 사용자 정의","Custom scalar boundaries and sources","スカラー境界・ソースのユーザー定義");
 add("저장소 전용 솔버. 범용 OpenFOAM 표준 솔버가 아니며 물성·검증 범위 확인 필요","Repository-specific solver, not a standard OpenFOAM solver; check properties and validation scope","リポジトリ専用ソルバー。標準OpenFOAMソルバーではないため物性・検証範囲の確認が必要");
+add("해석 대상","Analysis target","解析対象");
+add("유동·시간","Flow and time","流動・時間");
+add("영역·종료","Domain and termination","領域・終了");
+add("양식 확인","Review fields","入力形式の確認");
+add("솔버 추천","Recommend solvers","ソルバーを推薦");
+add("설문 수정","Edit questionnaire","設問を編集");
+add("시간에 따른 변화를 계산하나요?","Will the analysis track changes over time?","時間変化を計算しますか？");
+add("해석 조건을 먼저 선택하면 지원 솔버를 추천합니다","Select analysis conditions first to find compatible solvers","解析条件を先に選択すると対応ソルバーを推薦");
+add("조건이 일치하는 솔버 중 하나를 선택하세요","Select one of the compatible solvers","条件に適合するソルバーを選択してください");
+add("선택한 유체·해석·시간 방식·유동 모델과 일치","Matches the selected fluid, analysis, time mode and flow model","選択した流体・解析・時間方式・流動モデルに適合");
+add("등록된 솔버의 양식 지원 조건 기준 · 설치 여부·실행 연결·물리 검증은 별도","Based on registered input capabilities · Installation, execution integration and physical validation are separate","登録済み入力形式の対応条件に基づく推薦 · インストール・実行連携・物理検証は別途確認");
+add("새 Template은 양식만 생성하며 계산에는 실행기 연결이 필요합니다","A new Template creates input fields; calculation requires an execution adapter","新規Templateは入力形式を生成。計算には実行アダプターが必要");
+add("선택한 조건에 맞는 등록 솔버가 없습니다 · 이전 단계에서 조건을 확인하세요","No registered solver matches these conditions · Review the previous steps","条件に適合する登録ソルバーがありません · 前の手順で条件を確認してください");
+add("기존 Template의 솔버와 조건이 맞지 않습니다 · 이전 단계에서 수정하거나 새 Template을 만드세요","These conditions do not match the existing Template solver · Revise them or create a new Template","既存Templateのソルバーと条件が不一致 · 条件を修正するか新規Templateを作成してください");
+add("양식 생성 시 기존 편집 양식을 교체합니다 · 취소하면 기존 양식 유지","Generating fields replaces the edited structure · Cancel keeps the existing structure","入力形式の生成時に編集中の形式を置換 · キャンセルすると既存形式を保持");
+add("추천 목록에서 솔버를 선택하세요","Select a solver from the recommendations","推薦一覧からソルバーを選択してください");
+add("모든 해석 조건을 선택하세요","Select all analysis conditions","すべての解析条件を選択してください");
+add("지원되는 해석 조건을 선택하세요","Select supported analysis conditions","対応する解析条件を選択してください");
+add("추천 목록에서 조건에 맞는 솔버를 선택하세요","Select a compatible recommended solver","条件に適合する推薦ソルバーを選択してください");
+add("설문을 완료하고 솔버를 선택하세요","Complete the questionnaire and select a solver","設問に回答してソルバーを選択してください");
 let language='ko';
 try{const saved=root.localStorage?.getItem(key);if(supported.includes(saved))language=saved;}catch(_){}
 const patterns=[
@@ -602,7 +622,7 @@ const patterns=[
  [/^(\d+)개$/,['$1','$1個']],
  [/^(\d+) 프레임 · 초기 (포함|제외)$/,[(m)=>`${m[1]} frames · Initial ${m[2]==='포함'?'included':'excluded'}`,(m)=>`${m[1]}フレーム · 初期${m[2]==='포함'?'を含む':'を除外'}`]],
  [/^요소 (\d+)$/,['Metric $1','項目$1']],
- [/^(\d+)\. (유체|해석|구성|확인)$/,[(m,l)=>m[1]+'. '+translate(m[2],l),(m,l)=>m[1]+'. '+translate(m[2],l)]],
+ [/^(\d+)\. (유체|해석|구성|확인|해석 대상|유동·시간|영역·종료|솔버 선택)$/,[(m,l)=>m[1]+'. '+translate(m[2],l),(m,l)=>m[1]+'. '+translate(m[2],l)]],
  [/^논리 CPU (\d+|\?)개 · 현재 (\d+|\?)개 사용$/,['Logical CPUs: $1 · In use: $2','論理CPU：$1 · 使用中：$2']],
  [/^현재 적용: (.+) · MPI (\d+|\?)개 · GPU (.+)$/,[(m,l)=>`Current: ${translate(m[1],l)} · MPI ${m[2]} · GPU ${translate(m[3],l)}`,(m,l)=>`現在：${translate(m[1],l)} · MPI ${m[2]} · GPU ${translate(m[3],l)}`]],
  [/^필수 입력 (\d+)개 확인 필요$/,['Review $1 required inputs','必須入力$1件を確認']],

@@ -545,6 +545,9 @@ def get_route(handler, workspace):
                 [float(q.get(k, [''])[0]) for k in ('x','y','z')], int(q.get('offset', ['0'])[0]), int(q.get('limit', ['16'])[0]))
         elif url.path == '/api/executions/forms':
             result = {'forms': workspace.forms(), 'templates': workspace.form_templates()}
+        elif url.path == '/api/executions/form-survey':
+            from cfd_studio.form_wizard import survey_options
+            result = {'options': survey_options()}
         elif url.path == '/api/executions/form-profiles':
             from cfd_studio.form_wizard import profiles
             result = {'profiles': profiles()}
@@ -579,6 +582,12 @@ def post_route(handler, workspace, body):
         elif path == '/api/executions/form-inspect':
             from cfd_studio.solver_requirements import inspect_config
             result = inspect_config(body.get('solver'),body.get('config'))
+        elif path == '/api/executions/form-recommend':
+            from cfd_studio.form_wizard import recommend
+            result = recommend(body.get('answers'))
+        elif path == '/api/executions/form-from-survey':
+            from cfd_studio.form_wizard import generate_from_survey
+            result = generate_from_survey(body.get('solver'),body.get('answers'))
         elif path == '/api/executions/form-generate':
             from cfd_studio.form_wizard import generate
             result = generate(body.get('solver'), body.get('answers'))

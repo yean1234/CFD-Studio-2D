@@ -124,3 +124,39 @@ def make_schema(config):
             result.append(field)
         return result
     return {'version':1,'fields':fields(config)}
+
+
+def survey_options():
+    """Analysis-first questions; solver compatibility is checked separately."""
+    labels=copy.deepcopy(LABELS)
+    labels['time_mode']={'steady':'정상 해석','transient':'비정상 해석'}
+    return {k:[{'value':v,'label':label} for v,label in choices.items()] for k,choices in labels.items()}
+
+
+def recommend(answers):
+    options=survey_options()
+    if not isinstance(answers,dict) or set(answers)!=set(options):
+        raise ValueError('모든 해석 조건을 선택하세요')
+    if any(not isinstance(answers[k],str) or answers[k] not in [o['value'] for o in choices] for k,choices in options.items()):
+        raise ValueError('지원되는 해석 조건을 선택하세요')
+    candidates=[]
+    for p in profiles():
+        if p['time_mode']!=answers['time_mode']:continue
+        if any(answers[k] not in [o['value'] for o in choices] for k,choices in p['options'].items()):continue
+        item=definition(p['solver'])
+        candidates.append({'solver':p['solver'],'summary':item['summary'],'note':p['requirements']['limit'],
+                           'upstream':item['upstream'], 'outputs':item['outputs'],
+                           'algorithm':p['requirements']['algorithm'],
+                           'dedicated':item['dedicated'],
+                           'reason':'선택한 유체·해석·시간 방식·유동 모델과 일치'})
+    return {'answers':copy.deepcopy(answers),'candidates':candidates,
+            'message':'' if candidates else '선택한 조건에 맞는 등록 솔버가 없습니다 · 이전 단계에서 조건을 확인하세요',
+            'basis':'등록된 솔버의 양식 지원 조건 기준 · 설치 여부·실행 연결·물리 검증은 별도'}
+
+
+def generate_from_survey(solver,answers):
+    matched=recommend(answers)
+    if solver not in [c['solver'] for c in matched['candidates']]:
+        raise ValueError('추천 목록에서 조건에 맞는 솔버를 선택하세요')
+    values={k:v for k,v in answers.items() if k!='time_mode'}
+    return generate(solver,values)
