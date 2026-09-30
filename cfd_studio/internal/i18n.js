@@ -397,6 +397,8 @@ add("환경 확인 중…","Checking environment…","環境を確認中…");
 add("고급","Advanced","詳細");
 add("계산 시간","Calculation time","計算時間");
 add("계산·출력","Calculation and output","計算・出力");
+add("공간 형상","Spatial geometry","空間形状");
+add("전체 공간 형상 JSON","Complete spatial geometry JSON","空間形状全体の JSON");
 add("저장고 형상","Warehouse geometry","倉庫形状");
 add("치수","Dimensions","寸法");
 add("수조","Tank","水槽");

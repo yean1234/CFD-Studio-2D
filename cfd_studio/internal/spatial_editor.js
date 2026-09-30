@@ -11,6 +11,38 @@
  }
  function extract(config){return Object.fromEntries(keys.filter(k=>Object.hasOwn(config,k)).map(k=>[k,clone(config[k])]));}
  function merge(config,spatial){for(const k of Object.keys(spatial))if(!keys.includes(k))throw Error('공간 항목이 아닙니다: '+k);const next=clone(config);for(const k of keys)delete next[k];return Object.assign(next,clone(spatial));}
+ // A spatial document groups original Config paths without inventing dimensions.
+ // Mixed legacy components keep all properties so their geometry remains reproducible.
+ const documentGroups={
+  geometry:['geometry','geometry_spec','domain','regions','coordinate_system','tank','layers','board','coil','heater','loading','silo','published'],
+  mesh:['mesh','porous_mesh'],
+  boundaries:['interfaces','boundary_conditions'],
+  observations:['probes','probes_mm']
+ };
+ function spatialDocument(config){
+  const sections=Object.fromEntries(Object.entries(documentGroups).map(([group,roots])=>[group,Object.fromEntries(roots.filter(k=>Object.hasOwn(config,k)).map(k=>[k,clone(config[k])]))]));
+  if(isObject(config.outputs)&&Object.hasOwn(config.outputs,'probes'))sections.observations.outputs={probes:clone(config.outputs.probes)};
+  return {format:'cfd-spatial-config',version:1,sections};
+ }
+ function mergeDocument(config,input){
+  const value=parse(JSON.stringify(input));
+  if(value.format!=='cfd-spatial-config'||value.version!==1||!isObject(value.sections))throw Error('공간 JSON의 format·version·sections를 유지하세요');
+  if(Object.keys(value).some(k=>!['format','version','sections'].includes(k)))throw Error('공간 JSON 최상위 항목을 확인하세요');
+  if(Object.keys(value.sections).some(k=>!Object.hasOwn(documentGroups,k)))throw Error('공간 JSON 분류를 확인하세요');
+  const original=spatialDocument(config),next=clone(config);
+  for(const [group,roots]of Object.entries(documentGroups)){
+   const section=value.sections[group];
+   if(!isObject(section))throw Error('공간 JSON 분류를 유지하세요: '+group);
+   for(const key of Object.keys(original.sections[group]))if(!Object.hasOwn(section,key))throw Error('기존 공간 항목을 유지하세요: '+group+'.'+key);
+   for(const [key,content]of Object.entries(section)){
+    if(group==='observations'&&key==='outputs'){
+     if(!isObject(content)||Object.keys(content).some(k=>k!=='probes')||!Object.hasOwn(content,'probes'))throw Error('observations.outputs에는 probes만 입력하세요');
+     next.outputs={...next.outputs,probes:clone(content.probes)};
+    }else{if(!roots.includes(key))throw Error('공간 JSON 분류에 맞지 않는 항목: '+group+'.'+key);next[key]=clone(content);}
+   }
+  }
+  return next;
+ }
  // Only geometry is inherited; operating values in legacy components remain project inputs.
  function isGeometryPath(path){
   const [root,key]=path;
@@ -132,5 +164,5 @@
   dialog.append(header,el('p',schemaOnly?'초기 형상은 Template에 저장 · 프로젝트에서 독립적으로 수정 가능':'형상 확인용 미리보기 · 격자 생성·솔버 계산은 별도','sp-note'),body,help,error,actions);
   dialog.onclose=()=>{closed=true;clear();dialog.remove();};document.body.append(dialog);dialog.showModal();return dialog;
  }
- const api={keys,parse,extract,merge,shapes,elements,isGeometryPath,at,pathId,viewer,open};if(typeof module!=='undefined')module.exports=api;else globalThis.CFDSpatial=api;
+ const api={keys,parse,extract,merge,document:spatialDocument,mergeDocument,shapes,elements,isGeometryPath,at,pathId,viewer,open};if(typeof module!=='undefined')module.exports=api;else globalThis.CFDSpatial=api;
 })();

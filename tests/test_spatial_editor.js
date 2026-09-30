@@ -40,3 +40,25 @@ test('an incomplete new element does not erase existing preview shapes',()=>{
  const c={geometry:{regions:[{name:'A',shape:'box',unit:'m',min:[0,0,0],max:[1,2,3]},{name:'B',shape:'box',unit:'m',min:[0,0,0],max:[null,null,null]}]}};
  const result=shapes(c);assert.equal(result.items.length,1);assert.match(result.notes.join(' '),/치수 미입력/);
 });
+
+test('complete spatial documents roundtrip generic and legacy Config without loss',()=>{
+ const {document,mergeDocument}=require('../cfd_studio/internal/spatial_editor.js');
+ const generic={geometry:{unit:'m',regions:[{name:'A',shape:'box',min:[0,0,0],max:[2,3,4],config_bindings:[['materials','fluid']]}]},mesh:{cell_size:.1},boundary_conditions:{wall:{mesh_patch:'walls'}},outputs:{fields:['U'],write_interval:1,probes:[[1,1,1]]},materials:{fluid:{density:1}},numerics:{dt:.01}};
+ for(const config of [generic,...['tracer_transport/warehouse_coupled_pilot.json','cfd_studio/configs/immersion.json'].map(p=>JSON.parse(readFileSync(p)))]){
+  const original=structuredClone(config),doc=document(config);
+  assert.deepEqual(mergeDocument(config,doc),config);assert.deepEqual(config,original);
+  if(config.geometry_spec){assert.deepEqual(doc.sections.geometry.geometry_spec,config.geometry_spec);assert.deepEqual(doc.sections.geometry.loading,config.loading);}
+  if(config.tank){assert.deepEqual(doc.sections.geometry.heater,config.heater);assert.deepEqual(doc.sections.mesh.mesh,config.mesh);assert.deepEqual(doc.sections.observations.probes_mm,config.probes_mm);}
+ }
+ const doc=document(generic);doc.sections.geometry.geometry.regions[0].max[0]=5;doc.sections.observations.outputs.probes=[[2,1,1]];
+ const next=mergeDocument(generic,doc);assert.equal(next.geometry.regions[0].max[0],5);assert.deepEqual(next.outputs.fields,['U']);assert.equal(next.outputs.write_interval,1);assert.deepEqual(next.materials,generic.materials);assert.equal(generic.geometry.regions[0].max[0],2);
+});
+test('spatial document rejects missing sections, misplaced keys and destructive omissions',()=>{
+ const {document,mergeDocument}=require('../cfd_studio/internal/spatial_editor.js');
+ const c={geometry:{regions:[]},outputs:{probes:[],fields:['T']}};
+ for(const mutate of [d=>delete d.sections.mesh,d=>delete d.sections.geometry.geometry,d=>d.sections.geometry.materials={},d=>d.sections.observations.outputs.fields=['p'],d=>d.version=2]){
+  const d=document(c);mutate(d);assert.throws(()=>mergeDocument(c,d));
+ }
+ const d=document({});assert.deepEqual(d.sections.geometry,{});assert.deepEqual(mergeDocument({},d),{});
+ d.sections.geometry.geometry={unit:'m',regions:[]};assert.deepEqual(mergeDocument({},d),{geometry:{unit:'m',regions:[]}});
+});

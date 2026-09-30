@@ -355,7 +355,7 @@
 - 기존 이중액침의 발열면 `heater.cpus` 표시 · 총 발열량 `heater.total_W` 연결
 
 - Config·Template·Case의 가운데에 3D 형상 상시 표시 · 항목별 **JSON** 버튼으로 오른쪽 편집창 표시
-- 저장고: **저장고 형상 → JSON**
+- 기본 형상 분류: **공간 형상** · 선택한 Template의 실제 형상 항목 표시 · 다른 솔버에 저장고 형상을 자동 추가하지 않음
 - 코드 입력과 3D 미리보기 제공
 - JSON 데이터만 해석 · Python·JavaScript 코드는 실행하지 않음
 - 지원 단위: `m`, `cm`, `mm` · 미리보기 좌표는 m로 환산
@@ -373,6 +373,21 @@
 - Template의 항목별 JSON은 해당 필드 정의 · 초기 형상은 정의의 `value`에 보관 · 전체 Template JSON은 `version`·`fields` 양식 정의
 - Config의 공간 코드는 실제 공간 항목 값 · 다른 물성·계산 항목은 보존
 - **JSON 저장**은 편집기의 초안에만 반영 · 최종 저장 전 프로젝트·프리셋·실행 스냅샷은 변경하지 않음
+
+### 전체 공간 형상 JSON
+
+- 3D 형상 블록의 **JSON** 버튼으로 전체 공간 정의 조회·수정
+- `format: "cfd-spatial-config"`, `version: 1`, `sections` 구조 사용
+- `sections.geometry`: 공간·영역·요소의 전체 정의 · 이름·좌표·단위·물리 설정 연결 포함
+- `sections.mesh`: 격자 설정 · 기존 형상 내부의 격자 설정은 원래 위치에도 유지
+- `sections.boundaries`: 경계조건 및 계면 정의
+- `sections.observations`: 관측 위치 · `outputs.probes` 포함
+- 각 분류 안에서 기존 Config 키와 중첩 구조 유지 · 정의되지 않은 분류는 빈 객체
+- 기존 요소 안에 물성과 형상이 함께 저장된 경우 전체 요소 보존
+- Template에서도 필드 정의 대신 초기 형상 값을 표시 · 최종 저장 시 양식으로 변환
+- 기존 최상위 공간 항목의 누락, 잘못된 분류, 자료형 오류는 저장 차단 · 요소 제거는 영역 목록에서 편집
+- 공간 JSON에 포함되지 않은 물성·계산 조건·결과 저장 설정은 변경하지 않음
+- 외부 형상 파일의 경로만 존재하는 경우 파일 내용은 이 JSON에 포함되지 않음
 
 ### 공간 JSON 예시
 
@@ -446,7 +461,9 @@
 ## Config 편집 및 정의 파일
 
 - Template·프로젝트·Case는 공통 Config 편집기 사용
-- 입력 항목·3D 형상은 기존 블록에 유지 · 항목별 JSON은 오른쪽 독립 블록에 표시 · 열기·닫기 시 입력창과 3D 영역의 폭 유지
+- Config·3D 형상·JSON은 각각 독립 블록 · Config 오른쪽에 큰 3D 형상 블록 상시 표시
+- JSON은 맨 오른쪽에 표시 · 열기·닫기 시 Config와 3D 영역의 폭 유지 · 좁은 화면은 가로 스크롤로 접근
+- 분류 및 네임태그 선택 시 Config 목록 스크롤 유지
 - JSON 저장은 편집 초안 반영 · 최종 저장은 Case의 실행 저장 또는 상위 Template·프로젝트 저장
 - 실행한 Case의 Config·형상·JSON은 변경 불가 · 새 Case 사본에서 편집
 - 정의 파일은 소유 Template·프로젝트·Case 내부의 `Assets/Definitions/<Config SHA-256>`에 저장

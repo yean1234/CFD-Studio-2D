@@ -22,7 +22,7 @@ async page=>{
  check(await d.locator('[data-config-path="boundary_conditions.inlet.fields.U.value.x"]').count()===1,'conditional boundary velocity remains accessible');
  await d.getByRole('checkbox',{name:'전체 항목',exact:true}).check();await d.locator('.fc-nav').getByRole('button',{name:'재료 물성',exact:true}).click();
  check(await d.locator('[data-config-path="materials.fluids.fluid.density.value"]').inputValue()==='123','hidden optional input retains existing value');
- await d.locator('.fc-nav').getByRole('button',{name:'형상',exact:true}).click();await d.locator('.fc-main .fc-titlebar').getByRole('button',{name:'JSON',exact:true}).click();await d.locator('.fc-json-pane').getByRole('button',{name:'취소',exact:true}).click();
+ await d.locator('.fc-nav').getByRole('button',{name:'공간 형상',exact:true}).click();await d.locator('.fc-main .fc-titlebar').getByRole('button',{name:'JSON',exact:true}).click();await d.locator('.fc-json-pane').getByRole('button',{name:'취소',exact:true}).click();
  await d.getByRole('button',{name:'저장',exact:true}).click();await d.waitFor({state:'detached'});
  check(await page.evaluate(()=>configSaved[0].value.materials.fluids.fluid.density.value===123&&configSaved[0].value.materials.fluids.fluid.kinematic_viscosity.value===.000001&&configSaved[0].value.initial_conditions.fields.U.x===2),'editing updates only selected values and retains optional data');
  await page.evaluate(()=>CFDFormConfig.open({config:configGuided.config,schema:configGuided.config_schema,schemaOnly:true,title:'Config 양식',onSave:(value,schema)=>configSaved.push({value,schema})}));d=page.locator('.fc-dialog');
@@ -40,7 +40,7 @@ async page=>{
  const forms=await (await page.request.get(origin+'/api/executions/forms')).json();const warehouse=forms.forms.find(f=>f.config?.geometry_spec);check(!!warehouse,'legacy warehouse fixture exists');
  await page.evaluate(c=>CFDSettings.open({config:c,readonly:true,title:'Case Config'}),warehouse.config);const settings=page.locator('.fc-dialog');
  await settings.locator('.fc-preview canvas').waitFor();
- await settings.locator('.fc-nav').getByRole('button',{name:'저장고 형상',exact:true}).click();
+ await settings.locator('.fc-nav').getByRole('button',{name:'공간 형상',exact:true}).click();
  await settings.locator('.fc-main .fc-titlebar').getByRole('button',{name:'JSON',exact:true}).click();
  check(await settings.locator('.fc-json-pane textarea').getAttribute('readonly')!==null,'Case geometry JSON preserves read-only snapshot');
  await settings.screenshot({path:'output/playwright/config-warehouse-geometry.png'});
