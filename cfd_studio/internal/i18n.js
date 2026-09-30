@@ -822,6 +822,7 @@ add("GPU 전체 사용률 · 여러 장치가 있으면 가장 높은 값","Whol
 add("SSD 저장공간","SSD storage","SSD保存容量");
 add("드라이브 저장공간 사용률","Drive storage capacity used","ドライブ保存容量使用率");
 add("GPU 사용률","GPU utilization","GPU使用率");
+add("사용 용량 / 전체 용량","Used capacity / Total capacity","使用容量 / 総容量");
 const api={translate,get language(){return language;},supported:Object.freeze(supported),messages};
 root.CFDI18n=api;
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
