@@ -124,7 +124,7 @@
     if(!readonly){footer.append(button('JSON 가져오기',()=>importFile.click()));
       if(options.onSave&&!options.managed)footer.append(button('Config 저장',async()=>{const c=current();validate(c);busy(true);try{const saved=await options.onSave(name.value,c);error('Config 저장 완료: '+saved.name);}finally{busy(false);}}));
       const start=button(options.submitLabel||'계산 시작',async()=>{const c=current();validate(c);if(!name.value.trim())throw Error('실행 이름을 입력하세요');if(savePreset.checked&&!presetName.value.trim())throw Error('새 프리셋 이름을 입력하세요');busy(true);try{await options.onRun(name.value,clone(c),{preset_name:savePreset.checked?presetName.value.trim():null});dialog.close();}finally{busy(false);}});start.id='settingsStart';start.classList.add('pri');footer.append(start);
-    }else if(options.onClone){footer.append(button('이 Config로 새 Case',()=>{const c=current();if(kind(c)==='unsupported')throw Error('이 모델은 보관 설정 조회만 지원합니다');close();options.onClone(c);}));}
+    }else if(options.onClone){footer.append(button('Config 재사용',()=>{const c=current();if(kind(c)==='unsupported')throw Error('이 모델은 보관 설정 조회만 지원합니다');close();options.onClone(c);}));}
     footer.append(button(readonly?'닫기':'취소',close));dialog.append(footer);dialog.oncancel=e=>{if(locked)e.preventDefault();else version++;};
     function renderNav(){
       navList.replaceChildren();

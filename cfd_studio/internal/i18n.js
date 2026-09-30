@@ -89,7 +89,7 @@ add("프리셋 불러오기","Load preset","プリセットを読み込む");
 add("새 프리셋","New preset","新規プリセット");
 add("불러오기","Load","読み込む");
 add("선택한 프리셋 적용","Selected preset applied","選択したプリセットを適用");
-add("이 Config로 새 Case","New Case from this Config","このConfigで新規Case");
+add("Config 재사용","Reuse Config","Configを再利用");
 add("실행 목록","Case list","Case一覧");
 add("실행 선택","Select a Case","Caseを選択");
 add("실행 저장","Save Case","Caseを保存");
