@@ -34,7 +34,7 @@ async (page) => {
  await page.locator('#ewRows .ew-run-card').click();await page.locator('#ewSettings').click();await d.waitFor();await d.locator('.fc-preview canvas').waitFor();
  await d.getByRole('button',{name:'전체 JSON',exact:true}).click();const saved=JSON.parse(await d.getByRole('textbox',{name:'선택 항목 JSON',exact:true}).inputValue());
  if(saved.tank.width_mm!==setup.config.tank.width_mm+10||saved._studio.termination.time_s!==20)throw Error('Saved values mismatch');
- await d.locator('.fc-actions').last().getByRole('button',{name:'취소',exact:true}).click();
+ await d.locator('.fc-editor-card > .fc-actions').getByRole('button',{name:'취소',exact:true}).click();
  await page.evaluate(x=>{window.snapshotInput=structuredClone(x.config);CFDSettings.open({config:x.config,readonly:true,managed:true,form:x.form,name:'Stored Case',onClone:c=>window.clonedInput=c});},setup);
  await d.waitFor();await d.locator('.fc-element-list').getByRole('button',{name:'tank',exact:true}).click();
  const editable=await d.locator('.fc-main input:not([readonly]):not([disabled]), .fc-main textarea:not([readonly]):not([disabled])').count();if(editable)throw Error('Snapshot editable');

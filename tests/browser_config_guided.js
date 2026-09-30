@@ -44,6 +44,6 @@ async page=>{
  await settings.locator('.fc-main .fc-titlebar').getByRole('button',{name:'JSON',exact:true}).click();
  check(await settings.locator('.fc-json-pane textarea').getAttribute('readonly')!==null,'Case geometry JSON preserves read-only snapshot');
  await settings.screenshot({path:'output/playwright/config-warehouse-geometry.png'});
- await settings.locator('.fc-actions').last().getByRole('button',{name:'닫기',exact:true}).click();
+ await settings.locator('.fc-editor-card > .fc-actions').getByRole('button',{name:'닫기',exact:true}).click();
  check(errors.length===0,'no browser runtime errors: '+errors.join('; '));return {count:checks.length,checks};
 }

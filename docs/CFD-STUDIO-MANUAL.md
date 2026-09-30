@@ -446,7 +446,7 @@
 ## Config 편집 및 정의 파일
 
 - Template·프로젝트·Case는 공통 Config 편집기 사용
-- 입력 항목·3D 형상·항목별 JSON을 좌측부터 순서대로 배치
+- 입력 항목·3D 형상은 기존 블록에 유지 · 항목별 JSON은 오른쪽 독립 블록에 표시 · 열기·닫기 시 입력창과 3D 영역의 폭 유지
 - JSON 저장은 편집 초안 반영 · 최종 저장은 Case의 실행 저장 또는 상위 Template·프로젝트 저장
 - 실행한 Case의 Config·형상·JSON은 변경 불가 · 새 Case 사본에서 편집
 - 정의 파일은 소유 Template·프로젝트·Case 내부의 `Assets/Definitions/<Config SHA-256>`에 저장
