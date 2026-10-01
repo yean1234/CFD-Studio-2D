@@ -38,6 +38,12 @@
     }
     return c;
   }
+  function terminationPaths(config){
+    const model=kind(config),steady=model==='grain_silo'&&config.openfoam_mapping?.solver==='simpleFoam';
+    if(model==='warehouse')return [['numerics','end_s']];
+    if(['immersion','grain_silo'].includes(model))return [['run',steady?'max_iterations':'end_time_s'],['run','stop_mode']];
+    return [];
+  }
   function applyTermination(input){
     const c=clone(input),k=kind(c),n=c.numerics||c.run,steady=k==='grain_silo'&&c.openfoam_mapping?.solver==='simpleFoam';
     const stop=c._studio?.termination;if(!stop)return c;
@@ -214,10 +220,10 @@
     const named=(tag,label)=>{const node=el(tag);node.setAttribute('aria-label',label);return node;};
     const configNow=value=>{
       if(options.form){if(kind(value)!==kind(initial))throw Error('CFD Template의 해석 대상을 변경할 수 없습니다');if(kind(value)==='grain_silo'&&value.openfoam_mapping?.solver!==options.form.solver)throw Error('솔버는 CFD Template에서 지정합니다');}
-      return managed?applyTermination(value):value;
+      return managed||value._studio?.termination?applyTermination(value):value;
     };
     if(managed&&!readonly){const n=initial.numerics||initial.run||{},steady=kind(initial)==='grain_silo'&&initial.openfoam_mapping?.solver==='simpleFoam';initial._studio??={};initial._studio.termination??=steady?{mode:'frames',frames:Math.max(1,Math.ceil((n.max_iterations||300)/(n.write_interval_iterations||100))),include_initial:false}:{mode:'time',time_s:n.end_s??n.end_time_s??300};}
-    const sections=managed||initial._studio?.termination?[{key:'case_termination',title:'종료 조건·목표',matches:(query,value)=>searchTermination(value,query),render:(host,editor)=>{
+    const sections=managed||initial._studio?.termination?[{key:'case_termination',title:'종료 조건·목표',ownsPaths:terminationPaths(initial),matches:(query,value)=>searchTermination(value,query),render:(host,editor)=>{
       host.classList.add('fc-custom');const value=editor.getConfig(),n=value.numerics||value.run||{},steady=kind(value)==='grain_silo'&&value.openfoam_mapping?.solver==='simpleFoam',stop=value._studio?.termination||(steady?{mode:'frames',frames:Math.max(1,Math.ceil((n.max_iterations||300)/(n.write_interval_iterations||100))),include_initial:false}:{mode:'time',time_s:n.end_s??n.end_time_s??300});
       if(!readonly&&!value._studio?.termination)editor.mutate(c=>{c._studio??={};c._studio.termination=clone(stop);});
       const heading=el('div');heading.className='fc-titlebar';heading.append(el('h3','종료 조건·목표'));const json=el('button','JSON');json.type='button';json.className='btn';json.onclick=()=>editor.openJSON(['_studio']);heading.append(json);host.append(heading);
@@ -240,6 +246,6 @@
         if(options.onRun)await options.onRun(caseName,result,{preset_name:presetEnabled?presetName.trim():null});else if(options.onSave)await options.onSave(caseName,result);
       }});
   }
-  globalThis.CFDSettings={open,kind,matchesSearch,choicesFor:key=>(enums[key]||[]).map(value=>({value,label:choices[value]||String(value)})),parse,validate,fieldInfo,summary,prepareConfig,outputChoices,applyTermination,references,searchFields,searchTermination,configParts};
+  globalThis.CFDSettings={open,kind,matchesSearch,choicesFor:key=>(enums[key]||[]).map(value=>({value,label:choices[value]||String(value)})),parse,validate,fieldInfo,summary,prepareConfig,outputChoices,applyTermination,terminationPaths,references,searchFields,searchTermination,configParts};
   if(typeof module!=='undefined')module.exports=globalThis.CFDSettings;
 })();

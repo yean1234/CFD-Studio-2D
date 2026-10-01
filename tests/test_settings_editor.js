@@ -82,3 +82,10 @@ test('Config summary follows the frozen FORM and time basis without subject-spec
  assert.equal(editor.summary({run:{time_basis:'iterations',max_iterations:40}}, {name:'Custom flow',solver:'customSolver'}),'Custom flow · customSolver · 40 회');
  assert.equal(editor.summary({run:{end_time_s:12}}, {name:'Cooling',solver:'otherSolver'}),'Cooling · otherSolver · 12 s');
 });
+
+test('termination section owns only the actual solver stop paths',()=>{
+ assert.deepEqual(editor.terminationPaths(warehouse()),[['numerics','end_s']]);
+ assert.deepEqual(editor.terminationPaths(immersion()),[['run','end_time_s'],['run','stop_mode']]);
+ assert.deepEqual(editor.terminationPaths({_해석유형:'grain_silo',openfoam_mapping:{solver:'simpleFoam'}}),[['run','max_iterations'],['run','stop_mode']]);
+ assert.deepEqual(editor.terminationPaths({analysis:{solver:'custom'},run:{end_time_s:10}}),[]);
+});
