@@ -115,3 +115,28 @@ test('legacy vapour and phase change belong to the runner dielectric region only
  assert.ok(!s.partBindings(config,['water']).some(p=>['vapour','phase_change'].includes(p[0])));
  assert.ok(!s.partBindings({geometry:{regions:[{material_state:'liquid'}]},vapour:{}},['geometry','regions',0]).some(p=>p[0]==='vapour'));
 });
+
+test('fill definitions derive fluid shape from explicit interior with units and retain source',()=>{
+ const s=require('../cfd_studio/internal/spatial_editor.js');const c={geometry:{regions:[{name:'Housing',material_state:'solid',shape:'box',unit:'m',min:[0,0,0],max:[2,3,2],interior:{shape:'box',unit:'m',min:[.1,.2,.1],max:[1.9,2.8,1.9]}},{name:'Liquid',material_state:'liquid'}]}};
+ const original=structuredClone(c),fill={container_path:['geometry','regions',0],axis:'y',start:100,end:1600,unit:'mm'},result=s.applyFill(c,['geometry','regions',1],fill);
+ assert.deepEqual(result.geometry.regions[1].max,[1.9,1.8,1.9]);assert.ok(Math.abs(result.geometry.regions[1].min[1]-.3)<1e-9);assert.deepEqual(c,original);assert.equal(s.shapes(result).items.length,2);
+ assert.throws(()=>s.applyFill(c,['geometry','regions',1],{...fill,end:9000}),/범위/);delete c.geometry.regions[0].interior;assert.throws(()=>s.applyFill(c,['geometry','regions',1],fill),/내부 공간/);
+});
+test('cylinder fill follows its axis and legacy two-layer edits remain compatible',()=>{
+ const s=require('../cfd_studio/internal/spatial_editor.js');const c={domain:{name:'Space',shape:'cylinder',unit:'m',center:[0,0,2],radius:1,height:4,axis:'z'},regions:[{name:'Gas'}]};
+ const f={container_path:['domain'],axis:'z',start:1,end:3,unit:'m'},r=s.applyFill(c,['regions',0],f);assert.equal(r.regions[0].height,2);assert.deepEqual(r.regions[0].center,[0,0,2]);assert.throws(()=>s.applyFill(c,['regions',0],{...f,axis:'x'}),/중심축/);
+ const old={tank:{width_mm:100,depth_mm:50,liquid_height_mm:200},layers:{dielectric_mm:80},dielectric_fluid:{name:'Fluid A'},water:{name:'Fluid B'}};
+ const updated=s.applyFill(old,['water'],{container_path:['tank'],axis:'y',start:120,end:200,unit:'mm'});assert.equal(updated.layers.dielectric_mm,120);assert.equal(updated.dielectric_fluid.fill.end,120);assert.equal(updated.water.min[1],120);assert.equal(old.layers.dielectric_mm,80);
+ assert.throws(()=>s.applyFill(old,['dielectric_fluid'],{container_path:['tank'],axis:'y',start:10,end:100,unit:'mm'}),/두 유체층/);
+});
+test('local mesh definitions require bounded boxes with finer positive spacing',()=>{
+ const s=require('../cfd_studio/internal/spatial_editor.js');const c={tank:{width_mm:100,liquid_height_mm:100,depth_mm:100},mesh:{dx_mm:10,refinement_regions:[{name:'A',shape:'box',unit:'mm',min:[0,0,0],max:[50,50,50],cell_size:{value:5,unit:'mm'}}]}};
+ s.validateRefinements(c);c.mesh.refinement_regions[0].cell_size.value=10;assert.throws(()=>s.validateRefinements(c),/기본 격자/);c.mesh.refinement_regions[0].cell_size.value=5;c.mesh.refinement_regions[0].max[0]=101;assert.throws(()=>s.validateRefinements(c),/계산 영역/);
+});
+test('fill rejects overlap, invalid interior and self-reference without rewriting inputs',()=>{
+ const s=require('../cfd_studio/internal/spatial_editor.js');let c={domain:{name:'Space',shape:'box',unit:'m',min:[0,0,0],max:[1,3,1]},regions:[{name:'A'},{name:'B'}]};
+ c=s.applyFill(c,['regions',0],{container_path:['domain'],axis:'y',start:0,end:2,unit:'m'});const before=structuredClone(c);
+ assert.throws(()=>s.applyFill(c,['regions',1],{container_path:['domain'],axis:'y',start:1,end:3,unit:'m'}),/겹칩니다/);assert.deepEqual(c,before);
+ assert.throws(()=>s.applyFill(c,['domain'],{container_path:['domain'],axis:'y',start:0,end:2,unit:'m'}),/자기 자신/);
+ c.domain.material_state='solid';c.domain.interior={shape:'box',unit:'m',min:[0,0,0],max:[2,3,1]};assert.throws(()=>s.fillSpace(c,['domain']),/외곽/);
+});

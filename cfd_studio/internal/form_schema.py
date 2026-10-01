@@ -65,8 +65,8 @@ def is_geometry_path(path):
     root=path[0] if path else ''
     key=path[1] if len(path)>1 else ''
     if root in ('geometry','domain','regions','geometry_spec','loading','silo','published','probes_mm'):return True
-    if root in ('dielectric_fluid','water'):return key in ('name','role','material_state','state','_transform_reference','config_bindings')
-    if root in ('tank','board','coil'):return key in ('shape','unit','min','max','center','radius','height','axis','width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','material_state','state','_transform_reference','config_bindings')
+    if root in ('dielectric_fluid','water'):return key in ('name','role','material_state','state','_transform_reference','config_bindings','fill','interior')
+    if root in ('tank','board','coil'):return key in ('shape','unit','min','max','center','radius','height','axis','width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','material_state','state','_transform_reference','config_bindings','fill','interior')
     if root=='layers':return key in ('dielectric_mm','air_mm')
     return root=='heater' and key=='cpus'
 
@@ -199,6 +199,8 @@ def apply_initial_geometry(config,schema):
 
 def validate_geometry(config):
     """Check supported primitive dimensions before a project can use them."""
+    from cfd_studio.primitive_geometry import validate_fill_definitions
+    validate_fill_definitions(config)
     def number(value):return type(value) in (int,float) and math.isfinite(value)
     def vector(value):return isinstance(value,list) and len(value)==3 and all(number(v) for v in value)
     def region(value):

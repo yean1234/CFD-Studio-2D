@@ -26,6 +26,9 @@ def layout(spec):
     y=sorted({0.,g['width_m']/2,g['width_m'],*(b[k][1] for b in blocks for k in ('min_m','max_m'))})
     xc=np.ceil(np.diff(x)/spacing[0]).astype(int);yc=np.ceil(np.diff(y)/spacing[1]).astype(int)
     zc=np.ceil(np.array([bottom,top-bottom,g['eaves_m']+g['roof_rise_m']-top])/spacing[2]).astype(int)
+    if m.get('refinement_regions'):
+        from .local_mesh_refinement import refine_counts
+        xc,yc,zc=refine_counts(spec,x,y,[0.,bottom,top],xc,yc,zc)
     cells=int(xc.sum()*yc.sum()*zc.sum()*r**3)
     if cells>m['maximum_cells']:raise ValueError('Aligned mesh exceeds explicit cell budget')
     return g,x,y,[0.,bottom,top],xc,yc,zc,r,cells

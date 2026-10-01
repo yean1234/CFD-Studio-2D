@@ -47,9 +47,9 @@
  function isGeometryPath(path){
   const [root,key]=path;
   if(path.includes('properties')||path.includes('components'))return false;
-  if(['dielectric_fluid','water'].includes(root))return ['name','role','material_state','state','_transform_reference','config_bindings'].includes(key);
+  if(['dielectric_fluid','water'].includes(root))return ['name','role','material_state','state','_transform_reference','config_bindings','fill','interior'].includes(key);
   if(['geometry','domain','regions','geometry_spec','loading','silo','published','probes_mm'].includes(root))return true;
-  if(['tank','board','coil'].includes(root))return ['shape','unit','min','max','center','radius','height','axis','width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','material_state','state','_transform_reference','config_bindings'].includes(key);
+  if(['tank','board','coil'].includes(root))return ['shape','unit','min','max','center','radius','height','axis','width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','material_state','state','_transform_reference','config_bindings','fill','interior'].includes(key);
   if(root==='layers')return ['dielectric_mm','air_mm'].includes(key);
   return root==='heater'&&key==='cpus';
  }
@@ -111,7 +111,76 @@
   for(const [p,lo,hi,scaleOld]of entries){if(!p.shape)continue;if(p.shape!=='box')return '현재 실행기는 이 영역의 직육면체 형상만 지원합니다';const scale={m:1,cm:.01,mm:.001}[p.unit];if(!scale)return '형상 단위에 m, cm 또는 mm를 입력하세요';for(const [actual,expected]of [[p.min,lo],[p.max,hi]])if(!Array.isArray(actual)||!Array.isArray(expected)||actual.length!==3||expected.length!==3||actual.some((v,i)=>!Number.isFinite(v)||!Number.isFinite(expected[i])||Math.abs(v*scale-expected[i]*scaleOld)>1e-9+Math.abs(expected[i]*scaleOld)*1e-10))return '명시한 형상과 기존 실행기 치수가 다릅니다 · 형상 JSON에서 다시 저장하세요';}
   return '';
  }
+ // Fill definitions refer to an explicit space, never an inferred cavity in a solid.
+ const unitScale={m:1,cm:.01,mm:.001};
+ function fillInfo(config,path){
+  const part=at(config,path);if(part?.fill)return clone(part.fill);
+  if(config.tank&&config.layers&&path.length===1&&['dielectric_fluid','water'].includes(path[0]))return {container_path:['tank'],axis:'y',start:path[0]==='water'?config.layers.dielectric_mm:0,end:path[0]==='water'?config.tank.liquid_height_mm:config.layers.dielectric_mm,unit:'mm'};
+  return null;
+ }
+ function fillSpace(config,path){
+  const part=at(config,path);if(!part)throw Error('채움 기준 공간을 찾을 수 없습니다');
+  const state=part.material_state||part.state;
+  const shape=part.interior?{name:part.name||'interior',...clone(part.interior)}:primitiveDefinition(config,path);
+  if(state==='solid'&&!part.interior)throw Error('고체의 내부 공간을 먼저 정의하세요');
+  if(part.fill||['liquid','gas'].includes(state))throw Error('유체 영역을 채움 기준 공간으로 사용할 수 없습니다');
+  if(!shape||!['box','cylinder'].includes(shape.shape))throw Error('채움은 직육면체 또는 원기둥 공간을 지원합니다');
+  validatePrimitive(shape);
+  if(part.interior){const outer=primitiveDefinition(config,path);if(!outer||outer.shape!==shape.shape)throw Error('내부 공간은 외곽과 같은 기본 형상으로 정의하세요');validatePrimitive(outer);const ratio=unitScale[shape.unit]/unitScale[outer.unit];
+   let inside=false;if(shape.shape==='box')inside=shape.min.every((v,i)=>v*ratio>=outer.min[i]&&shape.max[i]*ratio<=outer.max[i]);
+   else if(shape.axis===outer.axis){const a='xyz'.indexOf(shape.axis),radial=[0,1,2].filter(i=>i!==a);inside=Math.hypot(...radial.map(i=>shape.center[i]*ratio-outer.center[i]))+shape.radius*ratio<=outer.radius&&Math.abs(shape.center[a]*ratio-outer.center[a])+shape.height*ratio/2<=outer.height/2;}
+   if(!inside)throw Error('내부 공간이 고체 외곽을 벗어났습니다');
+  }return shape;
+ }
+ function filledPrimitive(config,path,fill){
+  if(!fill||!Array.isArray(fill.container_path)||!fill.container_path.length||fill.container_path.some(k=>!['string','number'].includes(typeof k)||['__proto__','constructor','prototype'].includes(k)))throw Error('채움 기준 공간을 선택하세요');
+  if(pathId(path)===pathId(fill.container_path))throw Error('자기 자신을 채움 공간으로 선택할 수 없습니다');
+  const parent=fillSpace(config,fill.container_path),axis='xyz'.indexOf(fill.axis),scale=unitScale[fill.unit]/unitScale[parent.unit];
+  if(axis<0||!Number.isFinite(scale)||![fill.start,fill.end].every(Number.isFinite)||fill.start<0||fill.end<=fill.start)throw Error('채움 시작·끝 위치와 단위를 확인하세요');
+  if(parent.shape==='cylinder'&&fill.axis!==parent.axis)throw Error('원기둥 채움 방향은 중심축과 같아야 합니다');
+  const extent=parent.shape==='box'?parent.max[axis]-parent.min[axis]:parent.height,start=fill.start*scale,end=fill.end*scale;
+  if(end>extent+1e-10)throw Error('채움 범위가 내부 공간을 벗어났습니다');
+  const result={...clone(parent),name:at(config,path)?.name||String(path.at(-1))};
+  if(parent.shape==='box'){result.min[axis]+=start;result.max[axis]=parent.min[axis]+end;}
+  else{result.center[axis]+=(-parent.height/2+(start+end)/2);result.height=end-start;}
+  return result;
+ }
+ function resolveFills(config){
+  const next=clone(config);
+  for(const entry of elements(next))if(entry.value.fill){const value=filledPrimitive(next,entry.path,entry.value.fill);for(const key of primitiveKeys)delete entry.value[key];Object.assign(entry.value,value);delete entry.value._transform_reference;}
+  const fills=elements(next).filter(e=>e.value.fill);
+  for(let i=0;i<fills.length;i++)for(let j=i+1;j<fills.length;j++){const a=fills[i].value,b=fills[j].value;if(pathId(a.fill.container_path)!==pathId(b.fill.container_path))continue;let overlap=false;
+   if(a.shape==='box'&&b.shape==='box')overlap=a.min.every((v,k)=>Math.min(a.max[k],b.max[k])-Math.max(v,b.min[k])>1e-10);
+   else if(a.shape==='cylinder'&&b.shape==='cylinder'&&a.axis===b.axis){const k='xyz'.indexOf(a.axis);overlap=Math.min(a.center[k]+a.height/2,b.center[k]+b.height/2)-Math.max(a.center[k]-a.height/2,b.center[k]-b.height/2)>1e-10;}
+   if(overlap)throw Error('채움 범위가 다른 유체 영역과 겹칩니다');
+  }return next;
+ }
+ function applyFill(config,path,fill){
+  const next=clone(config),part=at(next,path);if(!part)throw Error('선택한 요소를 찾을 수 없습니다');
+  filledPrimitive(next,path,fill);
+  const legacy=next.tank&&next.layers&&path.length===1&&['dielectric_fluid','water'].includes(path[0]);
+  if(legacy){
+   const scale=unitScale[fill.unit]/.001,start=fill.start*scale,end=fill.end*scale,H=next.tank.liquid_height_mm;
+   if(pathId(fill.container_path)!==pathId(['tank'])||fill.axis!=='y'||next.tank.interior||((path[0]==='dielectric_fluid')?Math.abs(start)>1e-9:Math.abs(end-H)>1e-9))throw Error('기존 실행기는 같은 공간의 연속된 두 유체층만 지원합니다');
+   const boundary=path[0]==='dielectric_fluid'?end:start;if(boundary<=0||boundary>=H)throw Error('두 유체층의 높이는 0보다 커야 합니다');next.layers.dielectric_mm=boundary;
+   for(const key of ['dielectric_fluid','water'])if(next[key]){next[key].fill={container_path:['tank'],axis:'y',start:key==='water'?boundary:0,end:key==='water'?H:boundary,unit:'mm'};}
+  }else part.fill=clone(fill);
+  return resolveFills(next);
+ }
+ function validateRefinements(config){
+  const mesh=config.porous_mesh||config.mesh;if(!mesh?.refinement_regions)return;
+  if(!Array.isArray(mesh.refinement_regions)||mesh.refinement_regions.length>64)throw Error('국부 격자 영역은 64개 이하로 정의하세요');
+  const rawBase=mesh.base_max_spacing_m?Math.min(...mesh.base_max_spacing_m):(mesh.dx_mm!==undefined?mesh.dx_mm:mesh.cell_size?.value);const base=typeof rawBase==='number'?(mesh.base_max_spacing_m?rawBase:mesh.dx_mm!==undefined?rawBase*.001:rawBase*unitScale[mesh.cell_size?.unit]):NaN;
+  for(const region of mesh.refinement_regions){
+   validatePrimitive({name:region.name||'refinement',shape:region.shape,unit:region.unit,min:region.min,max:region.max});
+   if(region.shape!=='box')throw Error('국부 격자는 직육면체 영역을 지원합니다');
+   const size=typeof region.cell_size?.value==='number'?region.cell_size.value*unitScale[region.cell_size?.unit]:NaN;if(!Number.isFinite(size)||size<=0||!Number.isFinite(base)||base<=0||size>=base)throw Error('국부 격자 간격은 기본 격자보다 작은 양수로 입력하세요');
+   if(config.porous_mesh&&config.geometry_spec?.geometry){const g=config.geometry_spec.geometry,scale=unitScale[region.unit],lo=region.min.map(v=>v*scale),hi=region.max.map(v=>v*scale),roof=y=>g.eaves_m+g.roof_rise_m*(1-Math.abs(2*y/g.width_m-1));if(lo.some(v=>v<0)||hi[0]>g.length_m||hi[1]>g.width_m||hi[2]>Math.min(roof(lo[1]),roof(hi[1]))+1e-10)throw Error('국부 격자가 계산 영역을 벗어났습니다');}
+   if(config.tank){const limit=[config.tank.width_mm,config.tank.liquid_height_mm,config.tank.depth_mm].map(v=>v*.001),scale=unitScale[region.unit];if(region.min.some(v=>v*scale<0)||region.max.some((v,i)=>v*scale>limit[i]))throw Error('국부 격자가 계산 영역을 벗어났습니다');}
+  }
+ }
  function shapes(config){
+  config=resolveFills(config);
   const items=[],notes=[],up=config.tank?[0,1,0]:[0,0,1];
   const num=(x,label,positive=false)=>{if(typeof x!=='number'||!Number.isFinite(x)||(positive&&x<=0))throw Error(label+' 숫자·범위를 확인하세요');return x;};
   const vector=(x,label)=>{if(!Array.isArray(x)||x.length!==3)throw Error(label+'에 좌표 3개를 입력하세요');return x.map(v=>num(v,label));};
@@ -126,8 +195,8 @@
    if(l&&(!t.shape||(t.shape==='box'&&t.min?.every(v=>v===0)))&&ready([t.width_mm,t.depth_mm,t.liquid_height_mm,l.dielectric_mm])){
     const lower=num(l.dielectric_mm,'layers.dielectric_mm'),height=num(t.liquid_height_mm,'tank.liquid_height_mm',true);
     if(lower<0||lower>height)throw Error('유체 영역 높이가 계산 영역을 벗어났습니다');
-    if(config.dielectric_fluid&&lower>0)box('dielectric_fluid',[0,0,0],[t.width_mm,lower,t.depth_mm],.001,{path:['dielectric_fluid']});
-    if(config.water&&lower<height)box('water',[0,lower,0],[t.width_mm,height,t.depth_mm],.001,{path:['water']});
+    if(config.dielectric_fluid?.fill)region(config.dielectric_fluid,'dielectric_fluid',config.dielectric_fluid.unit,['dielectric_fluid']);else if(config.dielectric_fluid&&lower>0)box('dielectric_fluid',[0,0,0],[t.width_mm,lower,t.depth_mm],.001,{path:['dielectric_fluid']});
+    if(config.water?.fill)region(config.water,'water',config.water.unit,['water']);else if(config.water&&lower<height)box('water',[0,lower,0],[t.width_mm,height,t.depth_mm],.001,{path:['water']});
    }
    notes.push('상분율·계산 격자는 표시하지 않음');
   }
@@ -183,6 +252,7 @@
   else if(['water','dielectric_fluid'].includes(path[0])&&config.tank&&config.layers){const t=config.tank,l=config.layers,upper=path[0]==='water';size=[t.width_mm,upper?t.liquid_height_mm-l.dielectric_mm:l.dielectric_mm,t.depth_mm];position=[size[0]/2,(upper?l.dielectric_mm:0)+size[1]/2,size[2]/2];kind='layer';unit='mm';lockedPosition=true;lockedScale=[true,true,true];}
   else if(path[0]==='heater'&&path[1]==='cpus'){size=[p.x1-p.x0,p.y1-p.y0,1];position=[(p.x0+p.x1)/2,(p.y0+p.y1)/2,config.board?.z1];kind='surface';unit='mm';lockedPosition=[false,false,true];lockedScale=[false,false,true];}
   else return null;
+  if(p.fill){lockedPosition=true;lockedScale=[true,true,true];}
   if(!position||!size||[...position,...size].some(v=>!Number.isFinite(v))||size.some(v=>v<=0))return null;
   const reference=Array.isArray(p._transform_reference)&&p._transform_reference.length===3&&p._transform_reference.every(v=>Number.isFinite(v)&&v>0)?p._transform_reference:size;
   return {position:clone(position),size,scale:size.map((v,i)=>v/reference[i]),reference:clone(reference),kind,unit,lockedPosition,lockedScale};
@@ -299,5 +369,5 @@
   dialog.append(header,el('p',schemaOnly?'초기 형상은 Template에 저장 · 프로젝트에서 독립적으로 수정 가능':'형상 확인용 미리보기 · 격자 생성·솔버 계산은 별도','sp-note'),body,help,error,actions);
   dialog.onclose=()=>{closed=true;clear();dialog.remove();};document.body.append(dialog);dialog.showModal();return dialog;
  }
- const api={runnerGeometryIssue,primitiveDefinition,validatePrimitive,applyPrimitive,transformInfo,transform,keys,parse,extract,merge,document:spatialDocument,mergeDocument,shapes,elements,partBindings,isGeometryPath,at,pathId,viewer,open};if(typeof module!=='undefined')module.exports=api;else globalThis.CFDSpatial=api;
+ const api={fillInfo,fillSpace,filledPrimitive,resolveFills,applyFill,validateRefinements,runnerGeometryIssue,primitiveDefinition,validatePrimitive,applyPrimitive,transformInfo,transform,keys,parse,extract,merge,document:spatialDocument,mergeDocument,shapes,elements,partBindings,isGeometryPath,at,pathId,viewer,open};if(typeof module!=='undefined')module.exports=api;else globalThis.CFDSpatial=api;
 })();

@@ -15,6 +15,10 @@
 WSL 케이스로 옮기므로, 경계조건을 바꾸려면 생성기가 직접 써야 반영된다.
 """
 import json, csv, math, argparse, os, sys
+try:
+    from .mesh_refinement import refinement_boxes, refined_axis, validate_legacy_fills
+except ImportError:
+    from mesh_refinement import refinement_boxes, refined_axis, validate_legacy_fills
 
 R_GAS, P_ATM = 8.314462618, 101325.0
 RAW = {}             # 조건 적용 전 config 원본
@@ -49,6 +53,10 @@ def load(root, condition=None):
 def validate(c):
     W, D, H = c['tank']['width_mm'], c['tank']['depth_mm'], c['tank']['liquid_height_mm']
     err = []
+    try:
+        refinement_boxes(c['mesh'],[W,H,D])
+        validate_legacy_fills(c)
+    except ValueError as exc:err.append(str(exc))
     def inbox(b, name, zfree=False):
         if not (0 <= b['x0'] < b['x1'] <= W and 0 <= b['y0'] < b['y1'] <= H):
             err.append(f"{name}: x/y 범위가 수조({W}x{H})를 벗어남")
@@ -174,10 +182,13 @@ def build_mesh(c):
     YS = breakpoints([b['y0'], b['y1'], k['y0'], k['y1'], c['layers']['dielectric_mm']]
                      + [v for u in cpus for v in (u['y0'], u['y1'])], 0, H)
     ZS = breakpoints([b['z0'], b['z1'], k['z0'], k['z1']], 0, D)
+    refinements=refinement_boxes(c['mesh'],[W,H,D])
+    XS,nx=refined_axis(XS,0,dx,refinements)
+    YS,ny=refined_axis(YS,1,dx,refinements)
+    ZS,nz=refined_axis(ZS,2,dx,refinements)
     NC, NR, NZ = len(XS)-1, len(YS)-1, len(ZS)-1
-    nx = [max(2, round((XS[i+1]-XS[i])/dx)) for i in range(NC)]
-    ny = [max(2, round((YS[j+1]-YS[j])/dx)) for j in range(NR)]
-    nz = [max(2, round((ZS[kk+1]-ZS[kk])/dx)) for kk in range(NZ)]
+    if refinements and (NC*NR*NZ>200000 or sum(nx)*sum(ny)*sum(nz)>20000000):
+        raise ValueError('Refined mesh exceeds the 20 million cell / 200,000 block generation limit')
 
     def spans(lines, a0, a1):
         return [i for i in range(len(lines)-1) if lines[i] >= a0-1e-9 and lines[i+1] <= a1+1e-9]
@@ -255,14 +266,14 @@ def build_mesh(c):
     # 코일 각 면의 인접 셀 크기 → 격자측 열저항 δ/κ 산출용.
     # externalWallHeatFluxTemperature 의 h 는 이 저항과 '직렬'로 걸리므로
     # 모델이 낼 수 있는 UA 에는 Σ(A·κ/δ) 라는 격자 상한이 존재한다 (검토서 A2).
-    def cellsz(S):
-        return [(S[i+1]-S[i])/max(2, round((S[i+1]-S[i])/dx)) for i in range(len(S)-1)]
+    def cellsz(S,counts):
+        return [(S[i+1]-S[i])/counts[i] for i in range(len(S)-1)]
     def adj(S, sz, val, up):
         for i in range(len(S)-1):
             if up and abs(S[i]-val) < 1e-9: return sz[i]
             if not up and abs(S[i+1]-val) < 1e-9: return sz[i]
         return dx
-    cx, cy, cz = cellsz(XS), cellsz(YS), cellsz(ZS)
+    cx, cy, cz = cellsz(XS,nx), cellsz(YS,ny), cellsz(ZS,nz)
     ax = (k['x1']-k['x0'])*(k['y1']-k['y0'])   # z 법선 면
     ay = (k['x1']-k['x0'])*(k['z1']-k['z0'])   # y 법선 면
     az = (k['y1']-k['y0'])*(k['z1']-k['z0'])   # x 법선 면
