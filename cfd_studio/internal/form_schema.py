@@ -66,7 +66,7 @@ def is_geometry_path(path):
     key=path[1] if len(path)>1 else ''
     if root in ('geometry','domain','regions','geometry_spec','loading','silo','published','probes_mm'):return True
     if root in ('dielectric_fluid','water'):return key in ('name','role','material_state','state','_transform_reference','config_bindings')
-    if root in ('tank','board','coil'):return key in ('width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','material_state','state','_transform_reference','config_bindings')
+    if root in ('tank','board','coil'):return key in ('shape','unit','min','max','center','radius','height','axis','width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','material_state','state','_transform_reference','config_bindings')
     if root=='layers':return key in ('dielectric_mm','air_mm')
     return root=='heater' and key=='cpus'
 
@@ -202,6 +202,9 @@ def validate_geometry(config):
         region(geometry)
         for key in ('regions','fluid_regions','solid_regions'):collection(geometry.get(key),geometry.get('unit'))
     region(config.get('domain'));collection(config.get('regions'))
+    for key in ('tank','board','coil'):region(config.get(key))
+    loading=config.get('loading')
+    if isinstance(loading,dict):collection(loading.get('blocks'))
 
 
 def validate_values(schema,config):

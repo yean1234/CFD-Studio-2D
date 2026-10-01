@@ -502,3 +502,16 @@
 - 새 속성과 상태는 Config 정의에 저장 · 실제 계산 반영 여부는 해당 실행 어댑터의 지원 범위에 따름
 
 참고: [OpenFOAM 표준 솔버](https://www.openfoam.com/documentation/user-guide/a-reference/a.1-standard-solvers), [영역별 열전달](https://doc.openfoam.com/2212/tools/processing/solvers/rtm/heat-transfer/chtMultiRegionFoam/), [열물성 모델](https://www.openfoam.com/documentation/user-guide/5-models-and-physical-properties/5.2-thermophysical-models)
+
+
+### 명시적 기본 형상
+
+- 형상 종류는 `shape`에 명시 · 이름으로 종류나 물질 상태를 추론하지 않음
+- 지원 미리보기: `box`, `sphere`, `cylinder` · 단위 `m`, `cm`, `mm`
+- Template의 **형상 JSON**은 필드 스키마가 아닌 초기 형상 값을 표시 · Config에서도 사본 수정 가능
+- JSON 저장 시 종류별 필수 좌표·양수 치수·단위 검사 · 물성·운전값은 형상 JSON에서 제외
+- 이전 전용 `tank`·`board`·`coil`·적재 블록 형식은 기존 좌표로 명시적 형상 정의 제공
+- 변환한 형상을 저장하면 `shape`·`unit`·좌표 필드를 Config에 보관 · 이전 치수 필드는 실행기 호환을 위해 유지
+- 기존 직육면체 실행기가 표현할 수 있는 좌표는 호환 필드와 동기화 · 다른 형상이나 불일치 치수는 실행용 입력에서 차단
+- 전체 Config JSON에는 호환 필드가 포함될 수 있음 · 선택 요소의 형상 JSON에는 일반 형상 정의만 표시
+- 이전 실행의 입력과 결과 파일은 자동 변환하지 않음

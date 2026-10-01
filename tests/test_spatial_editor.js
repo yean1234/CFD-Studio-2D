@@ -93,3 +93,17 @@ test('legacy constrained parts cannot be moved independently and originals remai
  assert.throws(()=>transform(c,['water'],'position',0,1));assert.throws(()=>transform(c,['tank'],'scale',1,.1));
  assert.equal(transform(c,['board'],'position',2,10).board.z0,9);assert.deepEqual(transformInfo(c,['water']).size,[100,40,50]);
 });
+
+test('primitive JSON explicitly describes old boxes without touching source Config',()=>{
+ const {primitiveDefinition,applyPrimitive,shapes}=require('../cfd_studio/internal/spatial_editor.js');
+ const c={tank:{name:'tank',_설명:'User note',width_mm:456,depth_mm:70,liquid_height_mm:800},materials:{rho:1000}},before=structuredClone(c);
+ const g=primitiveDefinition(c,['tank']);assert.deepEqual(g,{name:'tank',shape:'box',unit:'mm',min:[0,0,0],max:[456,800,70]});assert.deepEqual(c,before);
+ const next=applyPrimitive(c,['tank'],{...g,max:[500,900,80]});assert.equal(next.tank.liquid_height_mm,900);assert.equal(next.tank._설명,'User note');assert.deepEqual(shapes(next).items[0].max,[.5,.9,.08]);assert.deepEqual(c,before);
+ const sphere=applyPrimitive(c,['tank'],{name:'tank',shape:'sphere',unit:'m',center:[0,0,0],radius:2});assert.equal(shapes(sphere).items[0].kind,'sphere');assert.equal(sphere.tank.width_mm,456);
+});
+test('primitive geometry does not infer a shape from its user-defined name',()=>{
+ const {primitiveDefinition,shapes,validatePrimitive}=require('../cfd_studio/internal/spatial_editor.js');
+ const c={geometry:{regions:[{name:'tank',width_mm:456,depth_mm:70,liquid_height_mm:800}]}};
+ assert.equal(primitiveDefinition(c,['geometry','regions',0]),null);assert.equal(shapes(c).items.length,0);
+ for(const bad of [{name:'x',shape:'box',unit:'mm',min:[0,0,0],max:[1,2,3],liquid_height_mm:3},{name:'x',shape:'cylinder',unit:'m',center:[0,0,0],radius:1,height:2,axis:'q'},{name:'x',unit:'m',min:[0,0,0],max:[1,2,3]}])assert.throws(()=>validatePrimitive(bad));
+});

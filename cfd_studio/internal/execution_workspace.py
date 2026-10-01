@@ -69,6 +69,10 @@ def config_kind(config):
 
 def validate_settings(config):
     json.dumps(config, allow_nan=False)
+    from cfd_studio.form_schema import validate_geometry
+    from cfd_studio.primitive_geometry import validate_runner_geometry
+    validate_geometry(config)
+    validate_runner_geometry(config)
     def check(value, path='설정'):
         if value is None:
             raise ValueError(path+' 값을 입력해 주세요')

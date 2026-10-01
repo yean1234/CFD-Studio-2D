@@ -49,7 +49,7 @@
   if(path.includes('properties'))return false;
   if(['dielectric_fluid','water'].includes(root))return ['name','role','material_state','state','_transform_reference','config_bindings'].includes(key);
   if(['geometry','domain','regions','geometry_spec','loading','silo','published','probes_mm'].includes(root))return true;
-  if(['tank','board','coil'].includes(root))return ['width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','material_state','state','_transform_reference','config_bindings'].includes(key);
+  if(['tank','board','coil'].includes(root))return ['shape','unit','min','max','center','radius','height','axis','width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','material_state','state','_transform_reference','config_bindings'].includes(key);
   if(root==='layers')return ['dielectric_mm','air_mm'].includes(key);
   return root==='heater'&&key==='cpus';
  }
@@ -69,6 +69,48 @@
   // Names are presentation only; exact paths retain keys containing punctuation.
   return out.map(e=>({...e,label:typeof e.label==='string'?e.label:e.path.join(' / ')}));
  }
+ const primitiveKeys=['shape','unit','min','max','center','radius','height','axis'];
+ function primitiveDefinition(config,path){
+  const p=at(config,path);if(!isObject(p))return null;
+  const named={name:typeof p.name==='string'?p.name:String(path.at(-1))};
+  if(p.shape){const keys=['shape','unit',...({box:['min','max'],sphere:['center','radius'],cylinder:['center','radius','height','axis']}[p.shape]||[])];return {...named,...Object.fromEntries(keys.filter(k=>Object.hasOwn(p,k)).map(k=>[k,clone(p[k])]))};}
+  // These are compatibility conversions of known old formats, never inference from a display name.
+  if(path.length===1&&path[0]==='tank'&&['width_mm','liquid_height_mm','depth_mm'].every(k=>Object.hasOwn(p,k)))return {...named,shape:'box',unit:'mm',min:[0,0,0],max:[p.width_mm,p.liquid_height_mm,p.depth_mm]};
+  if(path.length===1&&['board','coil'].includes(path[0])&&['x0','x1','y0','y1','z0','z1'].every(k=>Object.hasOwn(p,k)))return {...named,shape:'box',unit:'mm',min:['x0','y0','z0'].map(k=>p[k]),max:['x1','y1','z1'].map(k=>p[k])};
+  if(p.min_m&&p.max_m)return {...named,shape:'box',unit:'m',min:clone(p.min_m),max:clone(p.max_m)};
+  return null;
+ }
+ function validatePrimitive(value){
+  parse(JSON.stringify(value));
+  const shape=value.shape,allowed={box:['min','max'],sphere:['center','radius'],cylinder:['center','radius','height','axis']};
+  if(typeof shape!=='string'||!Object.hasOwn(allowed,shape))throw Error('shape에 box, sphere 또는 cylinder를 입력하세요');
+  if(!['m','cm','mm'].includes(value.unit))throw Error('형상 단위에 m, cm 또는 mm를 입력하세요');
+  if(Object.keys(value).some(k=>!['name','shape','unit',...allowed[shape]].includes(k)))throw Error('형상 JSON에는 이름·종류·단위·좌표·치수만 입력하세요');
+  if(typeof value.name!=='string'||!value.name.trim())throw Error('형상 이름을 입력하세요');
+  const vec=v=>Array.isArray(v)&&v.length===3&&v.every(Number.isFinite),positive=v=>Number.isFinite(v)&&v>0;
+  if(shape==='box'){if(!vec(value.min)||!vec(value.max)||value.max.some((v,i)=>v<=value.min[i]))throw Error('형상의 최소·최대 좌표를 확인하세요');}
+  else{if(!vec(value.center)||!positive(value.radius))throw Error('형상의 중심 좌표와 반지름을 확인하세요');if(shape==='cylinder'&&(!positive(value.height)||!['x','y','z'].includes(value.axis)))throw Error('원기둥의 높이와 중심축을 확인하세요');}
+ }
+ function applyPrimitive(config,path,definition){
+  validatePrimitive(definition);const next=clone(config),part=at(next,path);if(!isObject(part))throw Error('선택한 요소를 찾을 수 없습니다');
+  for(const key of primitiveKeys)delete part[key];delete part._transform_reference;
+  Object.assign(part,clone(definition));
+  // Keep the old runner fields synchronized only where that runner represents the shape exactly.
+  if(definition.shape==='box'){
+   const mm={m:1000,cm:10,mm:1}[definition.unit],lo=definition.min.map(v=>v*mm),hi=definition.max.map(v=>v*mm);
+   if(path.length===1&&path[0]==='tank'&&lo.every(v=>v===0)){part.width_mm=hi[0];part.liquid_height_mm=hi[1];part.depth_mm=hi[2];}
+   if(path.length===1&&['board','coil'].includes(path[0]))for(const [i,a]of ['x','y','z'].entries()){part[a+'0']=lo[i];part[a+'1']=hi[i];}
+   if(path[0]==='loading'&&path[1]==='blocks'){part.min_m=lo.map(v=>v/1000);part.max_m=hi.map(v=>v/1000);}
+  }
+  return next;
+ }
+ function runnerGeometryIssue(config){
+  const entries=[];
+  if(config.tank){entries.push([config.tank,[0,0,0],[config.tank.width_mm,config.tank.liquid_height_mm,config.tank.depth_mm],.001]);for(const key of ['board','coil'])if(config[key]){const p=config[key];entries.push([p,[p.x0,p.y0,p.z0],[p.x1,p.y1,p.z1],.001]);}}
+  for(const p of config.loading?.blocks||[])entries.push([p,p.min_m,p.max_m,1]);
+  for(const [p,lo,hi,scaleOld]of entries){if(!p.shape)continue;if(p.shape!=='box')return '현재 실행기는 이 영역의 직육면체 형상만 지원합니다';const scale={m:1,cm:.01,mm:.001}[p.unit];if(!scale)return '형상 단위에 m, cm 또는 mm를 입력하세요';for(const [actual,expected]of [[p.min,lo],[p.max,hi]])if(!Array.isArray(actual)||!Array.isArray(expected)||actual.length!==3||expected.length!==3||actual.some((v,i)=>!Number.isFinite(v)||!Number.isFinite(expected[i])||Math.abs(v*scale-expected[i]*scaleOld)>1e-9+Math.abs(expected[i]*scaleOld)*1e-10))return '명시한 형상과 기존 실행기 치수가 다릅니다 · 형상 JSON에서 다시 저장하세요';}
+  return '';
+ }
  function shapes(config){
   const items=[],notes=[],up=config.tank?[0,1,0]:[0,0,1];
   const num=(x,label,positive=false)=>{if(typeof x!=='number'||!Number.isFinite(x)||(positive&&x<=0))throw Error(label+' 숫자·범위를 확인하세요');return x;};
@@ -77,11 +119,11 @@
   const ready=values=>values.every(x=>x!==null&&x!==undefined&&x!=='');
   const g=config.geometry_spec?.geometry;
   if(g){const a=[g.length_m,g.width_m,g.eaves_m,g.roof_rise_m];if(ready(a)){a.forEach((x,i)=>num(x,'geometry_spec.geometry',i<3));if(a[3]<0)throw Error('roof_rise_m은 0 이상이어야 합니다');items.push({kind:'gable',name:'geometry_spec.geometry',size:a,path:['geometry_spec','geometry']});}else notes.push('geometry_spec.geometry: 치수 미입력');}
-  if(config.tank){const t=config.tank,a=[t.width_mm,t.liquid_height_mm,t.depth_mm];if(ready(a))box('tank',[0,0,0],a,.001,{path:['tank']});else notes.push('tank: 치수 미입력');
-   for(const key of ['board','coil'])if(config[key]){const b=config[key],a=['x0','y0','z0','x1','y1','z1'].map(k=>b[k]);if(ready(a))box(key,a.slice(0,3),a.slice(3),.001,{path:[key]});else notes.push(key+': 치수 미입력');}
+  if(config.tank){const t=config.tank,a=[t.width_mm,t.liquid_height_mm,t.depth_mm];if(t.shape)region(t,'tank',t.unit,['tank']);else if(ready(a))box('tank',[0,0,0],a,.001,{path:['tank']});else notes.push('tank: 치수 미입력');
+   for(const key of ['board','coil'])if(config[key]){const b=config[key],a=['x0','y0','z0','x1','y1','z1'].map(k=>b[k]);if(b.shape)region(b,key,b.unit,[key]);else if(ready(a))box(key,a.slice(0,3),a.slice(3),.001,{path:[key]});else notes.push(key+': 치수 미입력');}
    for(const [i,cpu]of (config.heater?.cpus||[]).entries()){const a=[cpu.x0,cpu.x1,cpu.y0,cpu.y1,config.board?.z1];if(ready(a)){a.forEach(x=>num(x,'heater.cpus'));if(a[1]<=a[0]||a[3]<=a[2])throw Error('발열면 최대 좌표는 최소 좌표보다 커야 합니다');items.push({kind:'surface',name:'heater.cpus.'+i,path:['heater','cpus',i],center:[(a[0]+a[1])*.0005,(a[2]+a[3])*.0005,a[4]*.001],width:(a[1]-a[0])*.001,height:(a[3]-a[2])*.001});}else notes.push('heater.cpus.'+i+': 치수 미입력');}
    const l=config.layers;
-   if(l&&ready([t.width_mm,t.depth_mm,t.liquid_height_mm,l.dielectric_mm])){
+   if(l&&(!t.shape||(t.shape==='box'&&t.min?.every(v=>v===0)))&&ready([t.width_mm,t.depth_mm,t.liquid_height_mm,l.dielectric_mm])){
     const lower=num(l.dielectric_mm,'layers.dielectric_mm'),height=num(t.liquid_height_mm,'tank.liquid_height_mm',true);
     if(lower<0||lower>height)throw Error('유체 영역 높이가 계산 영역을 벗어났습니다');
     if(config.dielectric_fluid&&lower>0)box('dielectric_fluid',[0,0,0],[t.width_mm,lower,t.depth_mm],.001,{path:['dielectric_fluid']});
@@ -89,7 +131,7 @@
    }
    notes.push('상분율·계산 격자는 표시하지 않음');
   }
-  for(const [i,b]of (config.loading?.blocks||[]).entries())box('loading.blocks['+i+']',b.min_m,b.max_m,1,{path:['loading','blocks',i]});
+  for(const [i,b]of (config.loading?.blocks||[]).entries()){if(b.shape)region(b,'loading.blocks['+i+']',b.unit,['loading','blocks',i]);else box('loading.blocks['+i+']',b.min_m,b.max_m,1,{path:['loading','blocks',i]});}
   function region(r,name,inheritedUnit,path){
    if(!isObject(r)){notes.push(name+': 지원하지 않는 형식');return;}
    const shape=r.shape||r.type;
@@ -112,6 +154,7 @@
   if(items.length>1000)throw Error('미리보기 형상은 1000개 이하로 입력하세요');
   if(!items.length)notes.push('표시할 형상이 없습니다 · 치수와 형식을 확인하세요');
   const names=new Map(elements(config).map(e=>[e.id,e.label]));for(const item of items){item.id=pathId(item.path);item.label=names.get(item.id)||item.name;}
+  const issue=runnerGeometryIssue(config);if(issue)notes.push(issue);
   return {items,notes,up};
  }
  // Map existing solver fields to parts without copying or renaming stored inputs.
@@ -158,6 +201,7 @@
   else if(info.kind==='cylinder'){const a='xyz'.indexOf(p.axis||'z');p.center=position;p.height=size[a];p.radius=size[(a+1)%3]/2;}
   else if(info.kind==='tank'){if(next.layers?.dielectric_mm>size[1])throw Error('유체 영역 높이가 계산 영역을 벗어났습니다');[p.width_mm,p.liquid_height_mm,p.depth_mm]=size;}
   else if(info.kind==='gable'){p.length_m=size[0];p.width_m=size[1];const ratio=size[2]/info.size[2];p.eaves_m*=ratio;p.roof_rise_m*=ratio;}
+  if(p.shape&&(['tank','board','coil'].includes(path[0])||path[0]==='loading')){const result=applyPrimitive(next,path,primitiveDefinition(next,path));if(p._transform_reference)at(result,path)._transform_reference=p._transform_reference;return result;}
   return next;
  }
  async function viewer(host,model,{onSelect=null,selected=null,cameraState=null}={}){
@@ -253,5 +297,5 @@
   dialog.append(header,el('p',schemaOnly?'초기 형상은 Template에 저장 · 프로젝트에서 독립적으로 수정 가능':'형상 확인용 미리보기 · 격자 생성·솔버 계산은 별도','sp-note'),body,help,error,actions);
   dialog.onclose=()=>{closed=true;clear();dialog.remove();};document.body.append(dialog);dialog.showModal();return dialog;
  }
- const api={transformInfo,transform,keys,parse,extract,merge,document:spatialDocument,mergeDocument,shapes,elements,partBindings,isGeometryPath,at,pathId,viewer,open};if(typeof module!=='undefined')module.exports=api;else globalThis.CFDSpatial=api;
+ const api={runnerGeometryIssue,primitiveDefinition,validatePrimitive,applyPrimitive,transformInfo,transform,keys,parse,extract,merge,document:spatialDocument,mergeDocument,shapes,elements,partBindings,isGeometryPath,at,pathId,viewer,open};if(typeof module!=='undefined')module.exports=api;else globalThis.CFDSpatial=api;
 })();

@@ -1391,6 +1391,15 @@ add("목록 값: 각 입력칸에 작성 ·","List values: enter each item ·","
 add("로 추가 · 행 오른쪽","to add · Use the control at the end of a row","で追加 · 各行の右側の");
 add("로 삭제","to remove","で削除");
 add("여러 값의 목록 · + 버튼으로 항목 추가","A list of values · Add items with +","値のリスト · +ボタンで項目を追加");
+add("형상 JSON","Geometry JSON","形状JSON");
+add("기본 형상 예시","Primitive example","基本形状の例");
+add("기존 치수에서 변환한 형상입니다 · JSON에서 종류·좌표·치수 편집","Converted from existing dimensions · Edit type, coordinates and dimensions in JSON","既存の寸法から変換した形状です · JSONで種類・座標・寸法を編集");
+add("shape에 box, sphere 또는 cylinder를 입력하세요","Set shape to box, sphere or cylinder","shapeにはbox、sphereまたはcylinderを入力してください");
+add("형상 JSON에는 이름·종류·단위·좌표·치수만 입력하세요","Geometry JSON accepts only name, type, unit, coordinates and dimensions","形状JSONには名前・種類・単位・座標・寸法のみを入力してください");
+add("형상 이름을 입력하세요","Enter a geometry name","形状名を入力してください");
+add("현재 실행기는 이 영역의 직육면체 형상만 지원합니다","The current runner supports only a box for this region","現在の実行機能はこの領域の直方体形状のみ対応しています");
+add("명시한 형상과 기존 실행기 치수가 다릅니다 · 형상 JSON에서 다시 저장하세요","Explicit geometry and runner dimensions differ · Save again from Geometry JSON","指定した形状と実行機能の寸法が一致しません · 形状JSONから保存し直してください");
+add("형상 JSON: shape·unit·좌표·치수 직접 입력 · 기본 형상 예시에서 직육면체·구·원기둥 선택 가능","Geometry JSON: enter shape, unit, coordinates and dimensions · Box, sphere and cylinder examples are available","形状JSON: shape・unit・座標・寸法を直接入力 · 直方体・球・円柱の例を選択可能");
 const api={translate,get language(){return language;},supported:Object.freeze(supported),messages};
 root.CFDI18n=api;
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
