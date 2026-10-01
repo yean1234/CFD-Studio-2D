@@ -1,6 +1,18 @@
 # AIエージェント利用ガイド
 
+- CFD Studio V1.0 · エージェントインターフェース v1.1
+
 [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
+
+## 結果の確認
+
+- ViewerでCaseを1件選択し、**3D Virtual / Data Sheet**を切替
+- Data Sheet左側：全体平均または指定座標の時系列、最大3つの物理量
+- 右側：保存フレームの線上プロファイル、始点・終点・標本数を指定
+- 線上の値は最寄りの保存セルに基づくため、空間・時間補間として説明しない
+- JSONはConfig全体・空間定義全体・主要分類単位で入力、個々の属性にはJSONボタンなし
+- Template作成だけでは実行アダプターは追加されないため、実際の実行接続状態を確認
+
 
 ## 開始手順
 

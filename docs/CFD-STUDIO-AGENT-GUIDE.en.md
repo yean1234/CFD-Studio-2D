@@ -1,6 +1,18 @@
 # AI Agent Guide
 
+- CFD Studio V1.0 · Agent interface v1.1
+
 [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
+
+## Result review
+
+- Select one Case in Viewer, then switch between **3D Virtual / Data Sheet**
+- Left Data Sheet panel: whole-domain mean or point time series, up to three quantities
+- Right panel: line profile at a saved frame, with start/end coordinates and sample count
+- Line values use the nearest saved cell; do not describe them as spatial or temporal interpolation
+- Enter JSON for the whole Config, complete spatial document or major section; individual properties do not each have a JSON button
+- Creating a Template does not add an execution adapter; inspect the actual execution connection
+
 
 ## Quick start
 

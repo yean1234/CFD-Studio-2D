@@ -1,6 +1,18 @@
 # AI 에이전트 사용법
 
+- CFD Studio V1.0 · 에이전트 인터페이스 v1.1
+
 [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
+
+## 결과 확인
+
+- Viewer에서는 Case 하나를 선택한 뒤 **3D Virtual / Data Sheet** 전환
+- Data Sheet 왼쪽: 전체 평균 또는 특정 좌표의 시계열 · 최대 3개 물리량
+- 오른쪽: 저장 프레임의 선상 프로파일 · 시작점·끝점·표본 수 지정
+- 선상 값은 최근접 저장 셀 기준 · 공간·시간 보간 결과로 설명하지 않음
+- JSON은 전체 Config·전체 공간 정의 또는 주요 분류 단위로 입력 · 개별 속성마다 JSON 버튼을 찾지 않음
+- 새 Template 생성만으로 실행기가 추가되지는 않음 · 실제 실행 연결 상태 확인
+
 
 ## 시작 순서
 

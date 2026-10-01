@@ -1,5 +1,7 @@
 # 결과 시각화
 
+- CFD Studio V1.0
+
 ## 공통 표시 정의
 
 - 정의 파일: `cfd_studio/internal/viewer_presentation.js`
