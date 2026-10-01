@@ -222,10 +222,98 @@ class ResultSeries:
             basis='저장 시각화 격자 · 빈 온도 셀 제외 · 상분율 마스크·구형 빈 평면 보정 적용'
         return {'id':key,'metric':metric,'axis':catalog['axis'],'points':points,'total':total,'next':min(total,offset+limit),'errors':errors,'basis':basis}
 
-    def frame_point(self, path, field, config, xyz):
-        # Use the same integrity checks and units as whole-field statistics.
+    def prepare_points(self, path, field, config):
+        """Validate and decode once for all samples of one saved frame."""
         raw = path.read_bytes()
         self.frame_stat(path, field, config, raw=raw)
+        values, empty_planes = array('f'), set()
+        if field not in ('water', 'vapour', 'liquid'):
+            values.frombytes(raw[40:])
+            if sys.byteorder != 'little': values.byteswap()
+            if field in ('speed','ux','uy','uz','pressure','k','epsilon'):
+                nx, ny, nz = struct.unpack_from('<3I', raw, 4)
+                plane, n, channels = nx*ny, nx*ny*nz, FIELDS[field][4]
+                keep = [z for z in range(nz) if (
+                    any(abs(v)>1e-30 for v in values[z*plane*3:(z+1)*plane*3]) if channels==3 else
+                    any(abs(values[c*n+i])>1e-30 for c in range(channels) for i in range(z*plane,(z+1)*plane)))]
+                missing = nz-len(keep)
+                if len(keep)>=2 and missing>=3 and missing>=nz*.05 and any(b>a+1 for a,b in zip(keep,keep[1:])):
+                    empty_planes = set(range(nz))-set(keep)
+        return raw, values, empty_planes
+
+    def profile_frames(self, key, field):
+        catalog = self.catalog(key)
+        if field not in {m['id'] for m in catalog['point_metrics']}:
+            raise ValueError('좌표 조회를 지원하지 않는 결과 항목입니다')
+        record, root, _ = self.record(key)
+        if record['kind']=='warehouse':
+            from cfd_studio.warehouse_results import WarehouseResults
+            times = WarehouseResults(self.workspace.output, lambda _:root)._load(record['rid'])[4]
+        else:
+            prefix = FIELDS[field][2]
+            times = [t for t, _ in self.index_files(root, prefix, (str(root), prefix))]
+        return {'axis':catalog['axis'], 'times':list(times)}
+
+    def line_profile(self, key, field, start, end, frame=0, count=64):
+        if type(count) is not int or not 2<=count<=256 or type(frame) is not int or frame<0:
+            raise ValueError('선상 조회 범위 오류')
+        if any(len(p)!=3 or not all(math.isfinite(v) for v in p) for p in (start,end)):
+            raise ValueError('유한한 X·Y·Z 좌표를 입력하세요')
+        length = math.dist(start,end)
+        if not math.isfinite(length) or length<=0: raise ValueError('서로 다른 시작점과 끝점을 입력하세요')
+        catalog = self.catalog(key)
+        metric = next((m for m in catalog['point_metrics'] if m['id']==field), None)
+        if not metric or not metric['bounds_m']: raise ValueError('좌표 조회를 지원하지 않는 결과 항목입니다')
+        for point in (start,end):
+            if any(not lo<=v<=hi for v,(lo,hi) in zip(point,metric['bounds_m'])):
+                raise ValueError('좌표가 저장 격자 영역 밖입니다')
+            domain = catalog['coordinate_domain']
+            if domain and domain['kind']=='gable':
+                roof = domain['eaves_m']+domain['roof_rise_m']*(1-abs(2*point[1]/domain['width_m']-1))
+                if point[2]>roof: raise ValueError('좌표가 저장 격자 영역 밖입니다')
+        xyz = [[start[k]+(end[k]-start[k])*i/(count-1) for k in range(3)] for i in range(count)]
+        record, root, config = self.record(key)
+        samples, points = [], []
+        if record['kind']=='warehouse':
+            from cfd_studio.warehouse_results import WarehouseResults, raw_field
+            reader = WarehouseResults(self.workspace.output, lambda _:root)
+            case, model, _, _, times, fields, centres, unit = reader._load(record['rid'])
+            if frame>=len(times): raise ValueError('저장 시점 범위 오류')
+            cells = len(centres)//3
+            source = reader._raw_path(case,times,frame,'C')
+            if raw_field(source,cells,model.get('field_dimensions'))!=fields[frame*cells:(frame+1)*cells]:
+                raise ValueError('원본장과 조회 배열이 일치하지 않습니다')
+            if field=='concentration':
+                values = [v*(1e6 if unit=='kg/m3' else 1) for v in fields[frame*cells:(frame+1)*cells]]
+            else:
+                temperature, velocity, _ = reader._coupled_frame(case,model,times,frame)
+                values = [temperature[i]-273.15 if field=='temperature' else
+                          math.hypot(*velocity[3*i:3*i+3]) if field=='speed' else
+                          velocity[3*i+('ux','uy','uz').index(field)] for i in range(cells)]
+            def sample(point):
+                cell = min(range(cells),key=lambda i:sum((centres[3*i+k]-point[k])**2 for k in range(3)))
+                centre = list(centres[cell*3:cell*3+3])
+                return values[cell], {'cell_index':cell,'cell_centre_m':centre,'cell_centre_distance_m':math.dist(centre,point)}
+        else:
+            files = self.index_files(root,FIELDS[field][2],(str(root),field))
+            if frame>=len(files): raise ValueError('저장 시점 범위 오류')
+            times = [t for t,_ in files]
+            path = files[frame][1]
+            prepared = self.prepare_points(path,field,config)
+            def sample(point): return self.frame_point(path,field,config,point,prepared=prepared)
+        for i,point in enumerate(xyz):
+            value, info = sample(point)
+            distance = length*i/(count-1)
+            points.append([distance,value])
+            samples.append({'distance_m':distance,'requested_xyz_m':point,**info})
+        return {'id':key,'metric':field,'unit':metric['unit'],'axis':'distance','frame_axis':catalog['axis'],
+                'frame':frame,'saved_x':times[frame],'start_m':list(start),'end_m':list(end),
+                'sampling':'nearest_saved_cell','samples':samples,'points':points,'total':count,'next':count,'errors':[]}
+
+    def frame_point(self, path, field, config, xyz, *, prepared=None):
+        # Use the same integrity checks and units as whole-field statistics.
+        prepared = prepared or self.prepare_points(path, field, config)
+        raw, values, empty_planes = prepared
         dims = struct.unpack_from('<3I', raw, 4)
         bbox = struct.unpack_from('<6f', raw, 16)
         if any(xyz[k] < bbox[k] or xyz[k] > bbox[k+3] for k in range(3)):
@@ -241,18 +329,7 @@ class ResultSeries:
                 water, vapour = raw[40+cell], raw[40+n+cell]
                 value = (water if field=='water' else vapour if field=='vapour' else max(0,255-water-vapour))/255
         else:
-            channels = FIELDS[field][4]
-            values = array('f'); values.frombytes(raw[40:])
-            if sys.byteorder != 'little': values.byteswap()
-            empty_plane = False
-            if field in ('speed','ux','uy','uz','pressure','k','epsilon'):
-                plane = nx*ny
-                keep = [z for z in range(nz) if (
-                    any(abs(v)>1e-30 for v in values[z*plane*3:(z+1)*plane*3]) if channels==3 else
-                    any(abs(values[c*n+i])>1e-30 for c in range(channels) for i in range(z*plane,(z+1)*plane)))]
-                missing = nz-len(keep)
-                empty_plane = (len(keep)>=2 and missing>=3 and missing>=nz*.05
-                               and any(b>a+1 for a,b in zip(keep,keep[1:])) and ijk[2] not in keep)
+            empty_plane = ijk[2] in empty_planes
             if not empty_plane:
                 if field == 'speed': value = math.hypot(*values[cell*3:cell*3+3])
                 elif field in ('ux','uy','uz'): value = values[cell*3+('ux','uy','uz').index(field)]

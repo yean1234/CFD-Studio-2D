@@ -228,6 +228,20 @@ add("접기","Collapse","折りたたむ");
 add("다시 읽기","Reload","再読み込み");
 add("전체 구간 읽기","Read full range","全区間を読み込む");
 add("읽기 중지","Stop reading","読み込み停止");
+add("Data Sheet Viewer: 왼쪽 시간 그래프에서 전체 평균 / 특정 좌표 선택, 오른쪽 선상 프로파일에서 거리별 값 조회","Data Sheet Viewer: choose overall mean or coordinates on the left; inspect a distance profile on the right","Data Sheet Viewer：左で全体平均または指定座標を選択、右で距離に沿った値を照会");
+add("시간 그래프","Time series","時系列グラフ");
+add("선상 프로파일","Line profile","ラインプロファイル");
+add("조회 방식","Query mode","照会方式");
+add("특정 좌표","At coordinates","指定座標");
+add("저장 시점","Saved frame","保存時点");
+add("시작점 (m)","Start (m)","始点 (m)");
+add("끝점 (m)","End (m)","終点 (m)");
+add("표본 수","Samples","標本数");
+add("거리 (m)","Distance (m)","距離 (m)");
+add("시작점과 끝점을 입력하고 조회하세요","Enter the start and end points, then query","始点と終点を入力して照会してください");
+add("선상 조회 범위 오류","Invalid line sampling range","ライン照会範囲が無効です");
+add("서로 다른 시작점과 끝점을 입력하세요","Enter distinct start and end points","異なる始点と終点を入力してください");
+add("저장 시점 범위 오류","Saved frame is out of range","保存時点が範囲外です");
 add("전체 평균","Overall mean","全体平均");
 add("좌표 조회","Point query","座標照会");
 add("그래프 형식","Chart type","グラフ形式");
@@ -795,7 +809,7 @@ const patterns=[
  [/^읽음 (\d+ \/ \d+) 값$/,['Read $1 values','$1 値を読込済み']],
  [/^왼쪽 그래프 요소 (\d+)$/,['Left chart metric $1','左グラフの項目 $1']],
  [/^([XYZ]) 좌표$/,['$1 coordinate','$1 座標']],
- [/^그래프 (\d+)\. 클릭 또는 좌우 화살표로 저장 시점 선택$/,['Chart $1. Click or use the left/right arrows to select a saved time','グラフ $1 · クリックまたは左右矢印で保存時点を選択']],
+ [/^그래프 (\d+)\. 클릭 또는 좌우 화살표로 (?:저장 시점|위치) 선택$/,['Chart $1. Click or use the left/right arrows to select a saved time','グラフ $1 · クリックまたは左右矢印で保存時点を選択']],
 
  [/^그래프 (\d+)( Export)?$/,['Chart $1$2','グラフ $1$2']],
  [/^벡터 ([\d,]+)개$/,['$1 vectors','ベクトル $1 個']],
@@ -804,6 +818,7 @@ const patterns=[
  [/^(결과 읽기 실패|농도 프레임 읽기 실패): (.+)$/,[(m,l)=>translate(m[1],l)+': '+translate(m[2],l),(m,l)=>translate(m[1],l)+': '+translate(m[2],l)]],
 
  [/^기준: (Case 생성 당시 프리셋|Case 최초 저장 설정)$/,[(m,l)=>'Baseline: '+translate(m[1],l),(m,l)=>'基準：'+translate(m[1],l)]],
+ [/^읽음 (\d+ \/ \d+) 표본$/,['Read $1 samples','$1 標本を読込済み']],
  [/^읽음 (\d+ \/ \d+) 시점$/,['Read $1 time points','$1 時点を読込済み']],
  [/^([XYZ]) 유속$/,['$1 velocity','$1 流速']],
  [/^(\d+(?:\.\d+)?) 시뮬레이션 초$/,['$1 simulation seconds','シミュレーション $1 秒']],

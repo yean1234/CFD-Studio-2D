@@ -550,6 +550,15 @@ def get_route(handler, workspace):
         elif url.path == '/api/executions/chart':
             q = parse_qs(url.query)
             result = workspace.series.page(q.get('id', [''])[0], q.get('metric', [''])[0], int(q.get('offset', ['0'])[0]), int(q.get('limit', ['16'])[0]))
+        elif url.path == '/api/executions/profile-frames':
+            q = parse_qs(url.query)
+            result = workspace.series.profile_frames(q.get('id', [''])[0], q.get('field', [''])[0])
+        elif url.path == '/api/executions/line-profile':
+            q = parse_qs(url.query)
+            result = workspace.series.line_profile(q.get('id', [''])[0], q.get('field', [''])[0],
+                [float(q.get(k, [''])[0]) for k in ('x0','y0','z0')],
+                [float(q.get(k, [''])[0]) for k in ('x1','y1','z1')],
+                int(q.get('frame', ['0'])[0]), int(q.get('count', ['64'])[0]))
         elif url.path == '/api/executions/point-chart':
             q = parse_qs(url.query)
             result = workspace.series.point_page(q.get('id', [''])[0], q.get('field', [''])[0],

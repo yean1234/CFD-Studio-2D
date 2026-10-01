@@ -123,3 +123,34 @@ class SeriesTests(unittest.TestCase):
         self.assertEqual(fields['temperature']['bounds_m'],[[0,1],[0,1],[0,1]])
         self.assertEqual(fields['pressure']['bounds_m'],[[-2,2],[-3,3],[-4,4]])
         self.assertIsNone(self.series.grid_bounds(self.root,'speed'))
+
+    def test_line_profile_exact_frame_endpoints_gaps_and_single_decode(self):
+        from unittest.mock import patch
+        self.packed('therm_2.bin',b'THM1',[280,0,310])
+        path=self.packed('therm_10.bin',b'THM1',[290,0,320]);before=path.read_bytes()
+        self.assertEqual(self.series.profile_frames('case:a','temperature')['times'],[2,10])
+        with patch.object(self.series,'prepare_points',wraps=self.series.prepare_points) as decode:
+            result=self.series.line_profile('case:a','temperature',[0,.5,.5],[1,.5,.5],1,3)
+            self.assertEqual(decode.call_count,1)
+        self.assertEqual(result['saved_x'],10);self.assertEqual(result['axis'],'distance')
+        self.assertEqual([p[0] for p in result['points']],[0,.5,1])
+        self.assertAlmostEqual(result['points'][0][1],16.85)
+        self.assertIsNone(result['points'][1][1]);self.assertAlmostEqual(result['points'][2][1],46.85)
+        self.assertEqual(result['samples'][-1]['cell_index'],2)
+        self.assertEqual(path.read_bytes(),before)
+
+    def test_line_profile_bounds_and_invalid_selection(self):
+        self.packed('flow_2.bin',b'FLW1',[3,4,0,0,0,12],3)
+        r=self.series.line_profile('case:a','speed',[1,.5,.5],[0,.5,.5],0,2)
+        self.assertEqual(r['points'],[[0,12],[1,5]])
+        for start,end,frame,count in [([0,0,0],[0,0,0],0,64),([0,0,0],[2,0,0],0,64),([math.nan,0,0],[1,0,0],0,64),([0,0,0],[1,0,0],9,64),([0,0,0],[1,0,0],0,257)]:
+            with self.subTest(start=start,end=end,frame=frame,count=count),self.assertRaises(ValueError):
+                self.series.line_profile('case:a','speed',start,end,frame,count)
+        with self.assertRaises(ValueError):self.series.profile_frames('case:a','unknown')
+
+    def test_line_profile_phase_mask_and_corruption(self):
+        (self.root/'phase_1.bin').write_bytes(b'PHS2'+struct.pack('<3I6f',2,1,1,0,0,0,1,1,1)+bytes([51,255,102,255,1,0]))
+        result=self.series.line_profile('case:a','liquid',[0,.5,.5],[1,.5,.5],0,2)
+        self.assertAlmostEqual(result['points'][0][1],.4);self.assertIsNone(result['points'][1][1])
+        self.packed('therm_2.bin',b'THM1',[float('nan'),310])
+        with self.assertRaises(ValueError):self.series.line_profile('case:a','temperature',[0,.5,.5],[1,.5,.5])
