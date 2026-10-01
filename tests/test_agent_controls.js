@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {VERSION,commands,validate,prompt}=require('../cfd_studio/internal/agent_controls.js');
-test('versioned catalogue has no duplicate commands',()=>{assert.equal(VERSION,'1.0');assert.equal(new Set(commands).size,commands.length);});
+test('versioned catalogue has no duplicate commands',()=>{assert.equal(VERSION,'1.1');assert.equal(new Set(commands).size,commands.length);});
 test('reject unsupported commands and invalid parameters',()=>{
  for(const [name,args] of [['eval',{}],['ui.fill',{target:'x',value:3}],['ui.check',{target:'x',checked:1}],['ui.select',{value:'x'}],['viewer.mode',{mode:'bad'}],['project.select',{}],['case.select',null]])assert.throws(()=>validate(name,args));
 });
@@ -10,4 +10,15 @@ test('accept stable navigation and observed field actions',()=>{
 test('prompt distinguishes dispatch, execution and physical validation',()=>{
  const text=prompt();for(const fragment of ['existing visible tab','NOT that a save/export/CFD run succeeded','queue.start resumes the entire','Do not invent geometry','does not stop an in-flight command or solver'])assert.ok(text.includes(fragment),fragment);
  for(const name of commands)assert.ok(text.includes(name));
+});
+
+test('JSON commands validate scope, syntax and size before dispatch',()=>{
+ for(const scope of ['config','geometry'])assert.doesNotThrow(()=>validate('config.json.open',{scope}));
+ for(const args of [{},{scope:'files'},{scope:['config']}])assert.throws(()=>validate('config.json.open',args));
+ for(const value of ['{"a":1}','[1,2,3]','0'])assert.doesNotThrow(()=>validate('config.json.fill',{value}));
+ for(const value of [{a:1},'{bad}',JSON.stringify('x'.repeat(1000000))])assert.throws(()=>validate('config.json.fill',{value}));
+ assert.doesNotThrow(()=>validate('config.json.apply',{}));
+});
+test('agent prompt requires JSON drafts and staged user review',()=>{
+ const text=prompt();for(const fragment of ['state().json','not field-by-field entry','before final saving','before queue.add or queue.start','not a server-enforced approval system','JSON apply does not save'])assert.ok(text.includes(fragment),fragment);
 });

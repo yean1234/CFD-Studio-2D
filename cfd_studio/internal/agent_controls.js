@@ -1,7 +1,7 @@
 /* Versioned, browser-local agent interface. All mutations go through visible UI controls. */
 (function(root){
 'use strict';
-const VERSION='1.0';
+const VERSION='1.1';
 const shortcuts={
  'cfd.open':'mCFD','viewer.open':'mViz','project.find':'ewFindProject','project.new':'ewCreateProject',
  'project.manage':'ewRename','case.new':'ewNewRun','config.open':'ewSettings','result.open':'ewView',
@@ -9,7 +9,7 @@ const shortcuts={
  'queue.add':'ewEnqueue','queue.start':'ewQueueStart','queue.pause':'ewQueuePause','case.stop':'ewStop',
  'case.recovery':'ewRecovery','queue.skip':'ewSkip','settings.open':'settingsBtn'
 };
-const commands=[...Object.keys(shortcuts),'project.select','case.select','viewer.mode','ui.click','ui.fill','ui.select','ui.check'];
+const commands=[...Object.keys(shortcuts),'project.select','case.select','viewer.mode','ui.click','ui.fill','ui.select','ui.check','config.json.open','config.json.fill','config.json.apply'];
 function validate(command,args={}){
  if(!commands.includes(command))throw Error('UNKNOWN_COMMAND');
  if(!args||typeof args!=='object'||Array.isArray(args))throw Error('INVALID_ARGUMENTS');
@@ -17,6 +17,8 @@ function validate(command,args={}){
  if(required&&(typeof args[required]!=='string'||!args[required]))throw Error('MISSING_'+required.toUpperCase());
  if(command==='viewer.mode'&&!['3d','data'].includes(args.mode))throw Error('INVALID_MODE');
  if(['ui.fill','ui.select'].includes(command)&&typeof args.value!=='string')throw Error('VALUE_MUST_BE_STRING');
+ if(command==='config.json.open'&&!['config','geometry'].includes(args.scope))throw Error('INVALID_JSON_SCOPE');
+ if(command==='config.json.fill'){if(typeof args.value!=='string')throw Error('VALUE_MUST_BE_STRING');if(new TextEncoder().encode(args.value).length>1000000)throw Error('JSON_TOO_LARGE');try{JSON.parse(args.value);}catch(_){throw Error('INVALID_JSON');}}
  if(command==='ui.check'&&typeof args.checked!=='boolean')throw Error('CHECKED_MUST_BE_BOOLEAN');
  return args;
 }
@@ -26,7 +28,9 @@ Preparation: the user starts CFD Studio (Windows: cfd_studio/실행.bat). Connec
 1. Read CFDAgent.describe(), then CFDAgent.state(). Check version, session, project, Case, dialogs, enabled controls, queue, and notices. If CFDAgent is absent, reload only when unsaved edits can be preserved, or ask the user to restart an idle Studio. Never stop a running solver or close the user's browser.
 2. Use await CFDAgent.run(command, args). Each command operates the visible UI and returns a receipt plus a fresh state. Observe between commands. Read element tokens from state().controls; tokens are specific to this page session and become invalid when a control is replaced. Never guess IDs or reuse stale tokens.
 3. Select project and Case by IDs returned by state().workspace. Use project.select {id}, case.select {id}. For ui.fill use {target, value:"..."}; ui.select uses an option value, ui.check uses {target, checked:true|false}, ui.click uses {target}. Edits trigger the existing UI validation. Read-only snapshots remain read-only. ui.fill does not upload files; use a browser file-upload tool for an observed file input.
-4. New project: cfd.open, project.new, observe and fill visible inputs, choose Template and optional preset, complete Config, then click the visible Save control. Case: case.new, fill Config/termination/name, review, then click Save. Use displayed units and solver-supported fields. Do not invent geometry, physical properties or boundary conditions. Draft changes are not saved until the same Save button is used.
+4. Guided workflow: explain the target project, Template/solver and intended task first. Prepare geometry and Config through the JSON commands below, not field-by-field entry. Show the draft and ask the user to verify what each setting means, units, shape/region assignments, initial/boundary conditions, termination and output intervals. Wait for their confirmation before final saving. Saving is separate from queueing and calculation. After saving, explain the queue contents and ask for confirmation before queue.add or queue.start; stop/retry likewise require the user's requested scope. Do not interpret a request to prepare Config as permission to run CFD. Guide one stage at a time and report the result before the next stage. These confirmations are a guided agent procedure, not a server-enforced approval system.
+4a. JSON entry: first open Config for the intended draft (or a new Case copy of a readonly snapshot). Call config.json.open {scope:"geometry"} for the complete spatial document, or {scope:"config"} for the complete Config/Template schema. Read state().json (scope,title,value,readonly,dirty), parse its value and preserve the actual schema, identifiers, units, metadata and unrelated fields. A Template schema with version/fields is NOT a Config value object; a spatial document is NOT a bare geometry object. Never replace one format with another or infer missing values. Use config.json.fill {value:JSON.stringify(document,null,2)} to populate the JSON buffer, then config.json.apply to validate/apply the draft and update the preview. Inspect state().notices and reread state().json; dispatched alone is not acceptance. On errors, correct the same draft, never bypass validators. JSON apply does not save the project/Case or run CFD. Keep the draft and 3D preview visible for user review. Ask the user to check the settings before the final Save button. The existing JSON pane is the visible bulk-entry channel; no direct file or hidden HTTP writes are needed.
+4b. New project: cfd.open, project.new, observe and fill visible inputs, choose Template and optional preset, complete Config through JSON, obtain user confirmation, then click the visible Save control. Case: case.new, prepare Config/termination/name, explain and obtain user confirmation, then click Save. Use displayed units and solver-supported fields. Do not invent geometry, physical properties or boundary conditions. Draft changes are not saved until the same Save button is used.
 5. Only start/stop/retry calculations when the user requested that action. queue.add adds the selected draft; queue.start resumes the entire displayed queue, possibly across projects. Check every queued Case before starting. case.recovery opens the existing recovery dialog; read its reason. Do not automatically retry failed/completed jobs or bypass validation.
 6. Viewer: viewer.open, viewer.mode {mode:"3d"|"data"}, select Case, result.refresh. Use observed controls for quantities, coordinates, playback and export. 100% visualization readiness is not physical validation. Distinguish saved frames, solver progress and completed CFD.
 7. A receipt with status "dispatched" means the UI action was delivered, NOT that a save/export/CFD run succeeded. Poll state() at reasonable intervals and inspect notices, dialogs, queue, Case status and log. If an error, blocked control, changed selection or concurrent user edit appears, stop that sequence and inspect again. Do not automatically resend a timed-out action. Report actual saved/run results only.
@@ -67,10 +71,12 @@ function controls(){
 function state(){return {version:VERSION,session,busy,paused,active,signal:lastSignal?{...lastSignal}:null,lastAction,workspace:root.CFDWorkspaceState?.()||null,
  screen:doc.body.classList.contains('execution-viewer')?(doc.body.classList.contains('data-sheet-viewer')?'data':'3d'):'cfd',
  dialog:scope()===doc.body?null:scope().querySelector('h2,h3')?.textContent?.trim()||scope().id,
- controls:controls(),notices:[...doc.querySelectorAll('[role=alert],[role=status],.fc-error,.input-feedback,.toast,#ewRunError,#ewQueueError')].filter(e=>visible(e)&&!e.closest('[data-agent-ui]')).map(e=>e.textContent.trim()).filter(Boolean).slice(-25),
+ json:jsonState(),controls:controls(),notices:[...doc.querySelectorAll('[role=alert],[role=status],.fc-error,.input-feedback,.toast,#ewRunError,#ewQueueError')].filter(e=>visible(e)&&!e.closest('[data-agent-ui]')).map(e=>e.textContent.trim()).filter(Boolean).slice(-25),
  log:$('ewLog')?.textContent?.slice(-8000)||''};}
+function jsonState(){const pane=scope().querySelector('.fc-json-pane'),area=pane?.querySelector('textarea');return area&&visible(area)?{scope:pane.dataset.jsonScope||'section',title:pane.querySelector('strong')?.textContent||'',value:area.value,readonly:area.readOnly,dirty:area.dataset.jsonDirty==='true'}:null;}
 function fail(code){throw Error(code);}
 function find(command,args){
+ if(command.startsWith('config.json.')){const selector=command==='config.json.open'?'[data-agent-json-open="'+args.scope+'"]':command==='config.json.fill'?'.fc-json-pane textarea':'[data-agent-json-apply]';return scope().querySelector(selector)||fail('JSON_EDITOR_NOT_OPEN');}
  if(command.startsWith('ui.'))return elements.get(args.target)||fail('STALE_TARGET');
  if(command==='project.select')return [...doc.querySelectorAll('#ewProjects [data-project-id]')].find(e=>e.dataset.projectId===args.id)||fail('PROJECT_NOT_FOUND');
  if(command==='case.select'){
@@ -89,7 +95,7 @@ function emitInput(e){e.dispatchEvent(new Event('input',{bubbles:true}));e.dispa
 function operate(command,args,e){
  available(e);e.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});e.focus({preventScroll:true});
  e.classList.add('agent-focus');setTimeout(()=>e.classList.remove('agent-focus'),1300);
- if(command==='ui.fill'){
+ if(command==='ui.fill'||command==='config.json.fill'){
   if(!e.matches('input,textarea')||e.readOnly||['checkbox','radio','file','password','button','submit','reset','hidden'].includes(e.type))fail('NOT_EDITABLE');
   const original=e.value;
   if(e.selectionStart!==null){e.select();const event=new InputEvent('beforeinput',{bubbles:true,cancelable:true,inputType:'insertText',data:args.value});if(!e.dispatchEvent(event))fail('INVALID_INPUT');}

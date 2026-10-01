@@ -1,0 +1,31 @@
+async page=>{
+ page=await page.context().newPage();
+ await page.route('**/agent_controls.js',r=>r.fulfill({path:'cfd_studio/internal/agent_controls.js',contentType:'text/javascript'}));
+ await page.goto('http://127.0.0.1:8712');
+ if(!await page.evaluate(()=>!!window.CFDAgent))await page.addScriptTag({url:'/agent_controls.js'});
+ await page.evaluate(()=>CFDI18n.setLanguage('ko'));
+ const checks=[],check=(v,n)=>{if(!v)throw Error(n);checks.push(n);},run=(command,args={})=>page.evaluate(([c,a])=>CFDAgent.run(c,a),[command,args]);
+ await page.evaluate(()=>{window.originalJSONConfig={geometry:{regions:[{name:'Review box',shape:'box',unit:'m',min:[0,0,0],max:[1,1,1],material_state:'solid'}]},run:{dt_s:0.1},extra:'preserve'};window.agentJSONEditor=CFDFormConfig.open({config:originalJSONConfig,valuesOnly:true,onSave:()=>{window.finalSaveCalled=true;}});});
+ check((await run('config.json.open',{scope:'config'})).state.json.scope==='config','Config JSON opens without field targeting');
+ let state=await page.evaluate(()=>CFDAgent.state()),value=JSON.parse(state.json.value);value.run.dt_s=.2;
+ check((await run('config.json.fill',{value:JSON.stringify(value)})).state.json.dirty,'bulk input marks buffer dirty');
+ let reply=await run('config.json.apply');check(reply.status==='dispatched'&&!reply.state.json.dirty&&JSON.parse(reply.state.json.value).run.dt_s===.2,'apply updates draft');
+ check(await page.evaluate(()=>!window.finalSaveCalled&&originalJSONConfig.run.dt_s===.1),'apply preserves original and does not finalize');
+ check((await run('config.json.fill',{value:'{invalid'})).error==='INVALID_JSON','invalid syntax rejected');
+ check((await run('config.json.open',{scope:'geometry'})).state.json.scope==='geometry','complete geometry JSON opens');
+ state=await page.evaluate(()=>CFDAgent.state());value=JSON.parse(state.json.value);
+ const change=object=>{if(!object||typeof object!=='object')return false;if(object.shape==='box'&&object.name==='Review box'){object.max=[2,1,1];return true;}return Object.values(object).some(change);};check(change(value),'spatial document includes shape');
+ await run('config.json.fill',{value:JSON.stringify(value)});reply=await run('config.json.apply');check(!reply.state.json.dirty,'spatial JSON applied');
+ await run('config.json.open',{scope:'config'});state=await page.evaluate(()=>CFDAgent.state());value=JSON.parse(state.json.value);check(value.geometry.regions[0].max[0]===2&&value.extra==='preserve'&&value.run.dt_s===.2,'spatial apply preserves other Config');
+ value.run.dt_s='wrong type';await run('config.json.fill',{value:JSON.stringify(value)});reply=await run('config.json.apply');check(reply.state.json.dirty&&reply.state.notices.length>0,'invalid type stays in buffer with error');
+ await page.locator('#agentBannerStop').click();check((await run('config.json.fill',{value:'{}'})).error==='PAUSED','JSON commands obey user pause');
+ await page.locator('#agentBannerStop').click();await page.evaluate(()=>{agentJSONEditor.close();CFDAgent.finish();});
+ await page.evaluate(()=>{agentJSONEditor=CFDFormConfig.open({config:originalJSONConfig,readonly:true});});await run('config.json.open',{scope:'config'});
+ check((await run('config.json.fill',{value:'{}'})).error==='NOT_EDITABLE','execution snapshots stay readonly');check((await run('config.json.apply')).status==='rejected','readonly apply unavailable');
+ await page.evaluate(()=>{agentJSONEditor.close();CFDAgent.finish();});check(await page.evaluate(()=>!window.finalSaveCalled),'no final save or calculation requested');
+ await page.evaluate(()=>{CFDI18n.setLanguage('ja');agentJSONEditor=CFDFormConfig.open({config:{run:{dt_s:.1}},schemaOnly:true,onSave:()=>{window.finalSaveCalled=true;}});});
+ await run('config.json.open',{scope:'config'});state=await page.evaluate(()=>CFDAgent.state());value=JSON.parse(state.json.value);check(value.version===1&&Array.isArray(value.fields),'Template exposes schema instead of Config value object');value.fields[0].fields[0].label='Reviewed step';
+ await run('config.json.fill',{value:JSON.stringify(value)});reply=await run('config.json.apply');check(!reply.state.json.dirty&&JSON.parse(reply.state.json.value).fields[0].fields[0].label==='Reviewed step','JSON commands work in Japanese and preserve Template schema');
+ await page.evaluate(()=>{agentJSONEditor.close();CFDAgent.finish();CFDI18n.setLanguage('ko');});
+ await page.close();return {passed:checks.length,checks};
+}

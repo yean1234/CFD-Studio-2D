@@ -13,6 +13,74 @@
 - プロンプトを渡すだけではブラウザーに接続されないため、使用するエージェントツールの手順に従って接続
 - コマンド名とJSONキーは表示言語にかかわらず共通
 
+## JSON入力と段階別の確認
+
+- エージェントインターフェース **v1.1**からConfig・空間形状の専用JSONコマンドに対応
+- 個別の入力欄を埋める代わりにJSONを一括入力 · 同じ画面でConfigと3Dプレビューを確認
+- 現在のタブの編集画面と入力検査を使用 · ファイルの直接変更や別サーバーへの接続は不要
+
+| 段階 | エージェントの作業 | ユーザーの確認 |
+| --- | --- | --- |
+| 1 | プロジェクト・Case・CFD Template・ソルバー・作業目的を確認 | 対象と解析目的を確認 |
+| 2 | 実際のTemplate書式と空間JSONを取得 | 不足する寸法・物性・条件を提供 |
+| 3 | 空間JSONを作成し下書きに反映 | 3D形状・領域名・単位・固体/液体/気体の割り当てを確認 |
+| 4 | 書式に合わせて残りのConfig JSONを作成し下書きに反映 | 各設定の意味・値・単位・根拠・未確定値を確認 |
+| 5 | 変更内容を要約して保存可否を質問 | 確認の返答後にConfig・Caseを最終保存 |
+| 6 | 終了条件・保存間隔・キュー全体の順序を説明 | 確認の返答後にキュー追加・計算開始 |
+| 7 | ログ・Case状態・結果を確認 | 完了・失敗・検証状態を報告 |
+
+- 各段階の結果を説明してから次へ進む · Config作成の依頼だけで計算を開始しない
+- ユーザー確認はエージェントの案内規則 · プログラムが承認応答を強制検査する機能ではない
+- **JSON保存**は下書きへの反映 · Config最終保存・Case保存・キュー開始とは別の操作
+- 実行済みの読み取り専用Configは**このConfigで新規Case**からコピーを編集
+
+### 専用コマンド
+
+| コマンド | 機能 | 引数 |
+| --- | --- | --- |
+| `config.json.open` | Configまたは空間全体のJSONを開く | `scope: "config"`または`"geometry"` |
+| `config.json.fill` | JSON編集バッファーに一括入力 | `value`: JSON文字列 · 最大1 MB |
+| `config.json.apply` | 既存の検査を行い、下書きに反映 | なし |
+
+- `CFDAgent.state().json`で`scope`・`title`・`value`・`readonly`・`dirty`を取得 · JSON画面が閉じている場合は`null`
+- `config.json.open`の前に対象のConfig編集画面を開く · プロジェクトやCaseの自動選択は行わない
+- 取得したJSONをコピーし、必要な値のみ変更 · 名前・型・単位・ID・関連付け・メタデータを維持
+- `version`・`fields`を持つTemplate書式、Config値オブジェクト、空間全体の文書は異なる形式 · 読み取った形式のまま編集
+- 書式や必須情報が不足する場合はユーザーに質問 · 欠落値を推測で確定しない
+- 空間JSONに含まれない物性や計算条件はConfig JSONで入力
+- `apply`の`dispatched`だけで反映成功と判断しない · `notices`、JSON再取得、3Dプレビューで確認
+- 文法・型のエラーは同じ下書きで修正 · 読み取り専用と一時停止の制約を維持
+- `apply`は最終保存やCFD実行を行わない
+
+### JSON入力例
+
+- 開いているConfig編集画面から空間全体の文書を取得
+
+```javascript
+await CFDAgent.run('config.json.open', { scope: 'geometry' });
+const current = CFDAgent.state().json;
+if (!current || current.readonly) throw new Error('Editable JSON required');
+const document = JSON.parse(current.value);
+// 実際の書式とユーザーが提供した寸法・条件に合わせてdocumentを編集
+```
+
+- 編集した文書を渡す関数 · 反映後にユーザーへ画面確認を依頼
+
+```javascript
+async function applyDraft(document) {
+  const fill = await CFDAgent.run('config.json.fill', {
+    value: JSON.stringify(document, null, 2)
+  });
+  if (fill.status !== 'dispatched') return fill;
+  return await CFDAgent.run('config.json.apply');
+}
+// 返されたstate.jsonとstate.noticesを確認
+// ユーザー確認前に最終保存・queue.add・queue.startを実行しない
+```
+
+- 一般のConfigでは`scope: "config"`を使い、新たに読み取った文書で同じ手順を実施
+- ユーザーへの確認事項: 対象形状、寸法と単位、材料と物性、初期・境界条件、時間刻み、終了条件、出力間隔、変更点と仮定
+
 ## 準備
 
 - `cfd_studio/실행.bat`でStudioを起動

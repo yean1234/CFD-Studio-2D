@@ -13,6 +13,74 @@
 - Copying the prompt does not connect the browser automatically · Follow your agent tool's connection procedure
 - Command names and JSON keys stay the same in every interface language
 
+## JSON entry and guided review
+
+- Agent interface **v1.1** provides dedicated commands for Config and spatial JSON
+- Submit JSON in bulk instead of filling individual fields · Review the resulting Config and 3D preview on the same screen
+- Uses the current tab's editor and validation · No direct file changes or separate server connection required
+
+| Stage | Agent action | User review |
+| --- | --- | --- |
+| 1 | Identify project, Case, CFD Template, solver and task | Confirm the target and analysis purpose |
+| 2 | Read the actual Template schema and spatial JSON | Supply missing dimensions, properties and conditions |
+| 3 | Prepare and apply spatial JSON to the draft | Check the 3D shape, region names, units and solid/liquid/gas assignments |
+| 4 | Prepare the remaining Config JSON using the actual schema | Check each setting's meaning, value, unit, basis and unresolved inputs |
+| 5 | Summarize changes and ask whether to save | Wait for confirmation before final Config/Case saving |
+| 6 | Explain termination, output intervals and the complete queue order | Wait for confirmation before queueing and starting calculations |
+| 7 | Inspect logs, Case status and results | Report completion, failure and validation status |
+
+- Explain each stage's result before proceeding · A request to prepare Config does not authorize calculation
+- User review is an agent workflow instruction, not a program-enforced approval check
+- **Save JSON** applies a draft · It is separate from final Config saving, Case saving and queue start
+- For a read-only execution snapshot, use **New Case from this Config** to edit a copy
+
+### Dedicated commands
+
+| Command | Function | Arguments |
+| --- | --- | --- |
+| `config.json.open` | Open Config or the complete spatial JSON document | `scope: "config"` or `"geometry"` |
+| `config.json.fill` | Populate the JSON edit buffer in bulk | `value`: JSON string · Maximum 1 MB |
+| `config.json.apply` | Validate and apply JSON to the draft | None |
+
+- `CFDAgent.state().json` exposes `scope`, `title`, `value`, `readonly` and `dirty` · Returns `null` when no JSON pane is open
+- Open the intended Config editor before `config.json.open` · These commands do not choose a project or Case
+- Copy the actual JSON and change only the intended values · Preserve names, types, units, identifiers, relationships and metadata
+- A Template schema with `version` and `fields`, a Config value object and a complete spatial document are different formats · Keep the format you read
+- Ask the user for missing schema information or required inputs · Do not invent missing values
+- Use Config JSON for properties or calculation conditions outside the spatial document
+- An `apply` receipt with `dispatched` does not confirm acceptance · Check `notices`, reread JSON and inspect the 3D preview
+- Correct syntax or type errors in the same draft · Read-only and pause restrictions remain effective
+- `apply` does not finalize a save or start CFD
+
+### JSON example
+
+- Read the complete spatial document from an already open Config editor
+
+```javascript
+await CFDAgent.run('config.json.open', { scope: 'geometry' });
+const current = CFDAgent.state().json;
+if (!current || current.readonly) throw new Error('Editable JSON required');
+const document = JSON.parse(current.value);
+// Edit document using the actual schema and user-provided dimensions/conditions
+```
+
+- Submit the edited document through this function, then ask the user to inspect the screen
+
+```javascript
+async function applyDraft(document) {
+  const fill = await CFDAgent.run('config.json.fill', {
+    value: JSON.stringify(document, null, 2)
+  });
+  if (fill.status !== 'dispatched') return fill;
+  return await CFDAgent.run('config.json.apply');
+}
+// Inspect the returned state.json and state.notices
+// Do not finalize, queue.add or queue.start before user confirmation
+```
+
+- For general Config, use `scope: "config"` and repeat the process with the newly read document
+- Ask the user to check the target shape, dimensions and units, materials and properties, initial/boundary conditions, time step, termination, output interval, changes and assumptions
+
 ## Requirements
 
 - Start Studio using `cfd_studio/실행.bat`

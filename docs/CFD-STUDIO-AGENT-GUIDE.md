@@ -13,6 +13,74 @@
 - 프롬프트 전달만으로 브라우저 연결이 완료되지는 않음 · 연결 방법은 사용하는 에이전트 도구에 따름
 - 명령 이름과 JSON 키는 화면 언어와 관계없이 동일
 
+## JSON 입력과 단계별 확인
+
+- 에이전트 인터페이스 **v1.1**부터 Config·공간 형상 전용 JSON 명령 지원
+- 개별 입력칸을 차례로 채우는 대신 JSON을 일괄 전달 · 같은 화면에서 Config와 3D 미리보기 확인
+- 현재 탭의 편집기와 입력 검사 사용 · 파일 직접 변경이나 별도 서버 연결 불필요
+
+| 순서 | 에이전트 작업 | 사용자 확인 |
+| --- | --- | --- |
+| 1 | 프로젝트·Case·CFD Template·솔버와 작업 목적 확인 | 대상과 해석 목적 확인 |
+| 2 | 실제 Template 양식과 기존 공간 JSON 읽기 | 누락된 형상 치수·물성·조건 제공 |
+| 3 | 공간 형상 JSON 작성 및 초안 반영 | 3D 형상·영역 이름·단위·고체/액체/기체 구분 확인 |
+| 4 | 양식에 맞는 나머지 Config JSON 작성 및 초안 반영 | 각 설정의 의미·값·단위·근거·미확정값 확인 |
+| 5 | 변경 전후를 요약하고 저장 여부 질문 | 확인 응답 후 Config·Case 최종 저장 |
+| 6 | 종료 조건·저장 간격·대기열 대상과 순서 안내 | 계산 진행 확인 응답 후 대기열 추가·시작 |
+| 7 | 로그·Case 상태·결과 확인 | 완료·실패·검증 상태 안내 |
+
+- 각 단계 결과를 설명하고 다음 단계 안내 · Config 작성 요청만으로 계산 시작 금지
+- 사용자 확인을 기다리는 절차는 에이전트 안내 규칙 · 프로그램에서 승인 응답을 강제로 검사하는 기능은 아님
+- **JSON 저장**은 초안 반영 · Config 최종 저장·Case 실행 저장·대기열 시작과 구분
+- 읽기 전용 실행 기록은 **이 Config로 새 Case**에서 사본을 만든 뒤 편집
+
+### 전용 명령
+
+| 명령 | 기능 | 인자 |
+| --- | --- | --- |
+| `config.json.open` | Config 또는 전체 공간 형상 JSON 열기 | `scope: "config"` 또는 `"geometry"` |
+| `config.json.fill` | JSON 편집 버퍼에 일괄 입력 | `value`: JSON 문자열 · 최대 1 MB |
+| `config.json.apply` | 기존 검사로 JSON을 초안에 반영 | 없음 |
+
+- `CFDAgent.state().json`: 열린 JSON의 `scope`·`title`·`value`·`readonly`·`dirty` 조회 · 창이 닫혀 있으면 `null`
+- `config.json.open` 전에 해당 Config 편집창 열기 · 명령은 프로젝트·Case를 자동 선택하지 않음
+- 실제 조회된 JSON을 복사해 필요한 값만 변경 · 항목 이름·자료형·단위·식별자·관계·기존 메타데이터 유지
+- Template의 `version`·`fields` 양식 정의, Config 값 객체, 전체 공간 문서는 서로 다른 형식 · 조회된 형식 그대로 수정
+- 입력 양식이나 필수 자료가 없으면 사용자에게 요청 · 누락값을 임의로 확정하지 않음
+- 공간 JSON에 포함되지 않은 물성·계산 조건은 Config JSON에서 입력
+- `apply` 응답의 `dispatched`만으로 반영 성공 판정 금지 · `notices`, JSON 재조회, 3D 미리보기 확인
+- 문법·자료형 오류는 수정 후 같은 초안에 재입력 · 읽기 전용·일시정지 상태 유지
+- `apply`는 최종 저장이나 CFD 실행을 호출하지 않음
+
+### JSON 입력 예시
+
+- 아래 코드는 이미 열린 Config에서 전체 공간 JSON을 조회
+
+```javascript
+await CFDAgent.run('config.json.open', { scope: 'geometry' });
+const current = CFDAgent.state().json;
+if (!current || current.readonly) throw new Error('Editable JSON required');
+const document = JSON.parse(current.value);
+// document를 실제 양식과 사용자가 제공한 치수·조건에 맞게 수정
+```
+
+- 수정한 문서를 전달하는 함수 · 적용 후 사용자에게 화면 확인 요청
+
+```javascript
+async function applyDraft(document) {
+  const fill = await CFDAgent.run('config.json.fill', {
+    value: JSON.stringify(document, null, 2)
+  });
+  if (fill.status !== 'dispatched') return fill;
+  return await CFDAgent.run('config.json.apply');
+}
+// 반환된 state.json과 state.notices 확인
+// 사용자 확인 전에는 최종 저장·queue.add·queue.start 호출 금지
+```
+
+- 일반 Config에는 `scope: "config"` 사용 · 새로 읽은 문서에 같은 절차 적용
+- 사용자에게 확인할 내용: 대상 형상, 치수와 단위, 재료와 물성, 초기·경계조건, 시간간격, 종료 조건, 출력 간격, 변경사항과 가정
+
 ## 준비
 
 - CFD Studio 실행: `cfd_studio/실행.bat`
