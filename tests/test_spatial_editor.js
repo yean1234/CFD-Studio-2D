@@ -71,3 +71,25 @@ test('legacy liquid regions use stored layer geometry and original material path
  assert.ok(sp.partBindings(c,['water']).some(p=>p.join('.')==='layers.init_T_water_C'));assert.deepEqual(c,before);
  c.layers.dielectric_mm=c.tank.liquid_height_mm+1;assert.throws(()=>sp.shapes(c));
 });
+
+test('Inspector position and Scale update canonical dimensions and survive reopening',()=>{
+ const {transform,transformInfo}=require('../cfd_studio/internal/spatial_editor.js');
+ const c={geometry:{shape:'box',unit:'mm',min:[0,0,0],max:[2,4,6]}};const before=structuredClone(c);
+ const moved=transform(c,['geometry'],'position',0,5);assert.deepEqual(moved.geometry.min,[4,0,0]);assert.deepEqual(moved.geometry.max,[6,4,6]);assert.deepEqual(c,before);
+ const scaled=transform(moved,['geometry'],'scale',1,2);assert.equal(transformInfo(scaled,['geometry']).scale[1],2);assert.deepEqual(scaled.geometry.min,[4,-2,0]);assert.deepEqual(scaled.geometry.max,[6,6,6]);
+ assert.equal(transformInfo(transform(scaled,['geometry'],'scale',1,1),['geometry']).size[1],4);
+ assert.throws(()=>transform(c,['geometry'],'scale',0,0));
+});
+test('sphere and cylinder radial scaling preserves supported primitives',()=>{
+ const {transform}=require('../cfd_studio/internal/spatial_editor.js');
+ const sphere={geometry:{shape:'sphere',unit:'m',center:[0,0,0],radius:2}};
+ assert.equal(transform(sphere,['geometry'],'scale',2,3).geometry.radius,6);
+ const cylinder={geometry:{shape:'cylinder',unit:'m',center:[0,0,0],radius:2,height:8,axis:'y'}};
+ const scaled=transform(cylinder,['geometry'],'scale',0,2);assert.equal(scaled.geometry.radius,4);assert.equal(scaled.geometry.height,8);
+});
+test('legacy constrained parts cannot be moved independently and originals remain intact',()=>{
+ const {transform,transformInfo}=require('../cfd_studio/internal/spatial_editor.js');
+ const c={tank:{width_mm:100,depth_mm:50,liquid_height_mm:80},layers:{dielectric_mm:40},water:{},board:{x0:0,x1:5,y0:0,y1:6,z0:0,z1:2}};
+ assert.throws(()=>transform(c,['water'],'position',0,1));assert.throws(()=>transform(c,['tank'],'scale',1,.1));
+ assert.equal(transform(c,['board'],'position',2,10).board.z0,9);assert.deepEqual(transformInfo(c,['water']).size,[100,40,50]);
+});

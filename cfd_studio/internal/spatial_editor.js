@@ -47,9 +47,9 @@
  function isGeometryPath(path){
   const [root,key]=path;
   if(path.includes('properties'))return false;
-  if(['dielectric_fluid','water'].includes(root))return ['name','role','config_bindings'].includes(key);
+  if(['dielectric_fluid','water'].includes(root))return ['name','role','material_state','state','_transform_reference','config_bindings'].includes(key);
   if(['geometry','domain','regions','geometry_spec','loading','silo','published','probes_mm'].includes(root))return true;
-  if(['tank','board','coil'].includes(root))return ['width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','config_bindings'].includes(key);
+  if(['tank','board','coil'].includes(root))return ['width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','material_state','state','_transform_reference','config_bindings'].includes(key);
   if(root==='layers')return ['dielectric_mm','air_mm'].includes(key);
   return root==='heater'&&key==='cpus';
  }
@@ -124,6 +124,41 @@
   }
   if(path[0]==='heater'&&path[1]==='cpus')for(const k of Object.keys(config.heater||{}))if(k!=='cpus'&&!k.startsWith('_'))add(['heater',k]);
   return links;
+ }
+ // Inspector transforms are baked into the canonical dimensions consumed by existing adapters.
+ function transformInfo(config,path){
+  const p=at(config,path),shape=p?.shape||p?.type;if(!p)return null;
+  let position,size,kind,unit=p.unit||'m',lockedPosition=false,lockedScale=[false,false,false];
+  if(shape==='box'){if(![p.min,p.max].every(v=>Array.isArray(v)&&v.length===3&&v.every(Number.isFinite)))return null;position=p.min?.map((v,i)=>(v+p.max?.[i])/2);size=p.min?.map((v,i)=>p.max?.[i]-v);kind='box';}
+  else if(['sphere','cylinder'].includes(shape)){if(!Array.isArray(p.center)||p.center.length!==3||!p.center.every(Number.isFinite)||!Number.isFinite(p.radius)||(shape==='cylinder'&&!Number.isFinite(p.height)))return null;position=p.center;size=[2*p.radius,2*p.radius,2*p.radius];kind=shape;if(shape==='cylinder')size['xyz'.indexOf(p.axis||'z')]=p.height;}
+  else if(p.min_m&&p.max_m){position=p.min_m.map((v,i)=>(v+p.max_m[i])/2);size=p.min_m.map((v,i)=>p.max_m[i]-v);kind='box_m';}
+  else if(['board','coil'].includes(path[0])){position=['x','y','z'].map(a=>(p[a+'0']+p[a+'1'])/2);size=['x','y','z'].map(a=>p[a+'1']-p[a+'0']);kind='legacy_box';unit='mm';}
+  else if(path[0]==='tank'){size=[p.width_mm,p.liquid_height_mm,p.depth_mm];position=size.map(v=>v/2);kind='tank';unit='mm';lockedPosition=true;}
+  else if(path[0]==='geometry_spec'&&path[1]==='geometry'){size=[p.length_m,p.width_m,p.eaves_m+p.roof_rise_m];position=size.map(v=>v/2);kind='gable';lockedPosition=true;}
+  else if(['water','dielectric_fluid'].includes(path[0])&&config.tank&&config.layers){const t=config.tank,l=config.layers,upper=path[0]==='water';size=[t.width_mm,upper?t.liquid_height_mm-l.dielectric_mm:l.dielectric_mm,t.depth_mm];position=[size[0]/2,(upper?l.dielectric_mm:0)+size[1]/2,size[2]/2];kind='layer';unit='mm';lockedPosition=true;lockedScale=[true,true,true];}
+  else if(path[0]==='heater'&&path[1]==='cpus'){size=[p.x1-p.x0,p.y1-p.y0,1];position=[(p.x0+p.x1)/2,(p.y0+p.y1)/2,config.board?.z1];kind='surface';unit='mm';lockedPosition=[false,false,true];lockedScale=[false,false,true];}
+  else return null;
+  if(!position||!size||[...position,...size].some(v=>!Number.isFinite(v))||size.some(v=>v<=0))return null;
+  const reference=Array.isArray(p._transform_reference)&&p._transform_reference.length===3&&p._transform_reference.every(v=>Number.isFinite(v)&&v>0)?p._transform_reference:size;
+  return {position:clone(position),size,scale:size.map((v,i)=>v/reference[i]),reference:clone(reference),kind,unit,lockedPosition,lockedScale};
+ }
+ function transform(config,path,field,axis,value){
+  const info=transformInfo(config,path);if(!info||!['position','scale'].includes(field)||!Number.isInteger(axis)||axis<0||axis>2||!Number.isFinite(value)||(field==='scale'&&value<=0))throw Error('위치와 Scale 값을 확인하세요');
+  if(field==='position'&&(info.lockedPosition===true||info.lockedPosition?.[axis])||field==='scale'&&info.lockedScale[axis])throw Error('상위 형상에서 정의하는 좌표입니다');
+  const next=clone(config),p=at(next,path),position=info.position.slice(),size=info.size.slice();
+  if(field==='position')position[axis]=value;
+  else{p._transform_reference=info.reference;size[axis]=info.reference[axis]*value;
+   if(info.kind==='sphere')for(let i=0;i<3;i++)size[i]=size[axis];
+   if(info.kind==='cylinder'){const longitudinal='xyz'.indexOf(p.axis||'z');if(axis!==longitudinal)for(let i=0;i<3;i++)if(i!==longitudinal)size[i]=size[axis];}
+  }
+  const lo=position.map((v,i)=>v-size[i]/2),hi=position.map((v,i)=>v+size[i]/2);
+  if(info.kind==='box'){p.min=lo;p.max=hi;}else if(info.kind==='box_m'){p.min_m=lo;p.max_m=hi;}
+  else if(info.kind==='legacy_box'||info.kind==='surface')for(const [i,a]of ['x','y','z'].entries()){if(info.kind==='surface'&&i===2)continue;p[a+'0']=lo[i];p[a+'1']=hi[i];}
+  else if(info.kind==='sphere'){p.center=position;p.radius=size[0]/2;}
+  else if(info.kind==='cylinder'){const a='xyz'.indexOf(p.axis||'z');p.center=position;p.height=size[a];p.radius=size[(a+1)%3]/2;}
+  else if(info.kind==='tank'){if(next.layers?.dielectric_mm>size[1])throw Error('유체 영역 높이가 계산 영역을 벗어났습니다');[p.width_mm,p.liquid_height_mm,p.depth_mm]=size;}
+  else if(info.kind==='gable'){p.length_m=size[0];p.width_m=size[1];const ratio=size[2]/info.size[2];p.eaves_m*=ratio;p.roof_rise_m*=ratio;}
+  return next;
  }
  async function viewer(host,model,{onSelect=null,selected=null,cameraState=null}={}){
   const T=await import('/studies/three.module.js');
@@ -218,5 +253,5 @@
   dialog.append(header,el('p',schemaOnly?'초기 형상은 Template에 저장 · 프로젝트에서 독립적으로 수정 가능':'형상 확인용 미리보기 · 격자 생성·솔버 계산은 별도','sp-note'),body,help,error,actions);
   dialog.onclose=()=>{closed=true;clear();dialog.remove();};document.body.append(dialog);dialog.showModal();return dialog;
  }
- const api={keys,parse,extract,merge,document:spatialDocument,mergeDocument,shapes,elements,partBindings,isGeometryPath,at,pathId,viewer,open};if(typeof module!=='undefined')module.exports=api;else globalThis.CFDSpatial=api;
+ const api={transformInfo,transform,keys,parse,extract,merge,document:spatialDocument,mergeDocument,shapes,elements,partBindings,isGeometryPath,at,pathId,viewer,open};if(typeof module!=='undefined')module.exports=api;else globalThis.CFDSpatial=api;
 })();

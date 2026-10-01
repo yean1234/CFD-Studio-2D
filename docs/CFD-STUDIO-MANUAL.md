@@ -387,7 +387,7 @@
 
 - 3D 형상 블록의 **JSON** 버튼으로 전체 공간 정의 조회·수정
 - `format: "cfd-spatial-config"`, `version: 1`, `sections` 구조 사용
-- `sections.geometry`: 공간·영역·요소의 전체 정의 · 이름·좌표·단위·물리 설정 연결 포함
+- `sections.geometry`: 공간·영역·요소의 전체 정의 · 이름·물질 상태·좌표·단위·기존 Config 참조 포함
 - `sections.mesh`: 격자 설정 · 기존 형상 내부의 격자 설정은 원래 위치에도 유지
 - `sections.boundaries`: 경계조건 및 계면 정의
 - `sections.observations`: 관측 위치 · `outputs.probes` 포함
@@ -482,3 +482,23 @@
 - 완성된 파일 묶음 생성 후 저장 기록에 연결 · 기존 버전 덮어쓰기 방지 · 기존 파일 변조 발견 시 저장 중단
 - 저장 실패 후 연결되지 않은 파일 묶음이 남을 수 있으며 기존 기록은 유지
 - 외부 파일 경로는 자동 실행·복사하지 않음 · 기존 외부 참조 및 원본 보존
+
+
+### 형상별 물성 Inspector
+
+- 물질 상태는 `material_state`에 보관 · `role`은 사용자 정의 역할 이름
+- 기본 입력과 추가 속성 목록은 상태·솔버에 따라 구성 · 사용자 물성값을 임의로 채우지 않음
+- 등온 유동 솔버는 온도·열물성을 기본 입력으로 제시하지 않음
+- `chtMultiRegionFoam` 고체 영역: 밀도·비열·열전도율·초기 온도 입력 제공
+- `interFoam`·`interIsoFoam`: 계면 수송과 상변화를 구분 · 상변화 선택 비활성
+- 상변화는 현재 `icoReactingMultiphaseInterFoam`의 유체 상태에서 입력 정의 지원 · 고체 용융 모델은 미정의
+- 상태 선택·추가 속성 저장만으로 새 솔버 실행 기능이나 고체 열전도 모델이 연결되지는 않음
+- 속성 기록: `properties.<key>` 아래 `name`, `type`, `unit`, `value` · 내장 속성은 `catalog_key`로 다국어 표시
+- 기존 물성표·연결 항목은 원래 Config 경로 유지 · 추가 상수로 대체하지 않음
+- 목록은 항목별 입력과 추가·삭제 지원 · 중첩 목록·객체 유지 · 실행 스냅샷에서는 조회 전용
+- 위치는 형상 중심 기준 · Scale은 최초 Scale 편집 시의 치수 대비 배율
+- Scale 기준 치수는 `_transform_reference`에 보관 · 실제 좌표·반지름·높이를 갱신하므로 기존 형상 처리도 변경값 사용
+- 형상이 완성되지 않은 경우 먼저 치수 입력 · 종속 좌표는 독립 변경 불가
+- 새 속성과 상태는 Config 정의에 저장 · 실제 계산 반영 여부는 해당 실행 어댑터의 지원 범위에 따름
+
+참고: [OpenFOAM 표준 솔버](https://www.openfoam.com/documentation/user-guide/a-reference/a.1-standard-solvers), [영역별 열전달](https://doc.openfoam.com/2212/tools/processing/solvers/rtm/heat-transfer/chtMultiRegionFoam/), [열물성 모델](https://www.openfoam.com/documentation/user-guide/5-models-and-physical-properties/5.2-thermophysical-models)

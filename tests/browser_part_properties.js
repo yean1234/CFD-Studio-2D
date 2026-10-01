@@ -11,7 +11,7 @@ async page=>{
  await selectPart(['water']);check(await d.getByRole('textbox',{name:'영역 역할',exact:true}).count()===1,'role is free text');
  await d.getByRole('textbox',{name:'영역 역할',exact:true}).fill('custom / cooling liquid');
  const h=d.getByRole('spinbutton',{name:'영역 높이',exact:true});await h.fill('350');
- await d.getByRole('button',{name:'+ 속성',exact:true}).click();await d.getByLabel('속성 종류',{exact:true}).selectOption('voltage');await d.getByLabel('속성 이름',{exact:true}).fill('테스트 전압');await d.getByRole('button',{name:'속성 추가',exact:true}).click();
+ await d.getByRole('button',{name:'+ 속성',exact:true}).click();await d.getByLabel('속성 종류',{exact:true}).selectOption('custom');await d.getByLabel('속성 키',{exact:true}).fill('voltage');await d.getByLabel('단위',{exact:true}).last().fill('V');await d.getByLabel('속성 이름',{exact:true}).fill('테스트 전압');await d.getByRole('button',{name:'속성 추가',exact:true}).click();
  await d.getByLabel('테스트 전압',{exact:true}).fill('24');
  await selectPart(['coil']);await d.locator('[data-config-path="coil.x0"]').fill('30');
  await selectPart(['water']);check(await d.getByRole('textbox',{name:'영역 역할',exact:true}).inputValue()==='custom / cooling liquid','custom role survives part switching');check(await d.getByLabel('테스트 전압',{exact:true}).inputValue()==='24','property value survives part switching');
@@ -28,7 +28,7 @@ async page=>{
  await d.getByRole('button',{name:'+ 요소',exact:true}).click();
  for(const axis of ['X','Y','Z'])await d.getByLabel('최대 좌표 '+axis,{exact:true}).fill('2');
  await d.getByRole('textbox',{name:'영역 역할',exact:true}).fill('custom material region');
- await d.getByRole('button',{name:'+ 속성',exact:true}).click();await d.getByLabel('속성 종류',{exact:true}).selectOption('density');await d.getByRole('button',{name:'속성 추가',exact:true}).click();
+ await d.getByLabel('물질 상태',{exact:true}).selectOption('solid');await d.getByRole('button',{name:'+ 속성',exact:true}).click();await d.getByLabel('속성 종류',{exact:true}).selectOption('density');await d.getByRole('button',{name:'속성 추가',exact:true}).click();
  check(await d.getByLabel('밀도',{exact:true}).getAttribute('readonly')!==null,'Template property values remain blank');
  await d.locator('.fc-editor-card > .fc-actions').getByRole('button',{name:'저장',exact:true}).click();
  check(await page.evaluate(()=>savedTemplateParts.geometry.shape==='sphere'&&savedTemplateParts.regions.length===1&&savedTemplateParts.regions[0].role==='custom material region'&&savedTemplateParts.regions[0].properties.density.name==='밀도'&&savedTemplateParts.regions[0].properties.density.type==='number'&&savedTemplateParts.regions[0].properties.density.value===null),'new generic part and property definition survive Template save');

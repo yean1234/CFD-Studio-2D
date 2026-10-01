@@ -97,3 +97,19 @@ class PartPropertySchemaTests(unittest.TestCase):
             part=restored['config']['geometry']['regions'][0]
             self.assertEqual(part['role'],'custom role')
             self.assertEqual(part['properties']['density'],{'name':'Density','type':'number','unit':'kg/m³','value':None})
+
+class InspectorStateTests(unittest.TestCase):
+    def test_state_scale_and_property_definition_persist_with_blank_template_values(self):
+        from cfd_studio.form_schema import blank_schema, is_geometry_path
+        from cfd_studio.form_wizard import make_schema
+        config={'board':{'x0':0,'x1':2,'y0':0,'y1':3,'z0':0,'z1':1,
+                         'material_state':'solid','_transform_reference':[1,3,1],
+                         'properties':{'density':{'name':'Density','catalog_key':'density','type':'number','unit':'kg/m³','value':7800}}}}
+        original=copy.deepcopy(config)
+        blank=config_from_schema(blank_schema(config,make_schema(config)))
+        self.assertEqual(blank['board']['material_state'],'solid')
+        self.assertEqual(blank['board']['_transform_reference'],[1,3,1])
+        self.assertEqual(blank['board']['properties']['density']['catalog_key'],'density')
+        self.assertIsNone(blank['board']['properties']['density']['value'])
+        self.assertFalse(is_geometry_path(('board','properties','density','value')))
+        self.assertEqual(config,original)

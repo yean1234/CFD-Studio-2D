@@ -50,3 +50,14 @@ test('part property definitions survive Template blanking while values remain pr
  const schema=fromConfig(c),before=structuredClone(schema),blank=toConfig(blankDefinition(schema));
  assert.equal(blank.geometry.regions[0].radius,2);assert.equal(blank.geometry.regions[0].role,'user role');assert.deepEqual(blank.geometry.regions[0].properties.voltage,{name:'Voltage',type:'number',unit:'V',value:null});assert.equal(blank.coil.properties.enabled.value,null);assert.equal(blank.coil.properties.enabled.type,'boolean');assert.deepEqual(schema,before);
 });
+
+test('material catalog is filtered by state and documented solver capabilities',()=>{
+ const {materialProfile}=require('../cfd_studio/internal/form_config_editor.js');
+ const profile=(solver,state,extra={})=>materialProfile({analysis:{solver}},{material_state:state,...extra});
+ const flow=profile('icoFoam','liquid');assert.ok(flow.basic.includes('kinematic_viscosity'));assert.ok(!flow.basic.includes('initial_temperature'));assert.equal(flow.phaseSupported,false);assert.ok(!flow.catalog.some(p=>p.key==='voltage'));
+ const solid=profile('chtMultiRegionFoam','solid');for(const k of ['density','heat_capacity','thermal_conductivity','initial_temperature'])assert.ok(solid.basic.includes(k));assert.equal(solid.solidUnsupported,false);assert.equal(solid.phaseSupported,false);
+ assert.equal(profile('interFoam','liquid').phaseSupported,false);assert.ok(!profile('interFoam','liquid').catalog.some(p=>p.key==='latent_heat'));
+ const phase=profile('icoReactingMultiphaseInterFoam','liquid',{properties:{phase_change:{value:true}}});assert.ok(phase.catalog.some(p=>p.key==='latent_heat'));assert.ok(!profile('icoReactingMultiphaseInterFoam','solid').phaseSupported);
+ assert.equal(profile('custom','gas').known,false);assert.ok(profile('rhoPimpleFoam','gas').catalog.some(p=>p.key==='molecular_weight'));
+});
+test('invalid nested list values cannot be silently converted to null',()=>{assert.throws(()=>toConfig({version:1,fields:[{key:'table',type:'array',value:[1,undefined]}]}),/JSON/);});

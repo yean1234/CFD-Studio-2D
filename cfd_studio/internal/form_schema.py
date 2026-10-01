@@ -65,8 +65,8 @@ def is_geometry_path(path):
     root=path[0] if path else ''
     key=path[1] if len(path)>1 else ''
     if root in ('geometry','domain','regions','geometry_spec','loading','silo','published','probes_mm'):return True
-    if root in ('dielectric_fluid','water'):return key in ('name','role','config_bindings')
-    if root in ('tank','board','coil'):return key in ('width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','config_bindings')
+    if root in ('dielectric_fluid','water'):return key in ('name','role','material_state','state','_transform_reference','config_bindings')
+    if root in ('tank','board','coil'):return key in ('width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','material_state','state','_transform_reference','config_bindings')
     if root=='layers':return key in ('dielectric_mm','air_mm')
     return root=='heater' and key=='cpus'
 
