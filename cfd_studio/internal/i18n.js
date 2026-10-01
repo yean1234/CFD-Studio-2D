@@ -19,7 +19,7 @@ add("입력창 미리보기 · 예시는 저장되지 않으며 실제 값은 �
 add("경계에서 값을 지정하는 방식 · fixedValue는 지정값 사용","How values are specified at a boundary · fixedValue uses a prescribed value","境界での値の指定方法 · fixedValueは指定値を使用");
 add("초기 형상과 입력 양식 정의 · 물성 및 운전값은 프로젝트에서 입력","Define initial geometry and input fields · Enter material and operating values in the project","初期形状と入力フォームを定義 · 物性値と運転条件はプロジェクトで入力");
 add("초기 형상은 Template에 저장 · 프로젝트에서 독립적으로 수정 가능","Initial geometry is saved in the Template · Editable independently in each project","初期形状はTemplateに保存 · プロジェクトごとに独立して変更可能");
-add("형상 및 계산 영역","Geometry and computational regions","形状と計算領域");
+add("형상 및 계산 영역","Geometry & regions","形状と計算領域");
 add("3D 형상","3D geometry","3D形状");
 add("영역 역할","Region role","領域の役割");
 add("경계면","Boundary surface","境界面");
