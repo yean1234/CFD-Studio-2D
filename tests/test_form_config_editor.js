@@ -87,3 +87,12 @@ test('JSON numbers permit decimal editing unless an integer schema was declared'
  assert.equal(fromConfig({coefficient:1}).fields[0].type,'number');
  assert.equal(fromConfig({count:2},{fields:[{key:'count',type:'integer',value:1}]}).fields[0].type,'integer');
 });
+
+test('custom field captions roundtrip and survive Template blanking independently of solver values',()=>{
+ const api=require('../cfd_studio/internal/form_config_editor.js');
+ const config={layers:{air_mm:200},_studio:{field_metadata:[{path:['layers','air_mm'],label:'Upper clearance',description:'User note'}]}};
+ const schema=api.fromConfig(config),blank=api.toConfig(api.blankDefinition(schema));
+ assert.deepEqual(blank._studio.field_metadata,config._studio.field_metadata);
+ assert.deepEqual(api.toConfig(api.importedSchema(config)),config);
+ assert.equal(config.layers.air_mm,200);
+});

@@ -1,0 +1,35 @@
+async page=>{
+ page=await page.context().newPage();await page.goto('http://127.0.0.1:8712');await page.setViewportSize({width:1800,height:1100});
+ await page.waitForFunction(()=>window.CFDFormConfig);await page.evaluate(()=>CFDI18n.setLanguage('ko'));
+ const checks=[],check=(value,label)=>{if(!value)throw Error(label);checks.push(label);};
+ const config={analysis:{solver:'chtMultiRegionFoam'},geometry:{regions:[{name:'Tank',shape:'box',unit:'m',min:[0,0,0],max:[1,1,1],material_state:'solid',properties:{density:{name:'밀도',catalog_key:'density',type:'number',unit:'kg/m³',value:7800},gas:{name:'기체층',type:'number',unit:'mm',value:200},other:{name:'Other',type:'number',unit:'K',value:300}}}]}};
+ await page.evaluate(c=>{window.propertyOriginal=structuredClone(c);window.propertyEditor=CFDFormConfig.open({config:c,valuesOnly:true,onSave:v=>window.propertySaved=v});},config);
+ const d=page.locator('.fc-dialog[open]');await d.locator('[data-element-id]').first().click();
+ check(await d.getByRole('button',{name:'밀도 수정',exact:true}).count()===0,'basic property has no definition edit');
+ await d.getByRole('button',{name:'기체층 수정',exact:true}).click();let edit=d.locator('.fc-property-edit');
+ await edit.getByLabel('속성 이름',{exact:true}).fill('상부 공간');await edit.getByRole('button',{name:'취소',exact:true}).click();
+ check(await d.getByRole('button',{name:'기체층 수정',exact:true}).count()===1,'cancel preserves original property');
+ await d.getByRole('button',{name:'기체층 수정',exact:true}).click();edit=d.locator('.fc-property-edit');
+ await edit.getByLabel('속성 키',{exact:true}).fill('other');await edit.getByRole('button',{name:'적용',exact:true}).click();
+ check((await d.locator('.fc-error').textContent()).includes('Duplicate'),'duplicate keys rejected');
+ await edit.getByLabel('속성 키',{exact:true}).fill('upper_space');await edit.getByLabel('속성 이름',{exact:true}).fill('상부 공간');await edit.getByLabel('설명',{exact:true}).fill('User defined layer');
+ await edit.getByLabel('단위',{exact:true}).fill('cm');await edit.getByLabel('속성 값',{exact:true}).fill('20');
+ await d.locator('.fc-editor-card>.fc-actions').getByRole('button',{name:'저장',exact:true}).click();check((await d.locator('.fc-error').textContent()).includes('속성 수정'),'cannot silently discard pending property edits');
+ await edit.getByRole('button',{name:'적용',exact:true}).click();
+ check(await d.getByLabel('상부 공간',{exact:true}).inputValue()==='20','edited name and value rendered');
+ await d.getByRole('button',{name:'상부 공간 수정',exact:true}).click();edit=d.locator('.fc-property-edit');await edit.getByLabel('입력할 내용',{exact:true}).selectOption('string');await edit.getByLabel('속성 값',{exact:true}).fill('argon');await edit.getByLabel('단위',{exact:true}).fill('');await edit.getByRole('button',{name:'적용',exact:true}).click();
+ await d.locator('.fc-editor-card>.fc-actions').getByRole('button',{name:'저장',exact:true}).click();
+ const saved=await page.evaluate(()=>propertySaved),props=saved.geometry.regions[0].properties;
+ check(!props.gas&&props.upper_space.type==='string'&&props.upper_space.value==='argon'&&props.upper_space.description==='User defined layer','edited definition stored in raw JSON');
+ check(await page.evaluate(()=>propertyOriginal.geometry.regions[0].properties.gas.value===200),'source config untouched');
+ await page.evaluate(c=>{propertyEditor=CFDFormConfig.open({config:c,valuesOnly:true,onSave:v=>window.propertySaved=v});},saved);await d.locator('[data-element-id]').first().click();check(await d.getByLabel('상부 공간',{exact:true}).inputValue()==='argon','reopen retains custom definition');await page.evaluate(()=>propertyEditor.close());
+ const forms=(await (await page.request.get('http://127.0.0.1:8712/api/executions/forms')).json()).forms,legacy=forms.find(f=>f.config?.tank);
+ await page.evaluate(f=>{window.captionSource=structuredClone(f.config);propertyEditor=CFDFormConfig.open({config:f.config,form:f,valuesOnly:true,onSave:v=>window.captionSaved=v});},legacy);
+ await d.locator('[data-element-id]').evaluateAll(xs=>xs.find(e=>e.dataset.elementId===JSON.stringify(['tank'])).click());
+ await d.locator('[data-field-path="layers.air_mm"] button').click();const caption=d.locator('.fc-caption-edit');await caption.getByLabel('표시 이름',{exact:true}).fill('상부 여유 공간');await caption.getByLabel('설명',{exact:true}).fill('사용자 지정 설명');await caption.getByRole('button',{name:'적용',exact:true}).click();
+ check(await d.getByLabel('상부 여유 공간',{exact:true}).inputValue()===String(legacy.config.layers.air_mm),'legacy caption changed without changing value');await d.locator('[data-field-path="layers.air_mm"]').screenshot({path:'output/playwright/custom-caption.png'});
+ await d.locator('.fc-editor-card>.fc-actions').getByRole('button',{name:'저장',exact:true}).click();
+ check(await page.evaluate(()=>captionSaved.layers.air_mm===captionSource.layers.air_mm&&captionSaved._studio.field_metadata[0].label==='상부 여유 공간'),'caption persists as metadata with solver input untouched');
+ await page.evaluate(()=>{propertyEditor=CFDFormConfig.open({config:captionSaved,readonly:true});});await d.locator('[data-element-id]').evaluateAll(xs=>xs.find(e=>e.dataset.elementId===JSON.stringify(['tank'])).click());check(await d.getByLabel('상부 여유 공간',{exact:true}).isEditable()===false,'snapshot shows saved caption readonly');check(await d.locator('[data-field-path="layers.air_mm"] button').count()===0,'snapshot has no metadata edit');await page.evaluate(()=>propertyEditor.close());
+ await page.close();return {passed:checks.length,checks};
+}
