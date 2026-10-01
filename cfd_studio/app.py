@@ -3703,7 +3703,7 @@ class H(BaseHTTPRequestHandler):
 
     def _do_GET(self):
         u = urlparse(self.path)
-        if (u.path.startswith("/api/executions") or u.path in ("/execution_workspace.js", "/spatial_editor.js", "/form_config_editor.js", "/form_wizard.js", "/config_editor.js", "/input_validation.js", "/warehouse_viewer.js", "/data_sheet_viewer.js", "/i18n.js", "/i18n_help.js")) and execution_get(self, EXECUTION_WORKSPACE):
+        if (u.path.startswith("/api/executions") or u.path in ("/execution_workspace.js", "/spatial_editor.js", "/form_config_editor.js", "/form_wizard.js", "/config_editor.js", "/input_validation.js", "/warehouse_viewer.js", "/data_sheet_viewer.js", "/i18n.js", "/i18n_help.js", "/agent_controls.js")) and execution_get(self, EXECUTION_WORKSPACE):
             return
         if u.path.startswith(('/studies', '/api/studies', '/api/attempts', '/api/study-packages', '/api/capabilities')):
             if study_http.get(self, study_http.service(HERE, SCFG, PROJECT_DIR)):
@@ -5378,6 +5378,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <p><b>Windows 10/11 x64 지원 · macOS(Mac) 미지원</b></p>
    <ul><li>최초 설치: WSL2 Ubuntu 설치·사용자 초기화 → <b>cfd_studio/설치.bat</b> → <b>cfd_studio/실행.bat</b></li><li>설치 완료 후 실행: <b>실행.bat</b> 더블클릭. Windows Python 포함. 전용 솔버·GPU 환경은 별도 준비</li></ul>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>사용법</b></a> · <a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/cfd_studio/README.md" target="_blank" rel="noopener noreferrer">설치</a> · 모델·단위·검증 범위는 위 <b>설명서</b> 탭</p>
+   <h4>LLM 에이전트</h4><ul><li><b>환경 설정 → LLM 에이전트 → 에이전트 안내</b>에서 안내 프롬프트 복사</li><li>사용자가 보는 Studio 탭에 브라우저 조작 도구 연결 · 명령 실행 시 같은 버튼과 입력창 조작</li><li><b>Alt + Shift + A</b>: 안내 열기·접기 · <b>명령 일시정지</b>: 이후 명령 차단, 진행 중인 계산 유지</li><li>최상단 <b>에이전트 조작 중</b> 표시 · 오른쪽 <b>에이전트 조작 중단</b>으로 명령 차단 및 일시정지 신호 전달 · <b>에이전트 조작 재개</b>로 재개</li><li>명령 전달과 저장·계산 완료는 별도 확인</li><li><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-AGENT-GUIDE.md" target="_blank" rel="noopener noreferrer">에이전트 사용법</a></li></ul>
   </div>
   <div class="ibx" id="ifB2" style="display:none">
    <h4 style="margin-top:0">계산 성능</h4>
@@ -8669,6 +8670,7 @@ __TRACER_VIEWER__
 <script src="/execution_workspace.js"></script>
 <script src="/i18n.js"></script>
 <script src="/i18n_help.js"></script>
+<script src="/agent_controls.js"></script>
 </body></html>
 '''
 INDEX_HTML = INDEX_HTML.replace("__APP_VER__", APP_VER)

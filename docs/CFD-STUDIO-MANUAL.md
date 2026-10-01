@@ -549,3 +549,17 @@
 - 기존 프로젝트·결과를 자동 재격자화하지 않음
 
 참고: [OpenFOAM blockMesh](https://www.openfoam.com/documentation/user-guide/4-mesh-generation-and-conversion/4.3-mesh-generation-with-the-blockmesh-utility)
+
+## 에이전트 인터페이스
+
+- 브라우저 내 `window.CFDAgent` 인터페이스 버전 1.0
+- 현재 탭의 프로젝트·Case·입력창·버튼·상태를 조회하고 기존 UI 동작으로 명령 전달
+- Config 입력은 기존 검증을 통과한 후 같은 저장 버튼으로 확정
+- 실행된 Case의 원본 스냅샷은 읽기 전용 유지
+- 명령 기록은 탭 메모리에만 보관 · 새로고침 시 초기화
+- 에이전트 일시정지는 이후 명령 전달에만 적용
+- 외부 HTTP·MCP 제어 서버, LLM 설치·계정·브라우저 연결은 포함하지 않음
+- 연결한 탭의 화면만 변경되므로 사용자가 보는 탭에 연결 필요
+- 최상단 가운데 **에이전트 조작 중** 표시 · 오른쪽 **에이전트 조작 중단**으로 명령 차단 및 일시정지 신호 전달
+- **에이전트 조작 재개**로 대기 중인 에이전트에 재개 신호 전달 · 진행 중인 CFD 계산과 별개
+- [에이전트 사용법](CFD-STUDIO-AGENT-GUIDE.md)

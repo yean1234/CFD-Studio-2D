@@ -86,7 +86,7 @@
     if(signature!==projectSignature){projectSignature=signature;list.replaceChildren();
     for(const p of data.projects){
       const b=button('',()=>selectProject(p.id),'ew-project'+(p.id===projectId?' selected':''));
-      b.append(node('strong',p.name),node('span',`실행 ${p.runs.length}개`)); list.append(b);
+      b.dataset.projectId=p.id;b.append(node('strong',p.name),node('span',`실행 ${p.runs.length}개`)); list.append(b);
     }
     }
     $('ewTitle').textContent=currentProject()?.name||'프로젝트';
@@ -105,7 +105,7 @@
     rows.replaceChildren();
     for(const r of p?.runs||[]){
       if(!`${r.name} ${r.model} ${modelName(r)}`.toLowerCase().includes(search))continue;
-      const row=button('',()=>selectRun(r.id),'ew-run-card');row.classList.toggle('selected',r.id===runId);row.setAttribute('aria-pressed',String(r.id===runId));
+      const row=button('',()=>selectRun(r.id),'ew-run-card');row.dataset.runId=r.id;row.classList.toggle('selected',r.id===runId);row.setAttribute('aria-pressed',String(r.id===runId));
       const top=node('div',null,'ew-run-top'),name=node('strong',r.name);name.title=r.name;top.append(name,badge(stateText(r)+(r.status==='draft'?' · 초안':''),r.status));
       const meta=node('div',null,'ew-run-meta'),modelLabel=node('span',modelName(r));modelLabel.setAttribute('translate','no');meta.append(modelLabel,node('span',stopText(r.termination,r.end_s)));
       const bottom=node('div',null,'ew-run-meta');bottom.append(node('span',r.differences?.length?`Config ${r.differences.length}개 변경`:Array.isArray(r.differences)?'Config 동일':'비교 기준 없음'),node('span',resultText(r)));row.append(top,meta,bottom);
@@ -466,5 +466,8 @@ dialog.ew-template-attached::backdrop{background:transparent}
     $('mCFD').onclick=showList;$('mViz').onclick=viewResult;$('btnRun').onclick=reloadViewerCases;
     document.body.classList.add('grouped');showList();
   }
+  globalThis.CFDWorkspaceState=()=>({project_id:projectId,case_id:runId,loading:refreshing||pending||queuePending,
+    projects:data.projects.map(p=>({id:p.id,name:p.name,form_id:p.form_id,runs:p.runs.map(r=>({id:r.id,name:r.name,status:r.status,result_status:r.result_status,numerical_status:r.numerical_status}))})),
+    queue:structuredClone(data.queue||{}),selected:detail?{id:detail.id,status:detail.status,result_status:detail.result_status,last_saved:detail.last_saved,error:detail.error||detail.recovery?.reason||null}:null});
   mount();refresh();setInterval(()=>{refresh();if(progressProject===projectId&&viewMode==='viewer')checkCaseProgress();},4000);
 })();
