@@ -1,0 +1,189 @@
+# AIエージェント利用ガイド
+
+[한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
+
+## 開始手順
+
+1. CFD Studioを起動し、使用するプロジェクトを選択
+2. **環境設定 → LLMエージェント → エージェントガイド → 案内プロンプトをコピー**を選択
+3. プロンプトと作業依頼をエージェントに渡し、ユーザーが見ているStudioのタブに接続
+4. 画面の動作と最上部の**エージェント操作中**表示で進行状況を確認
+5. 右上の**エージェント操作を停止**で一時停止し、**エージェント操作を再開**で続行
+
+- プロンプトを渡すだけではブラウザーに接続されないため、使用するエージェントツールの手順に従って接続
+- コマンド名とJSONキーは表示言語にかかわらず共通
+
+## 準備
+
+- `cfd_studio/실행.bat`でStudioを起動
+- 対応環境はWindows 10/11 x64 · macOSは非対応
+- ブラウザー操作ツールを備えたLLMエージェントを使用
+- **ユーザーが見ているCFD Studioのタブ**に接続
+- 別のブラウザーウィンドウで実行したコマンドは、そのウィンドウにのみ反映
+- LLMツールの導入、アカウントへのログイン、ブラウザー接続はエージェントツール側で実施
+- StudioはHTTP・MCPコマンドサーバーやリモートデバッグポートを公開しない
+- CFD実行前にソルバーのインストール、Studioからの実行対応、Config、終了条件、キューを確認
+
+## 案内プロンプト
+
+- 右上の**環境設定 → LLMエージェント → エージェントガイド**を開く
+- **案内プロンプトをコピー**を選択し、エージェントとの会話に貼り付け
+- コピーできない場合は**ガイドを表示**から本文を手動でコピー
+- **Alt + Shift + A**でガイドパネルを開閉
+- プロンプトには準備、コマンド、入力方法、実行結果の確認方法を記載
+- 自動生成されるエージェント向けプロンプトは英語 · 画面のボタンは韓国語・英語・日本語に対応
+- 報告はユーザーの言語で行い、ユーザー定義の名前とConfig値は翻訳しないよう指示
+
+## 画面表示
+
+| 表示・ボタン | 機能 |
+| --- | --- |
+| 青い枠 | 操作対象のボタンや入力欄を強調 |
+| 最上部中央の**エージェント操作中** | 操作中に点滅 · 動きを抑える設定では固定表示 |
+| 右上の**エージェント操作を停止** | 以降のコマンドを遮断し、一時停止信号を通知 |
+| 同じ位置の**エージェント操作を再開** | 再開信号を通知 |
+| 右下のパネル | 現在のコマンドと最近の送信記録を表示 |
+| **コマンドを一時停止** / **コマンドを許可** | コマンド受付を停止・再開 |
+| **×** | ガイドパネルのみ非表示 · コマンドは停止しない |
+
+- 実際のプロジェクト、Case、Config、Viewerの画面に操作を反映
+- 一時停止しても、送信済みの操作や実行中のCFD計算は継続
+- ユーザーが選択や入力を変更した場合、エージェントは画面を再確認してから続行
+- 以下の画像は韓国語表示の例 · ボタンの配置は各言語で共通
+
+![エージェント操作表示](assets/agent-controls/banner.png)
+
+![エージェントガイド](assets/agent-controls/guide.png)
+
+## コマンド
+
+- 接続中のタブでJavaScriptを実行する機能から`window.CFDAgent`を使用
+- Studioのソース解析やプロジェクトファイルの直接編集をせずに画面を操作
+- `CFDAgent.describe()`: インターフェースのバージョン、コマンド一覧、プロンプト
+- `CFDAgent.state()`: 現在のプロジェクト、Case、キュー、画面、入力値、ボタン、通知、ログ
+- `CFDAgent.prompt()`: コピー用プロンプト
+- `CFDAgent.history()`: 最大100件のコマンド記録
+- `CFDAgent.waitForResume({timeoutMs:30000})`: ユーザーの再開操作を待機 · 1回につき最大60秒
+- `CFDAgent.finish()`: 操作表示を終了 · ユーザーによる一時停止状態は維持
+- `await CFDAgent.run(command, args)`: 画面操作
+- ガイドパネルの**コマンド入力 → コマンド実行**からJSONコマンドも実行可能
+
+```javascript
+// 現在の画面と実在するプロジェクトIDを取得
+const state = CFDAgent.state();
+
+// 例: 先頭のプロジェクトが依頼対象であることを確認して選択
+const project = state.workspace?.projects?.[0];
+if (!project) throw new Error('No project available');
+await CFDAgent.run('project.select', { id: project.id });
+
+// 選択中のCaseのConfigを開き、現在の入力欄を確認
+await CFDAgent.run('config.open');
+CFDAgent.state().controls;
+```
+
+| コマンド | 動作 | 引数 |
+| --- | --- | --- |
+| `cfd.open` | CFD画面を開く | なし |
+| `viewer.open` | 選択CaseのViewerを開く、または結果を準備 | なし |
+| `project.select` | プロジェクトを選択 | `id` |
+| `project.find` / `project.new` | プロジェクト検索／新規作成を開く | なし · CFD画面で使用 |
+| `project.manage` | プロジェクト管理を開く | なし |
+| `case.select` | 現在のプロジェクトのCaseを選択 | `id` |
+| `case.new` | 新規CaseのConfigを開く | なし |
+| `config.open` | Configを編集・閲覧 | なし |
+| `template.new` | 新規CFD Templateを開く | なし |
+| `queue.add` | 選択中の下書きをキューに追加 | なし |
+| `queue.start` | 表示中のキュー全体を開始・再開 | なし |
+| `queue.pause` | 次の計算から一時停止 | なし |
+| `case.stop` | 選択した実行中Caseを中断 | なし |
+| `case.recovery` | 失敗理由と復旧画面を開く | なし |
+| `queue.skip` | キュー内の失敗Caseをスキップ | なし |
+| `result.open` | 結果の生成・更新・開くボタンを操作 | なし |
+| `result.refresh` | Viewerの結果を再読み込み | なし |
+| `result.csv` | 選択Caseの全CSVデータを出力 | なし |
+| `viewer.mode` | Viewerモードを選択 | `mode: "3d"`または`"data"` |
+| `settings.open` | 環境設定を開く | なし |
+| `ui.click` | ボタンや項目の開閉を操作 | `target` |
+| `ui.fill` | 入力欄に文字列を入力 | `target`, `value` |
+| `ui.select` | 選択リストを変更 | `target`, `value` |
+| `ui.check` | チェックボックス・ラジオボタンを選択 | `target`, `checked` |
+
+## 値の入力
+
+- `state().controls`で`target`、`label`、`value`、`options`、`disabled`、`readonly`を確認
+- ダイアログや項目を切り替えたら入力欄の一覧を再取得
+- 置き換えられた入力欄の`target`は再利用しない
+- 数値も文字列で渡す例: `value: "0.01"`
+- 選択リストでは表示名ではなく`options[].value`を使用
+- 不正な数値形式は拒否 · 範囲外エラーは入力欄で確認して修正
+- ファイル入力にはブラウザー操作ツールのアップロード機能を使用
+- 実行済みConfigは読み取り専用 · **このConfigで新規Case**でコピーを編集
+- 入力コマンドだけでは保存されないため、画面の**保存**ボタンを使用
+- 形状、物性値、境界条件を根拠なく設定しない
+
+```javascript
+const field = CFDAgent.state().controls.find(item => item.label === 'プロジェクト名');
+if (!field) throw new Error('Read the current controls first');
+await CFDAgent.run('ui.fill', { target: field.target, value: '熱伝達比較' });
+```
+
+- ラベルは表示言語により異なるため、実際の一覧から選択
+- ガイドパネルに入力するJSONの例
+
+```json
+{"command":"config.open","args":{}}
+```
+
+## 結果の確認
+
+- `status: "dispatched"`は画面への操作送信を示す
+- **保存、出力、CFD計算の成功や完了を示すものではない**
+- 非同期処理は`state()`の通知、キュー、Case状態、ログで確認
+- エラー内容を確認してから続行 · タイムアウトした操作を自動再送しない
+- 計算の開始、再試行、中断はユーザーの依頼範囲で実施
+- キュー開始は他のプロジェクトのCaseにも影響する可能性があるため、全体の順序を確認
+- 可視化準備率、数値検査、計算完了、実験検証は区別して報告
+
+| 状態・エラー | 対応 |
+| --- | --- |
+| `rejected` | 返された`error`を確認 |
+| `BUSY` | 現在の操作を確認し、順番にコマンドを送信 |
+| `PAUSED` | ユーザーによる再開まで待機 |
+| `STALE_TARGET` / `CONTROL_NOT_VISIBLE` | 画面を読み直し、現在の対象を選択 |
+| `CONTROL_DISABLED` | 画面に示された必要条件を確認 |
+| `INVALID_INPUT` / `INPUT_INVALID` | 入力形式または範囲を修正 |
+
+## 一時停止と再開
+
+- 停止時に`state().paused`が`true`となり、`cfd-agent-pause`イベントが発生
+- 再開時に`cfd-agent-resume`イベントが発生 · 信号にはセッション、連番、時刻を含む
+- 毎回のコマンド送信前に状態を確認 · 停止信号や`PAUSED`応答を受けたら待機
+- エージェントのブラウザー制御側で待機処理を実装
+
+```javascript
+while (CFDAgent.state().paused) {
+  const signal = await CFDAgent.waitForResume({ timeoutMs: 30000 });
+  if (signal.status === 'resumed') break;
+}
+// 次の操作を決める前に、画面とユーザーによる変更を再確認
+const current = CFDAgent.state();
+```
+
+- 依頼された作業が完了したら`CFDAgent.finish()`を呼び出す
+- 応答がない場合も**エージェント操作を停止**で追加コマンドを遮断可能
+- Studioから外部LLMプロセス自体を強制停止することはできないため、接続ツール側で信号に従って待機
+- 送信済みの操作とCFD計算は継続 · CFDの停止にはCaseの計算中断機能を使用
+- 別タブ、再読み込み、内部UI関数の呼び出し、自動再開によって停止状態を回避しない
+
+## 対応範囲
+
+- 同じタブの既存ボタンと入力イベントを使用 · 入力検査、保存、スナップショットの規則も適用
+- コマンド処理中の別コマンドは拒否 · 自動再送なし
+- 状態取得にはConfig値を含むため、接続したエージェントに渡す情報を確認
+- 操作記録にはコマンド、対象ID、送信状態を記録 · 入力値は記録しない
+- 記録はタブのメモリー内に保持し、再読み込みで初期化
+- 再読み込みでセッションIDが変わるため、以前の入力欄IDは再利用しない
+- JavaScript実行機能がない場合は、画面操作ツールで同じボタンを操作
+- ブラウザー接続、ファイル送信、OSのフォルダー選択、権限は使用するブラウザーとエージェントツールの対応範囲に従う
+- `CFDAgent`が見つからない場合は未保存の編集を保全してから再読み込み · Studio再起動は待機中のみ実施し、実行中のソルバーやユーザーのブラウザーを終了しない

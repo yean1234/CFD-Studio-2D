@@ -1,4 +1,17 @@
-# 에이전트 사용법
+# AI 에이전트 사용법
+
+[한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
+
+## 시작 순서
+
+1. CFD Studio를 실행하고 사용할 프로젝트 선택
+2. **환경 설정 → LLM 에이전트 → 에이전트 안내 → 안내 프롬프트 복사** 선택
+3. 사용하는 에이전트에 프롬프트와 작업 요청 전달 · 사용자가 보고 있는 Studio 탭에 연결
+4. 상단 **에이전트 조작 중** 표시와 화면에서 진행 상황 확인
+5. 멈추려면 오른쪽 상단 **에이전트 조작 중단** 선택 · 계속하려면 **에이전트 조작 재개** 선택
+
+- 프롬프트 전달만으로 브라우저 연결이 완료되지는 않음 · 연결 방법은 사용하는 에이전트 도구에 따름
+- 명령 이름과 JSON 키는 화면 언어와 관계없이 동일
 
 ## 준비
 
@@ -41,7 +54,7 @@
 ## 명령
 
 - 연결된 탭의 JavaScript 실행 기능에서 `window.CFDAgent` 사용
-- 코드를 해석하거나 프로젝트 파일을 직접 편집할 필요 없음
+- Studio 소스 분석이나 프로젝트 파일 직접 편집 없이 기존 화면 조작 가능
 - `CFDAgent.describe()`: 인터페이스 버전·명령 목록·안내 프롬프트
 - `CFDAgent.state()`: 현재 프로젝트·Case·대기열·화면·입력값·버튼·알림·로그
 - `CFDAgent.prompt()`: 복사용 안내 프롬프트
@@ -55,8 +68,10 @@
 // 현재 화면과 프로젝트·Case 식별자 확인
 const state = CFDAgent.state();
 
-// 실제 목록에서 받은 식별자 사용
-await CFDAgent.run('project.select', { id: state.workspace.projects[0].id });
+// 첫 프로젝트가 요청 대상인지 확인한 뒤 실제 식별자로 선택
+const project = state.workspace?.projects?.[0];
+if (!project) throw new Error('No project available');
+await CFDAgent.run('project.select', { id: project.id });
 
 // 선택된 Case의 Config 창 열기
 await CFDAgent.run('config.open');
@@ -107,9 +122,11 @@ CFDAgent.state().controls;
 
 ```javascript
 const field = CFDAgent.state().controls.find(item => item.label === '프로젝트 이름');
+if (!field) throw new Error('Read the current controls first');
 await CFDAgent.run('ui.fill', { target: field.target, value: '열전달 비교' });
 ```
 
+- 입력창 라벨은 표시 언어에 따라 다르므로 실제 목록에서 선택
 - 안내 패널에서 실행하는 JSON 예시
 
 ```json
@@ -164,3 +181,5 @@ const current = CFDAgent.state();
 - 세션 식별자는 새로고침마다 변경 · 이전 입력창 식별자 재사용 금지
 - JavaScript 실행 기능이 없는 에이전트는 화면 조작 도구로 같은 버튼 사용
 - 브라우저 연결, 파일 업로드, 네이티브 폴더 선택, 운영체제 권한은 에이전트 도구와 브라우저의 지원 범위 적용
+
+- `CFDAgent`가 없으면 미저장 편집을 보존한 뒤 새로고침 · Studio 재시작은 대기 중에만 진행하고 실행 중인 솔버나 사용자 브라우저를 종료하지 않음

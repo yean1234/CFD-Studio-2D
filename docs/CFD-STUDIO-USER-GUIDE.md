@@ -42,7 +42,7 @@
 - 명령 전달과 저장·계산 완료는 별도 확인
 - 최상단 가운데 **에이전트 조작 중** 표시 · 오른쪽 **에이전트 조작 중단**으로 명령 차단 및 일시정지 신호 전달
 - **에이전트 조작 재개**로 대기 중인 에이전트에 재개 신호 전달 · 진행 중인 CFD 계산과 별개
-- [연결 준비·명령어·사용 예시](CFD-STUDIO-AGENT-GUIDE.md)
+- AI 에이전트 사용법: [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
 
 ## CFD
 

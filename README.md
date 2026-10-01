@@ -11,6 +11,7 @@
 
 - [사용법](docs/CFD-STUDIO-USER-GUIDE.md)
 - [설명서](docs/CFD-STUDIO-MANUAL.md)
+- AI 에이전트 사용법: [한국어](docs/CFD-STUDIO-AGENT-GUIDE.md) · [English](docs/CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](docs/CFD-STUDIO-AGENT-GUIDE.ja.md)
 - [설치 안내](cfd_studio/README.md)
 - [CFD Template 검토](docs/cfd-form-review-20260928.md)
 - [Case 그래프 검토](docs/case-chart-review-20260928.md)
@@ -106,6 +107,7 @@ python tmc49_full_tank/tools/build_case.py --check
 - [빠른 사용 안내](docs/quickstart-ko.md)
 - [사용법](docs/CFD-STUDIO-USER-GUIDE.md)
 - [설명서](docs/CFD-STUDIO-MANUAL.md)
+- AI 에이전트 사용법: [한국어](docs/CFD-STUDIO-AGENT-GUIDE.md) · [English](docs/CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](docs/CFD-STUDIO-AGENT-GUIDE.ja.md)
 - [상세계획서 기반 첫 ClO₂ 농도장 결과](docs/warehouse-plan-scenario-20260928.md)
 - [앱 사용법](cfd_studio/README.md)
 - [배포 및 검증 범위](docs/distribution.md)
