@@ -107,3 +107,11 @@ test('primitive geometry does not infer a shape from its user-defined name',()=>
  assert.equal(primitiveDefinition(c,['geometry','regions',0]),null);assert.equal(shapes(c).items.length,0);
  for(const bad of [{name:'x',shape:'box',unit:'mm',min:[0,0,0],max:[1,2,3],liquid_height_mm:3},{name:'x',shape:'cylinder',unit:'m',center:[0,0,0],radius:1,height:2,axis:'q'},{name:'x',unit:'m',min:[0,0,0],max:[1,2,3]}])assert.throws(()=>validatePrimitive(bad));
 });
+
+test('legacy vapour and phase change belong to the runner dielectric region only',()=>{
+ const s=require('../cfd_studio/internal/spatial_editor.js');const config={tank:{},layers:{},dielectric_fluid:{},water:{},vapour:{rho:1},phase_change:{evap_C:4}};
+ assert.ok(s.partBindings(config,['dielectric_fluid']).some(p=>p.join('.')==='vapour'));
+ assert.ok(s.partBindings(config,['dielectric_fluid']).some(p=>p.join('.')==='phase_change'));
+ assert.ok(!s.partBindings(config,['water']).some(p=>['vapour','phase_change'].includes(p[0])));
+ assert.ok(!s.partBindings({geometry:{regions:[{material_state:'liquid'}]},vapour:{}},['geometry','regions',0]).some(p=>p[0]==='vapour'));
+});

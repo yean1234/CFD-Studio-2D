@@ -61,3 +61,29 @@ test('material catalog is filtered by state and documented solver capabilities',
  assert.equal(profile('custom','gas').known,false);assert.ok(profile('rhoPimpleFoam','gas').catalog.some(p=>p.key==='molecular_weight'));
 });
 test('invalid nested list values cannot be silently converted to null',()=>{assert.throws(()=>toConfig({version:1,fields:[{key:'table',type:'array',value:[1,undefined]}]}),/JSON/);});
+
+test('external raw, schema and exported envelope imports preserve data and metadata',()=>{
+ const {importedSchema}=require('../cfd_studio/internal/form_config_editor.js');
+ const source={materials:{rho:null,arbitrary:null,coefficients:{},curve:{T_K:[273,300],values:[1,2],unit:'kg/m³'}},enabled:false};
+ const schema=fromConfig(source);schema.fields[1].enum=[true,false];schema.fields[1].label='Custom switch';
+ const before=structuredClone(schema);
+ for(const input of [source,schema,{config:source,config_schema:schema}])assert.deepEqual(toConfig(importedSchema(input)),source);
+ const result=importedSchema(schema);assert.deepEqual(result.fields[1].enum,[true,false]);assert.equal(result.fields[1].label,'Custom switch');assert.equal(result.fields[0].fields[0].type,'number');assert.equal(result.fields[0].fields[1].type,'null');assert.deepEqual(schema,before);
+ assert.throws(()=>importedSchema(JSON.parse('{"constructor":{}}')),/reserved/i);assert.throws(()=>importedSchema({version:1,fields:[{key:'v',type:'number',value:'bad'}]}),/Type/);
+});
+test('temperature-property tables are recognised semantically and mismatches rejected without mutation',()=>{
+ const {tableColumns,validateTables}=require('../cfd_studio/internal/form_config_editor.js');
+ const value={T_K:[273.15,300],rho:[1000,990],cp:[4000,4010]};assert.equal(tableColumns(fromConfig(value).fields).length,3);validateTables(value);
+ assert.equal(tableColumns(fromConfig({coordinates:[1,2,3],values:[4,5,6]}).fields).length,0);
+ const mismatch={materials:{T_K:[1,2],values:[3]}};const before=structuredClone(mismatch);assert.throws(()=>validateTables(mismatch),/행 수/);assert.deepEqual(mismatch,before);
+});
+test('component definitions retain model and unit metadata but not Template operating values',()=>{
+ const {blankDefinition}=require('../cfd_studio/internal/form_config_editor.js');
+ const config={geometry:{regions:[{name:'Liquid',shape:'box',unit:'m',min:[0,0,0],max:[1,1,1],components:{vapour:{rho:1.2,unit:'kg/m³'},phase_change:{model:'UserModel',enabled:true,coefficient:2}}}]}};
+ const before=structuredClone(config),blank=toConfig(blankDefinition(fromConfig(config)));
+ assert.equal(blank.geometry.regions[0].components.vapour.rho,null);assert.equal(blank.geometry.regions[0].components.vapour.unit,'kg/m³');assert.equal(blank.geometry.regions[0].components.phase_change.model,'UserModel');assert.equal(blank.geometry.regions[0].components.phase_change.enabled,null);assert.deepEqual(config,before);
+});
+test('JSON numbers permit decimal editing unless an integer schema was declared',()=>{
+ assert.equal(fromConfig({coefficient:1}).fields[0].type,'number');
+ assert.equal(fromConfig({count:2},{fields:[{key:'count',type:'integer',value:1}]}).fields[0].type,'integer');
+});

@@ -46,7 +46,7 @@
  // Only geometry is inherited; operating values in legacy components remain project inputs.
  function isGeometryPath(path){
   const [root,key]=path;
-  if(path.includes('properties'))return false;
+  if(path.includes('properties')||path.includes('components'))return false;
   if(['dielectric_fluid','water'].includes(root))return ['name','role','material_state','state','_transform_reference','config_bindings'].includes(key);
   if(['geometry','domain','regions','geometry_spec','loading','silo','published','probes_mm'].includes(root))return true;
   if(['tank','board','coil'].includes(root))return ['shape','unit','min','max','center','radius','height','axis','width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','material_state','state','_transform_reference','config_bindings'].includes(key);
@@ -163,6 +163,8 @@
   if(config.tank&&config.layers){
    const owned={dielectric_fluid:['dielectric_mm','init_T_dielectric_C','init_T_dielectric_top_C'],water:['init_T_water_C','init_T_water_top_C']};
    if(owned[path[0]])for(const k of owned[path[0]])add(['layers',k]);
+   // The legacy runner explicitly couples these roots to dielectric_fluid (build_case.py).
+   if(path.length===1&&path[0]==='dielectric_fluid'){add(['vapour']);add(['phase_change']);}
    if(path[0]==='tank')for(const k of Object.keys(config.layers))if(!k.startsWith('_')&&!Object.values(owned).flat().includes(k))add(['layers',k]);
   }
   if(path[0]==='heater'&&path[1]==='cpus')for(const k of Object.keys(config.heater||{}))if(k!=='cpus'&&!k.startsWith('_'))add(['heater',k]);

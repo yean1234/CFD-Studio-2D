@@ -67,7 +67,6 @@ class FormSchemaTests(unittest.TestCase):
             with self.assertRaises(ValueError):w.save_form('Mismatch','solver_definition','icoFoam',{},config_schema=sample())
             self.assertEqual(w.forms(),before)
 
-if __name__=='__main__':unittest.main()
 
 class PartPropertySchemaTests(unittest.TestCase):
     def test_definitions_blank_values_and_inherit_preset_values_by_part_name(self):
@@ -113,3 +112,19 @@ class InspectorStateTests(unittest.TestCase):
         self.assertIsNone(blank['board']['properties']['density']['value'])
         self.assertFalse(is_geometry_path(('board','properties','density','value')))
         self.assertEqual(config,original)
+
+class ComponentTemplateTests(unittest.TestCase):
+    def test_component_values_blank_without_erasing_shape_or_definition(self):
+        from cfd_studio.form_schema import blank_schema
+        for regions in ([{'name':'Liquid','shape':'box','unit':'m','min':[0,0,0],'max':[1,1,1],'components':{'vapour':{'rho':1.2,'unit':'kg/m³'},'phase_change':{'model':'UserModel','enabled':True}}}], {'liquid':{'shape':'sphere','radius':1,'components':{'vapour':{'rho':1.2,'unit':'kg/m³'},'phase_change':{'model':'UserModel','enabled':True}}}}):
+            config={'geometry':{'regions':regions}}
+            original=copy.deepcopy(config)
+            blank=config_from_schema(blank_schema(config))
+            part=blank['geometry']['regions'][0] if isinstance(regions,list) else blank['geometry']['regions']['liquid']
+            self.assertIsNone(part['components']['vapour']['rho'])
+            self.assertEqual(part['components']['vapour']['unit'],'kg/m³')
+            self.assertEqual(part['components']['phase_change']['model'],'UserModel')
+            self.assertIsNone(part['components']['phase_change']['enabled'])
+            self.assertEqual(config,original)
+
+if __name__=='__main__':unittest.main()

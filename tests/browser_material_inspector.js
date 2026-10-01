@@ -31,7 +31,7 @@ async page=>{
  const forms=(await (await page.request.get(new URL('/api/executions/forms',page.url()).href)).json()).forms,legacy=forms.find(f=>f.config?.tank);
  await page.evaluate(f=>{materialEditor=CFDFormConfig.open({config:f.config,form:f,valuesOnly:true,onSave:c=>window.savedLegacyTable=c});},legacy);
  await d.locator('.fc-element-list button').evaluateAll(xs=>xs.find(x=>x.dataset.elementId===JSON.stringify(['dielectric_fluid'])).click());
- const temperatures=d.locator('[data-field-path="dielectric_fluid.property_tables.rho.T_K"]');check(await temperatures.locator('.fc-array-row').count()===7,'existing temperature table has seven individual inputs');check(await d.locator('[data-config-path="dielectric_fluid.properties.density.value"]').count()===0,'existing density table has no competing constant');
- await temperatures.locator('.fc-array-row').first().locator('input').fill('254.15');await d.locator('.fc-editor-card>.fc-actions').getByRole('button',{name:'저장',exact:true}).click();check(await page.evaluate(()=>savedLegacyTable.dielectric_fluid.property_tables.rho.T_K[0]===254.15),'legacy temperature array saved at original solver path');
+ const temperatures=d.locator('[data-table-path="dielectric_fluid.property_tables.rho"]');check(await temperatures.locator('tbody tr').count()===7,'existing temperature table has seven paired rows');check(await d.locator('[data-config-path="dielectric_fluid.properties.density.value"]').count()===0,'existing density table has no competing constant');
+ await temperatures.locator('tbody tr').first().locator('input').first().fill('254.15');await d.locator('.fc-editor-card>.fc-actions').getByRole('button',{name:'저장',exact:true}).click();check(await page.evaluate(()=>savedLegacyTable.dielectric_fluid.property_tables.rho.T_K[0]===254.15),'legacy temperature array saved at original solver path');
  check(!errors.length,'no runtime errors '+errors.join('; '));return {count:checks.length,checks};
 }

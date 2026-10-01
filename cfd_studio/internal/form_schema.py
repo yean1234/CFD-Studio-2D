@@ -61,7 +61,7 @@ def validate_schema(schema,config):
 
 
 def is_geometry_path(path):
-    if 'properties' in path:return False
+    if 'properties' in path or 'components' in path:return False
     root=path[0] if path else ''
     key=path[1] if len(path)>1 else ''
     if root in ('geometry','domain','regions','geometry_spec','loading','silo','published','probes_mm'):return True
@@ -71,10 +71,19 @@ def is_geometry_path(path):
     return root=='heater' and key=='cpus'
 
 
+def _blank_components(value):
+    if isinstance(value,list):return []
+    if isinstance(value,dict):
+        metadata={'name','label','description','unit','type','model','method','model_options'}
+        return {key:copy.deepcopy(item) if key in metadata or key.startswith('_') else _blank_components(item) for key,item in value.items()}
+    return '' if isinstance(value,str) else None
+
+
 def _blank_property_values(value):
     if isinstance(value,list):
         for item in value:_blank_property_values(item)
     elif isinstance(value,dict):
+        if isinstance(value.get('components'),dict):value['components']=_blank_components(value['components'])
         properties=value.get('properties')
         if isinstance(properties,dict):
             for record in properties.values():
@@ -86,6 +95,15 @@ def _blank_property_values(value):
 def _blank_property_fields(fields):
     for field in fields:
         if field['type']=='object':
+            if field['key']=='components':
+                def clear(fields):
+                    for item in fields:
+                        if item['key'] in ('name','label','description','unit','type','model','method','model_options') or item['key'].startswith('_'):continue
+                        if item['type']=='object':clear(item['fields'])
+                        else:
+                            item.pop('readonly',None);item['nullable']=True
+                            item['value']=[] if item['type']=='array' else '' if item['type']=='string' else None
+                clear(field['fields'])
             if field['key']=='properties':
                 for record in field['fields']:
                     parts={f['key']:f for f in record.get('fields',[])}

@@ -699,7 +699,21 @@ add("선택한 조건이 등록된 솔버 양식과 일치하지 않습니다","
 add("변경한 조건으로 추천할 수 없습니다","Unable to recommend with the changed conditions","変更した条件では推薦できません");
 let language='ko';
 try{const saved=root.localStorage?.getItem(key);if(supported.includes(saved))language=saved;}catch(_){}
+add("물리 컴포넌트","Physical components","物理コンポーネント");
+add("증기 물성","Vapour properties","蒸気の物性");
+add("절대온도 (K)","Absolute temperature (K)","絶対温度 (K)");
+add("정압비열 (질량당 열용량)","Specific heat at constant pressure","定圧比熱（単位質量あたりの熱容量）");
+add("점성계수 (흐름 저항)","Dynamic viscosity (flow resistance)","粘性係数（流れの抵抗）");
+add("증발 완화계수","Evaporation relaxation coefficient","蒸発緩和係数");
+add("응축 완화계수","Condensation relaxation coefficient","凝縮緩和係数");
+add("포화온도 (끓는점)","Saturation temperature (boiling point)","飽和温度（沸点）");
+add("기화잠열 (상변화 열량)","Latent heat of vaporisation","蒸発潜熱（相変化の熱量）");
+add("온도별 물성","Temperature-dependent properties","温度別の物性");
+add("물성 행 추가","Add property row","物性の行を追加");
+add("물성 행 삭제","Remove property row","物性の行を削除");
+add("입력 형식 선택","Select input type","入力形式を選択");
 const patterns=[
+ [/^온도와 물성값의 행 수를 맞추세요: (.*)$/,['Match the number of temperature and property rows: $1','温度と物性値の行数を揃えてください: $1']],
  [/^X = ([-+\d.eE]+) 회$/, ['X = $1 iterations','X = $1 回']],
  [/^(.+) 시각화 준비$/,['$1 visualization readiness','$1 可視化準備']],
  [/^(.+) 수정$/,['Edit $1','$1を編集']],
