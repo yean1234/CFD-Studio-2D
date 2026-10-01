@@ -96,3 +96,10 @@ test('custom field captions roundtrip and survive Template blanking independentl
  assert.deepEqual(api.toConfig(api.importedSchema(config)),config);
  assert.equal(config.layers.air_mm,200);
 });
+
+test('probe lists are recognized by their full path without misclassifying result fields',()=>{
+ const {probeListPath,blankArrayItem}=require('../cfd_studio/internal/form_config_editor.js');
+ for(const path of [['probes_mm','points'],['probes'],['outputs','probes']])assert.equal(probeListPath(path),true);
+ for(const path of [['outputs','fields'],['materials','points'],['probes','fields']])assert.equal(probeListPath(path),false);
+ const sample=[[1,2,3],[4,5,6]];assert.deepEqual(blankArrayItem(sample),[[null,null,null],[null,null,null]]);assert.deepEqual(sample,[[1,2,3],[4,5,6]]);
+});

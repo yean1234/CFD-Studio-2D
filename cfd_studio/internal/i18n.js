@@ -577,6 +577,7 @@ add("다시하기는 기존 기록을 보존하고 처음부터 계산합니다"
 add("계산 전용","Computation only","計算専用");
 add("조회 전용","Read only","閲覧専用");
 add("읽기 전용","Read only","読み取り専用");
+add("읽기 전용 JSON입니다","This JSON is read only","このJSONは読み取り専用です");
 add("저장 완료","Saved","保存完了");
 add("저장 중…","Saving…","保存中…");
 add("준비","Prepare","準備");
