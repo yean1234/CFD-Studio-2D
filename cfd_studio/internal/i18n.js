@@ -1157,6 +1157,7 @@ add("액체 상분율","Liquid phase fraction","液相体積分率");
 add("하단·상단 액체","Lower and upper liquids","下層・上層の液体");
 add("유속장","Velocity field","流速場");
 add("온도장","Temperature field","温度場");
+add("증기 기포","Vapour bubbles","蒸気気泡");
 add("압력장","Pressure field","圧力場");
 add("난류장","Turbulence field","乱流場");
 add("농도장","Concentration field","濃度場");

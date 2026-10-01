@@ -3703,7 +3703,7 @@ class H(BaseHTTPRequestHandler):
 
     def _do_GET(self):
         u = urlparse(self.path)
-        if (u.path.startswith("/api/executions") or u.path in ("/execution_workspace.js", "/spatial_editor.js", "/form_config_editor.js", "/form_wizard.js", "/config_editor.js", "/input_validation.js", "/warehouse_viewer.js", "/data_sheet_viewer.js", "/i18n.js", "/i18n_help.js", "/agent_controls.js")) and execution_get(self, EXECUTION_WORKSPACE):
+        if (u.path.startswith("/api/executions") or u.path in ("/execution_workspace.js", "/spatial_editor.js", "/form_config_editor.js", "/form_wizard.js", "/config_editor.js", "/input_validation.js", "/warehouse_viewer.js", "/viewer_presentation.js", "/data_sheet_viewer.js", "/i18n.js", "/i18n_help.js", "/agent_controls.js")) and execution_get(self, EXECUTION_WORKSPACE):
             return
         if u.path.startswith(('/studies', '/api/studies', '/api/attempts', '/api/study-packages', '/api/capabilities')):
             if study_http.get(self, study_http.service(HERE, SCFG, PROJECT_DIR)):
@@ -5005,7 +5005,8 @@ INDEX_HTML = r'''<!DOCTYPE html>
   body:is(.tracerView,.grouped.execution-viewer) #speed{width:62px}
  }
 #warehouseDetails{border-top:1px solid var(--line);margin-top:9px;padding-top:4px}#warehouseDetails summary{cursor:pointer;padding:7px 0;font-size:11px;color:var(--ink2)}#warehouseDetails p{font-size:10px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}.wh-inputs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:5px}#warehouseDetails .wh-inputs label{display:grid;font-size:10px;gap:3px;margin:0}#warehouseDetails input{width:100%;min-width:0;height:28px;padding:4px;font-size:11px;background:var(--surface2);border:1px solid var(--line);border-radius:5px;color:var(--ink)}#warehouseDetails button{margin:7px 0}body.grouped #hLiveG,body.grouped #vizWarn{display:none!important}
-</style></head>
+</style><script src="/viewer_presentation.js"></script>
+</head>
 <body>
 <div id="hdr">
   <div id="logo">
@@ -5185,7 +5186,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
        <circle cx="12" cy="13" r="3.4"/>
       </svg></button>
     <button class="iconbtn" id="play" onclick="togglePlay()" title="재생" aria-label="재생"><svg id="playIco" width="13" height="13" viewBox="0 0 24 24"><path d="M6 4l12 8-12 8V4z" fill="#fff"/></svg></button>
-    <input type="range" id="tbar" min="0" max="0" value="0" oninput="scrub(this.value)">
+    <input type="range" id="tbar" min="0" max="0" value="0" oninput="seekPlayback(this.value)">
     <span id="tlab" title="현재 시간 · 전체 저장 프레임 수">—s (0프레임)</span>
     <select id="speed" title="재생 배속" aria-label="재생 배속" onchange="changePlaybackSpeed()"><option value="0.1">0.1×</option><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select>
     <button class="btn" id="btnExport" onclick="openExport()" title="3D 영상·이미지 내보내기">Export</button>
@@ -6135,7 +6136,7 @@ function fluidCellVol(){
 function finishFrames(autoplay){
  if(FRAMES.length>1) FRAMES.sort((x,y)=>x.t-y.t);
  document.getElementById('frSt').textContent='프레임 '+FRAMES.length+'개';
- document.getElementById('tbar').max=Math.max(0,FRAMES.length-1);
+ syncPlaybackTimeline();
  if(FRAMES.length>1){
   const gaps=[];for(let i=1;i<FRAMES.length;i++){const d=framePlayTime(FRAMES[i])-framePlayTime(FRAMES[i-1]);if(d>1e-9)gaps.push(d);}
   if(gaps.length){gaps.sort((a,b)=>a-b);FDT=Math.max(0.001,gaps[Math.floor(gaps.length/2)]);}
@@ -6187,10 +6188,9 @@ function configureViewerFields(c){
  }
  configureViewerFields.mode=mode;
  const set=(id,text,title,show=true)=>{const el=document.getElementById(id);if(!el)return;el.style.display=show?'':'none';el.title=title||'';const sw=el.querySelector('.sw');while(sw&&sw.nextSibling)sw.nextSibling.remove();el.appendChild(document.createTextNode(text));};
- set('lbBub',silo?'압력장':'TMC-49 증기 기포',silo?'정압 출구를 기준으로 한 압력 분포':'액체에서 발생한 증기 분포');
- set('lbPhase',silo?'난류장 (k)':'액체 상분율',silo?'난류 운동에너지 k 분포':'액체 상분율 분포');
- set('lbSlice',silo?'속도장 · 흐름 마커':'속도장',silo?'공기 속도 U 기반 화살표와 이동 마커':'유체 속도 U의 방향과 크기');
- set('lbTvol','온도장','온도 분포',!silo);
+ const fieldLabels={lyBub:'lbBub',lyPhase:'lbPhase',lySlice:'lbSlice',lyTvol:'lbTvol'};
+ const definitions=CFDPresentation.layers(mode);
+ for(const [control,label] of Object.entries(fieldLabels)){const def=definitions.find(f=>f.control===control);set(label,def?.label||'',def?.label||'',!!def);}
  const design=[
   ['lyGeo',silo?'다공성 저장 영역':'보드 · CPU',silo?'다공성 매질로 계산된 저장 영역':'발열체와 보드 형상'],
   ['lyCoil',silo?'중앙 유입 덕트':'코일',silo?'유체가 유입되는 덕트':'냉각 코일 형상'],
@@ -7213,10 +7213,10 @@ function frame(){
   }
  }
  if(FRAMES.length&&idx>=FRAMES.length){idx=FRAMES.length-1;clock=framePlayTime(FRAMES[idx]);}   // 로딩 중 축소된 배열 보호
- document.getElementById('tbar').value=idx;
+ syncPlaybackTimeline();
  renderGCol();
  let FL=null,TH=null,PH=null,PR=null,TR=null;
- if(FRAMES.length){const F=FRAMES[idx],shownT=playing?clock:framePlayTime(F),ax=runAxis(VIZCFG||CFG);document.getElementById('tlab').textContent=shownT.toFixed(2)+(ax.steady?'s':ax.unit)+' ('+FRAMES.length.toLocaleString()+'프레임)';document.getElementById('tlab').title=ax.steady?'재생 시간 · 전체 저장 프레임 수 · 솔버 '+F.t.toFixed(0)+'회':'현재 시간 · 전체 저장 프레임 수';
+ if(FRAMES.length){const F=FRAMES[idx],shownT=clock,ax=runAxis(VIZCFG||CFG);document.getElementById('tlab').textContent=shownT.toFixed(2)+(ax.steady?'s':ax.unit)+' ('+FRAMES.length.toLocaleString()+'프레임)';document.getElementById('tlab').title=ax.steady?'재생 시간 · 전체 저장 프레임 수 · 솔버 '+F.t.toFixed(0)+'회':'현재 시간 · 전체 저장 프레임 수';
   document.getElementById('hT').textContent=shownT.toFixed(2);
   const vapourML=frameVapourML(F);document.getElementById('hV').textContent=Number.isFinite(vapourML)?vapourML.toFixed(0):'—';
   document.getElementById('hC').textContent=F.n.toLocaleString();
@@ -7442,11 +7442,17 @@ function togglePlay(){
  if(!FRAMES.length){vizRun();return;}
  if(PLAYENDED){resetPlaybackToStart();startBufferedPlayback(false);return;}
  if(PLAYBUFFERING){PLAYBUFSEQ++;PLAYBUFFERING=false;setPlay(false,true);loadMsg('프레임 '+FRAMES.length+'개');return;}
- if(playing)setPlay(false,true);else startBufferedPlayback((typeof warehouseActive==='function'&&warehouseActive())||isTracerConfig(VIZCFG||CFG));
+ if(playing)setPlay(false,true);else startBufferedPlayback(true);
 }
 function changePlaybackSpeed(){const resume=playing||PLAYBUFFERING;PLAYBUFSEQ++;PLAYBUFFERING=false;setPlay(false,true);if(resume)startBufferedPlayback(true);saveUI(false);}
-function scrub(v){PLAYBUFSEQ++;PLAYBUFFERING=false;idx=+v;clock=FRAMES[idx]?framePlayTime(FRAMES[idx]):0;PLAYENDED=FRAMES.length>0&&idx>=FRAMES.length-1;setPlay(false,true);uploadPoints();trimVizCache(idx);prefetchViz(idx,true);
- if(FRAMES.length)document.getElementById('tbar').value=idx;}
+function syncPlaybackTimeline(){return CFDPresentation.sync(document.getElementById('tbar'),FRAMES.map(framePlayTime),clock);}
+function seekPlayback(value){
+ const selected=CFDPresentation.seek(FRAMES.map(framePlayTime),value);
+ PLAYBUFSEQ++;PLAYBUFFERING=false;idx=selected.index;clock=selected.time;PLAYENDED=FRAMES.length>0&&selected.value===1;setPlay(false,true);
+ uploadPoints();trimVizCache(idx);prefetchViz(idx,true);syncPlaybackTimeline();
+}
+function scrub(v){PLAYBUFSEQ++;PLAYBUFFERING=false;idx=Math.max(0,Math.min(FRAMES.length-1,Math.round(Number(v)||0)));clock=FRAMES[idx]?framePlayTime(FRAMES[idx]):0;PLAYENDED=FRAMES.length>0&&idx>=FRAMES.length-1;setPlay(false,true);uploadPoints();trimVizCache(idx);prefetchViz(idx,true);
+ if(FRAMES.length)syncPlaybackTimeline();}
 
 // ══════════════ 모드 전환 (CFD 실행 ↔ 시각화) — 자동 전환 없음, 항상 CFD로 시작 ══════════════
 let MODE='cfd';

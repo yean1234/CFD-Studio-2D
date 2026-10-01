@@ -145,7 +145,7 @@ function scalarBuffer(filename) {
 function viewer() {
   const {document, get} = dom(), draws = [], messages = [];
   const ctx = {
-    document, console, performance, MODE: 'cfd', CFG: null, RUNCFG: null, VIZCFG: null,
+    CFDPresentation:require('../cfd_studio/internal/viewer_presentation.js'),document, console, performance, MODE: 'cfd', CFG: null, RUNCFG: null, VIZCFG: null,
     IMMERSIONCFG: null, RUNPREF: false, G: {}, PROBEPTS: [], FRAMES: [], idx: 0,
     clock: 0, last: 0, playing: false, PLAYENDED: false, PLAYBUFFERING: false, PLAYBUFSEQ: 0,
     VFRAMEGEN: 0, VLOADGEN: 0, VSTREAMERR: new Set(), VPREFETCHTOKEN: 0,
@@ -179,7 +179,7 @@ function viewer() {
     'playbackStride', 'playbackBufferReady', 'readyFrameAtOrBefore',
     'framePlayTime', 'frameIndexAt', 'runAxis', 'fmtPlaybackSeconds', 'finishFrames',
     'uploadPoints', 'loadFrames', 'renderPlayButton', 'setPlay', 'setPlaybackEnded',
-    'resetPlaybackToStart', 'startBufferedPlayback', 'togglePlay', 'scrub', 'changePlaybackSpeed',
+    'syncPlaybackTimeline', 'seekPlayback', 'resetPlaybackToStart', 'startBufferedPlayback', 'togglePlay', 'scrub', 'changePlaybackSpeed',
     'newProj', 'run',
   ];
   const code = constants.map(prefix => declaration(app, prefix));

@@ -1,3 +1,4 @@
+const WPresentation=typeof module!=='undefined'?require('./viewer_presentation.js'):globalThis.CFDPresentation;
 // Warehouse data adapter for the original Studio canvas, controls and export UI.
 let WH=null,WHGEN=0,WHREQUESTS=new Set(),WHBASE=null,WHGPU=null;
 const WHSAVED=new Map(),WHLAYERS=['lyBub','lyPhase','lySlice','lyTvol','lyGeo','lyCoil','lyTank','lyBound','lyProbe','lyInfo','gcT','gcV','gcB','gcL'];
@@ -5,9 +6,9 @@ function warehouseActive(){return VIZCFG?._해석유형==='warehouse';}
 function warehouseBlend(a,b,u){return a+(b-a)*Math.max(0,Math.min(1,u));}
 function warehouseBracket(times,time){let i=0;while(i+1<times.length&&times[i+1]<=time)i++;const j=Math.min(i+1,times.length-1);return {i,j,u:j===i?0:Math.max(0,Math.min(1,(time-times[i])/(times[j]-times[i])))};}
 function warehouseCompatible(a,b){return a.total_cells===b.total_cells&&a.sampling_stride===b.sampling_stride&&a.cell_centres_m.length===b.cell_centres_m.length&&a.cell_centres_m.every((p,i)=>p.every((v,k)=>v===b.cell_centres_m[i][k]));}
-function warehouseField(){return LY('lyTvol')?'temperature':'concentration';}
-function warehouseValues(f,field){return field==='temperature'?f.temperature_field_C:f.concentration;}
-function warehouseRange(a,b,field){const x=field==='temperature'?a.temperature_range_C:[a.minimum,a.maximum],y=field==='temperature'?b.temperature_range_C:[b.minimum,b.maximum];return [Math.min(x[0],y[0]),Math.max(x[1],y[1])];}
+function warehouseField(){const fields=WPresentation.layers('warehouse',WH?.meta.available_fields||['concentration']).filter(f=>f.available&&f.kind==='scalar');return (fields.find(f=>LY(f.control))||fields[0])?.id||null;}
+function warehouseValues(f,field){return WPresentation.values(f,field);}
+function warehouseRange(a,b,field){const x=WPresentation.range(a,field),y=WPresentation.range(b,field);if(!x||!y)throw Error('Result field range unavailable: '+field);return [Math.min(x[0],y[0]),Math.max(x[1],y[1])];}
 function warehouseCamera(){if(!WH)return;const g=WH.meta.geometry;tgt=[g.length_m*500,g.width_m*500,(g.eaves_m+g.roof_rise_m)*420];rad=Math.max(g.length_m,g.width_m,g.eaves_m+g.roof_rise_m)*2500;th=-.25;ph=.35;}
 function rememberWarehouse(){if(!WH||!warehouseActive())return;WHSAVED.set(WH.id,{clock,th,ph,rad,tgt:[...tgt],layers:Object.fromEntries(WHLAYERS.map(id=>[id,!!document.getElementById(id).checked]))});}
 function suspendWarehouseViewer(){rememberWarehouse();WHGEN++;for(const r of WHREQUESTS)r.abort();WHREQUESTS.clear();setPlay(false,true);PLAYBUFSEQ++;PLAYBUFFERING=false;}
@@ -25,8 +26,8 @@ function restoreWarehouseUI(){if(!WHBASE)return;lastTbarShow=null;lastVbarShow=n
 function configureWarehouseUI(){if(!WH)return;saveWarehouseUI();document.body.classList.remove('tracerView');
  const old=document.getElementById('tracerStats');if(old)old.style.display='none';
  configureViewerFields.mode='warehouse';const available=WH.meta.available_fields||['concentration'];
- for(const [id,text,show] of [['lyBub','농도장',true],['lyPhase','상분율',false],['lySlice','속도장 · 흐름 마커',available.includes('velocity')],['lyTvol','온도장',available.includes('temperature')],['lyGeo','다공성 곡물',!!WH.meta.loading?.blocks?.length],['lyTank','저장고 외곽',true],['lyCoil','코일',false],['lyBound','중앙 통로 단면',true],['lyProbe','측정점',false],['lyInfo','시간·원본 정보',true],['gcT','온도 범위',available.includes('temperature')],['gcV','농도 범위',true],['gcB','최대 유속',available.includes('velocity')],['gcL','층별 평균',false]])warehouseLabel(id,text,show);
- for(const id of ['lyBub','lySlice','lyTvol']){const input=document.getElementById(id);input.disabled=!available.includes(id==='lyBub'?'concentration':id==='lySlice'?'velocity':'temperature');input.closest('label').classList.toggle('off2',input.disabled);}
+ for(const [id,text,show] of [['lyPhase','상분율',false],['lyGeo','다공성 곡물',!!WH.meta.loading?.blocks?.length],['lyTank','저장고 외곽',true],['lyCoil','코일',false],['lyBound','중앙 통로 단면',true],['lyProbe','측정점',false],['lyInfo','시간·원본 정보',true],['gcT','온도 범위',available.includes('temperature')],['gcV','농도 범위',true],['gcB','최대 유속',available.includes('velocity')],['gcL','층별 평균',false]])warehouseLabel(id,text,show);
+ for(const def of WPresentation.layers('warehouse',available)){const input=document.getElementById(def.control);warehouseLabel(def.control,def.label,def.available);input.disabled=!def.available;input.closest('label').classList.toggle('off2',input.disabled);}
  document.getElementById('vbarRange').previousElementSibling.style.background='linear-gradient(90deg,#0b4b6b,#5b9268,#ffe03d)';
  GDEF[0].title='온도 범위 (°C)';GDEF[1].title='농도 범위 ('+WH.unit+')';GDEF[2].title='최대 유속 (m/s)';
  document.querySelector('#hud .hrow').innerHTML='<span>t <b id="hT">—</b> s</span><span>표시 <b id="hC">—</b>셀</span><span hidden>농도 표본최대 <b id="hV">—</b> '+WH.unit+'</span>';
@@ -117,15 +118,15 @@ function warehouseDrawFlow(M,a,b,u){
 }
 function frameWarehouse(now,dt){gl.clearColor(.051,.051,.051,1);gl.enable(gl.DEPTH_TEST);gl.depthMask(true);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);if(!WH||!FRAMES.length)return;
  const times=WH.meta.times_s;if(playing){const next=Math.min(times.at(-1),clock+Math.min(dt,.1)*(+document.getElementById('speed').value||1)),p=warehouseBracket(times,next);if(warehouseFrameReady(p.i)&&warehouseFrameReady(p.j)){clock=next;idx=p.i;if(clock>=times.at(-1))setPlaybackEnded();}else{ensureWarehouseFrame(p.i);ensureWarehouseFrame(p.j);}}
- const {i,j,u}=warehouseBracket(times,clock),a=WH.cache.get(i),b=WH.cache.get(j);if(!a||!b){ensureWarehouseFrame(i);ensureWarehouseFrame(j);return;}idx=i;const field=warehouseField();warehousePreparePair(a,b,i,j,field);
+ const {i,j,u}=warehouseBracket(times,clock),a=WH.cache.get(i),b=WH.cache.get(j);if(!a||!b){ensureWarehouseFrame(i);ensureWarehouseFrame(j);return;}idx=i;const field=warehouseField();if(field)warehousePreparePair(a,b,i,j,field);else warehouseGPU();
  const projection=persp(38*Math.PI/180,VW/VH,Math.max(1,rad/1500),rad+cameraModelSpan()*12);projection[8]=Math.min(.38,(document.getElementById('lcol').clientWidth+16)/VW);const M=mul(projection,lookAt(eye(),tgt,viewUp()));gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);
  for(const part of WH.geometry){if(part.type==='grain'&&LY('lyGeo'))dM(part.mesh,[.32,.49,.28,.12],M);if(part.type==='roof'&&LY('lyTank'))dM(part.mesh,[.6,.69,.8,.025],M);}
- if(LY('lyBub')||LY('lyTvol'))warehouseDrawCloud(M,a,b,u,field);
+ if(field&&(LY('lyBub')||LY('lyTvol')))warehouseDrawCloud(M,a,b,u,field);
  for(const part of WH.geometry){if(part.type==='outline'&&LY('lyTank'))dL(part.mesh,[.8,.84,.92,.5],M);if(part.type==='grainEdge'&&LY('lyGeo'))dL(part.mesh,[.45,.72,.3,.27],M);}
  if(LY('lySlice'))warehouseDrawFlow(M,a,b,u);gl.depthMask(true);
- document.getElementById('tbar').value=idx;document.getElementById('tlab').textContent=clock.toFixed(2)+'s ('+FRAMES.length.toLocaleString()+'프레임)';document.getElementById('hT').textContent=clock.toFixed(2);document.getElementById('hC').textContent=a.displayed_cells.toLocaleString()+' / '+a.total_cells.toLocaleString();
- const show=LY('lyBub')||LY('lyTvol');document.getElementById('tcbar').style.display=show?'flex':'none';document.getElementById('vbar').style.display=LY('lySlice')?'':'none';document.querySelector('#tcbar>div').textContent=field==='temperature'?'온도 °C':'농도 '+WH.unit;document.getElementById('tcHi').textContent=WH.range[1].toPrecision(4);document.getElementById('tcLo').textContent=WH.range[0].toPrecision(4);document.getElementById('tcSat').style.display='none';document.getElementById('tcSatL').style.display='none';document.querySelector('#tcbar .grad').style.background='linear-gradient(to top,#144dd9,#26e6ba,#ff4a17)';document.querySelector('#hud .hrow').style.display=LY('lyInfo')?'':'none';
- if(now-WH.lastHud>150){WH.lastHud=now;let max=-Infinity;for(let k=0;k<a.concentration.length;k++)max=Math.max(max,warehouseBlend(a.concentration[k],b.concentration[k],u));document.getElementById('hV').textContent=max.toPrecision(3);renderGCol();}
+ syncPlaybackTimeline();document.getElementById('tlab').textContent=clock.toFixed(2)+'s ('+FRAMES.length.toLocaleString()+'프레임)';document.getElementById('hT').textContent=clock.toFixed(2);document.getElementById('hC').textContent=a.displayed_cells.toLocaleString()+' / '+a.total_cells.toLocaleString();
+ const show=!!field&&(LY('lyBub')||LY('lyTvol'));document.getElementById('tcbar').style.display=show?'flex':'none';document.getElementById('vbar').style.display=LY('lySlice')?'':'none';document.querySelector('#tcbar>div').textContent=field==='temperature'?'온도 °C':'농도 '+WH.unit;document.getElementById('tcHi').textContent=WH.range?.[1]?.toPrecision(4)||'—';document.getElementById('tcLo').textContent=WH.range?.[0]?.toPrecision(4)||'—';document.getElementById('tcSat').style.display='none';document.getElementById('tcSatL').style.display='none';document.querySelector('#tcbar .grad').style.background='linear-gradient(to top,#144dd9,#26e6ba,#ff4a17)';document.querySelector('#hud .hrow').style.display=LY('lyInfo')?'':'none';
+ if(now-WH.lastHud>150){WH.lastHud=now;const av=warehouseValues(a,field),bv=warehouseValues(b,field);let max=-Infinity;if(av&&bv)for(let k=0;k<av.length;k++)max=Math.max(max,warehouseBlend(av[k],bv[k],u));document.getElementById('hV').textContent=Number.isFinite(max)?max.toPrecision(3):'—';renderGCol();}
  if(REC)recTick();
 }
 function warehouseSeries(id){if(!WH)return [];const rows=[...WH.stats.values()].sort((a,b)=>a.t-b.t);const field=id==='gcT'?'T':id==='gcV'?'c':id==='gcB'?'U':null;if(!field)return [];const values=rows.filter(r=>r[field]);return (id==='gcB'?[1]:[0,1]).map((k,i)=>({name:k?'최댓값':'최솟값',color:i?'#e08a3a':'#3987e5',pts:values.map(r=>[r.t,r[field][k]])}));}

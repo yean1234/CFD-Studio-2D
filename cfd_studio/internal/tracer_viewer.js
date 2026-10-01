@@ -34,7 +34,7 @@ function configureTracerFields(c){
  configureViewerFields.mode='gas_transport';
  const label=(id,text,show=true)=>{const e=document.getElementById(id),row=e.closest('label'),sw=row.querySelector('.sw');
   row.style.display=show?'':'none';row.title=text;if(sw){while(sw.nextSibling)sw.nextSibling.remove();row.appendChild(document.createTextNode(text));}};
- label('lyBub','농도 C/C_ref');label('lyPhase','흡착량 Q/C_ref');
+ for(const def of CFDPresentation.layers('gas_transport'))label(def.control,def.label+' '+def.unit);
  label('lySlice','속도장',false);label('lyTvol','온도장',false);
  label('lyGeo','다공성 적재 영역');label('lyCoil','공급 영역');label('lyTank','계산 영역');label('lyBound','경계',false);
  for(const id of ['lyProbe','lyInfo','gcT','gcV','gcB','gcL']){const e=document.getElementById(id);if(e){e.checked=false;e.closest('label').style.display='none';}}
@@ -144,7 +144,7 @@ function frameTracer(now,dt){
   if(!TRACERBLEND||TRACERBLEND.key!==key){const v=new Float32Array(a.v.length);for(let k=0;k<v.length;k++)v[k]=a.v[k]*(1-u)+b.v[k]*u;TRACERBLEND={key,T:{...a,v}};}
   T=TRACERBLEND.T;
  }
- document.getElementById('tbar').value=idx;
+ syncPlaybackTimeline();
  document.getElementById('tlab').textContent=clock.toFixed(2)+'s ('+FRAMES.length.toLocaleString()+'프레임)';
  document.getElementById('hT').textContent=clock.toFixed(2);
  gl.clearColor(.051,.051,.051,1);gl.enable(gl.DEPTH_TEST);gl.depthMask(true);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
