@@ -16,6 +16,16 @@ def sample():
         {'key':'enabled','type':'boolean','value':False}]}
 
 class FormSchemaTests(unittest.TestCase):
+    def test_shared_region_values_are_not_inherited_as_geometry(self):
+        from cfd_studio.form_schema import blank_schema
+        config={'loading':{'blocks':[{'id':'A','min_m':[0,0,0],'max_m':[1,1,1]}], 'porosity':.4, 'tortuosity':2}}
+        original=copy.deepcopy(config)
+        result=config_from_schema(blank_schema(config))
+        self.assertEqual(result['loading']['blocks'],config['loading']['blocks'])
+        self.assertIsNone(result['loading']['porosity'])
+        self.assertIsNone(result['loading']['tortuosity'])
+        self.assertEqual(config,original)
+
     def test_nested_config_units_and_solver_independence_survive_restart(self):
         with tempfile.TemporaryDirectory() as folder:
             w=ExecutionWorkspace(ROOT,[],folder=Path(folder)/'registry',output=Path(folder)/'output')

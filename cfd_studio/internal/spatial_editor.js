@@ -48,19 +48,23 @@
   const [root,key]=path;
   if(path.includes('properties')||path.includes('components'))return false;
   if(['dielectric_fluid','water'].includes(root))return ['name','role','material_state','state','_transform_reference','config_bindings','fill','interior'].includes(key);
-  if(['geometry','domain','regions','geometry_spec','loading','silo','published','probes_mm'].includes(root))return true;
+  if(root==='loading')return key==='blocks';
+  if(['geometry','domain','regions','geometry_spec','silo','published','probes_mm'].includes(root))return true;
   if(['tank','board','coil'].includes(root))return ['shape','unit','min','max','center','radius','height','axis','width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','material_state','state','_transform_reference','config_bindings','fill','interior'].includes(key);
   if(root==='layers')return ['dielectric_mm','air_mm'].includes(key);
   return root==='heater'&&key==='cpus';
  }
  const pathId=path=>JSON.stringify(path);
  function at(config,path){return path.reduce((obj,key)=>obj?.[key],config);}
+ // Collection paths are format adapters; project names and labels never choose an editor.
+ const collectionPaths=[['geometry','regions'],['geometry','fluid_regions'],['geometry','solid_regions'],['regions'],['loading','blocks'],['heater','cpus']];
+ function elementCollections(config){return collectionPaths.filter(path=>{const value=at(config,path);return Array.isArray(value)||isObject(value);}).map(path=>[...path]);}
  function elements(config){
   const out=[];
-  const add=path=>{const value=at(config,path);if(isObject(value))out.push({path,id:pathId(path),label:value.name||(typeof path.at(-1)==='number'?String(path.at(-2))+' '+(path.at(-1)+1):String(path.at(-1))),value});};
+  const add=path=>{const value=at(config,path);if(isObject(value))out.push({path,id:pathId(path),label:value.name||value.id||(typeof path.at(-1)==='number'?String(path.at(-2))+' '+(path.at(-1)+1):String(path.at(-1))),value});};
   const collection=path=>{const value=at(config,path);if(Array.isArray(value))value.forEach((_,i)=>add([...path,i]));else if(isObject(value))Object.keys(value).forEach(k=>add([...path,k]));};
   if(config.geometry?.shape||config.geometry?.type)add(['geometry']);
-  else for(const key of ['regions','fluid_regions','solid_regions'])collection(['geometry',key]);
+  else for(const path of elementCollections(config).filter(p=>p[0]==='geometry'))collection(path);
   if(config.domain)add(['domain']);collection(['regions']);
   if(config.geometry_spec?.geometry)add(['geometry_spec','geometry']);
   for(const key of ['tank','board','coil'])if(config[key])add([key]);
@@ -370,5 +374,5 @@
   dialog.append(header,el('p',schemaOnly?'초기 형상은 Template에 저장 · 프로젝트에서 독립적으로 수정 가능':'형상 확인용 미리보기 · 격자 생성·솔버 계산은 별도','sp-note'),body,help,error,actions);
   dialog.onclose=()=>{closed=true;clear();dialog.remove();};document.body.append(dialog);dialog.showModal();return dialog;
  }
- const api={fillInfo,fillSpace,filledPrimitive,resolveFills,applyFill,validateRefinements,runnerGeometryIssue,primitiveDefinition,validatePrimitive,applyPrimitive,transformInfo,transform,keys,parse,extract,merge,document:spatialDocument,mergeDocument,shapes,elements,partBindings,isGeometryPath,at,pathId,viewer,open};if(typeof module!=='undefined')module.exports=api;else globalThis.CFDSpatial=api;
+ const api={elementCollections,fillInfo,fillSpace,filledPrimitive,resolveFills,applyFill,validateRefinements,runnerGeometryIssue,primitiveDefinition,validatePrimitive,applyPrimitive,transformInfo,transform,keys,parse,extract,merge,document:spatialDocument,mergeDocument,shapes,elements,partBindings,isGeometryPath,at,pathId,viewer,open};if(typeof module!=='undefined')module.exports=api;else globalThis.CFDSpatial=api;
 })();

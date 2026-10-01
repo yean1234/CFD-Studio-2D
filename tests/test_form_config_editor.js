@@ -103,3 +103,21 @@ test('probe lists are recognized by their full path without misclassifying resul
  for(const path of [['outputs','fields'],['materials','points'],['probes','fields']])assert.equal(probeListPath(path),false);
  const sample=[[1,2,3],[4,5,6]];assert.deepEqual(blankArrayItem(sample),[[null,null,null],[null,null,null]]);assert.deepEqual(sample,[[1,2,3],[4,5,6]]);
 });
+
+test('scene ownership removes duplicate geometry controls and preserves shared inputs',()=>{
+ const {sceneOwnership,withoutScene}=require('../cfd_studio/internal/form_config_editor.js');
+ const config={loading:{blocks:[{id:'Region A',min_m:[0,0,0],max_m:[1,2,3]}],porosity:.4,tortuosity:2},geometry:{regions:[{name:'Custom',shape:'sphere',unit:'m',center:[0,0,0],radius:1}],unit:'m'},numerics:{time_step:.1}};
+ const before=JSON.stringify(config),schema=fromConfig(config),owned=sceneOwnership(config),shown=toConfig({version:1,fields:withoutScene(schema.fields,owned)});
+ assert.deepEqual(shown,{loading:{porosity:.4,tortuosity:2},geometry:{unit:'m'},numerics:{time_step:.1}});
+ assert.equal(JSON.stringify(config),before);assert.deepEqual(toConfig(schema),config);
+});
+test('a user field name does not decide the material state',()=>{
+ const {materialProfile}=require('../cfd_studio/internal/form_config_editor.js');
+ for(const key of ['water','dielectric_fluid','board','coil','heater'])assert.equal(materialProfile({[key]:{name:'Custom'}},{name:'Custom'},[key]).state,'');
+ assert.equal(materialProfile({}, {material_state:'gas'},['board']).state,'gas');
+});
+test('template geometry does not implicitly include shared porous operating values',()=>{
+ const {blankDefinition}=require('../cfd_studio/internal/form_config_editor.js');
+ const c={loading:{blocks:[{id:'A',min_m:[0,0,0],max_m:[1,1,1]}],porosity:.4,tortuosity:2}};
+ const blank=toConfig(blankDefinition(fromConfig(c)));assert.deepEqual(blank.loading.blocks,c.loading.blocks);assert.equal(blank.loading.porosity,null);assert.equal(blank.loading.tortuosity,null);assert.equal(c.loading.porosity,.4);
+});
