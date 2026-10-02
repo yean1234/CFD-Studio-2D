@@ -1,8 +1,39 @@
 # AI 에이전트 사용법
 
-- CFD Studio V1.0 · 에이전트 인터페이스 v1.1
+- CFD Studio V1.0 · 에이전트 인터페이스 v1.2
 
 [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
+
+## Template 기반 Config 작성
+
+1. 설문과 솔버 선택으로 Template 생성
+2. **양식 편집 → JSON 내보내기** 또는 `CFDAgent.configDocument()`로 생성된 JSON 양식 확보
+3. 출력된 양식을 기준으로 Config 작성 · 새 문서를 임의로 만들어 대체하지 않음
+4. 확장할 항목은 `config_schema`에 자료형·표시 이름·단위·`items` 등을 명시하고 `config`에 값 입력
+5. JSON 초안 적용 후 사용자가 입력 목록·3D 형상·단위·미확정값을 확인하도록 안내
+6. 확인 후 최종 저장 · 계산 시작은 실행 대상·종료 조건·대기열 확인을 거친 별도 단계
+
+- Config 내보내기 문서: `format: "cfd-studio-config"`, `version: 1`, `config`, `config_schema`
+- Template 내보내기는 `version`·`fields` 형식 · 공간 문서는 공간 JSON 창에서 조회한 형식 유지
+- `items`로 빈 목록의 행 양식 정의 · `widget: "vector3"`로 XYZ 입력 지정
+- 기존 키·단위·식별자·관계·관련 없는 값 보존 · 사용자 추가 키는 명시적으로 확장
+- 입력 UI에 표시되는 것과 솔버가 계산에 사용하는 것은 별개 · 실행 어댑터 지원 확인
+- [JSON 규칙](CONFIG-JSON.md) · [오류 코드](ERROR-CODES.md) · [다국어 오류 사전](config-error-codes.json)
+
+### 간결한 상태 확인
+
+| 조회 | 용도 |
+| --- | --- |
+| `CFDAgent.status()` | 화면·일시정지·오류 확인 · 전체 입력·로그 생략 |
+| `CFDAgent.configRules()` | JSON 표시 규칙 1회 확인 |
+| `CFDAgent.configDocument()` | 열린 편집기의 내보내기 문서 조회 · 반영 전 편집이 있으면 오류 반환 |
+| `CFDAgent.errorInfo("CFG-J004")` | 해당 코드의 원인·해결 방법만 조회 |
+| `CFDAgent.state()` | 화면이 바뀌었거나 조작할 입력을 찾아야 할 때 상세 조회 |
+
+- 인터페이스 v1.2의 추가 읽기 기능 · 기존 명령과 호환
+- 오류의 `code`·`path`·`action`으로 해당 입력만 수정 · 전체 소스 분석이나 같은 명령 반복부터 시작하지 않음
+- `APP-X001`: 분류되지 않은 오류 · 상세 내용을 보존하고 원인 확인
+- 일시정지 시 기존 대기 절차 유지 · 재개 버튼을 대신 누르거나 우회하지 않음
 
 ## 결과 확인
 

@@ -1,32 +1,36 @@
 /* Config schema editor. Field keys and units are user-owned, never translated. */
 (() => {
+  const contract=globalThis.CFDConfigContract||(typeof require==='function'?require('./config_contract.js'):null);
   const types=['string','number','integer','boolean','object','array','null'];
   const forbidden=new Set(['__proto__','prototype','constructor']);
   const clone=x=>structuredClone(x);
   const spatialAPI=()=>globalThis.CFDSpatial||(typeof require==='function'?require('./spatial_editor.js'):null);
   const spatialPath=path=>!!spatialAPI()?.isGeometryPath(path);
   const kind=value=>value===null?'null':Array.isArray(value)?'array':typeof value==='object'?'object':typeof value==='number'?(Number.isInteger(value)?'integer':'number'):typeof value;
-  function fromConfig(config,previous=null){
+  function fromConfig(config,previous=null,{preferMetadata=false}={}){
     if(!config||typeof config!=='object'||Array.isArray(config))throw Error('Config must be a JSON object');
     const metadata=Array.isArray(config._studio?.field_metadata)?config._studio.field_metadata:[];
     function fields(object,prior=[],depth=0,path=[]){
       if(depth>16)throw Error('Config nesting exceeds 16 levels');
       const keys=[...prior.map(f=>f.key).filter(key=>Object.hasOwn(object,key)),...Object.keys(object).filter(key=>!prior.some(f=>f.key===key))];
       return keys.map(key=>{
-        const value=object[key],meta=metadata.find(m=>m?.user_defined===true&&JSON.stringify(m.path)===JSON.stringify([...path,key]));
-        const old=prior.find(f=>f.key===key)||meta,actual=kind(value);
+        const value=object[key],meta=metadata.find(m=>m&&JSON.stringify(m.path)===JSON.stringify([...path,key]));
+        const catalogDefinition=key==='value'&&object.catalog_key?materialCatalog.find(f=>f.key===object.catalog_key):null;
+        const propertyInput=key==='value'&&types.includes(object.type)?{...(catalogDefinition||{}),...object.input,type:object.type,nullable:true}:null;
+        const old=(preferMetadata&&meta?{...prior.find(f=>f.key===key),...meta}:prior.find(f=>f.key===key)||meta)||propertyInput,actual=kind(value);
         const type=old?.nullable&&actual==='null'?old.type:(actual==='null'&&((key==='value'&&typeof object.unit==='string')||Object.hasOwn(parameterUnits,key)))?'number':actual==='integer'?(old?.type==='integer'?'integer':'number'):actual;
         const compatible=old?.type===type||(['integer','number'].includes(old?.type)&&['integer','number'].includes(type));
         const annotations=Object.fromEntries(['label','description'].filter(k=>typeof old?.[k]==='string').map(k=>[k,old[k]]));
         if(typeof old?.required==='boolean')annotations.required=old.required;
         if(old?.user_defined===true||meta?.user_defined===true)annotations.user_defined=true;
-        if(compatible)for(const key of ['enum','item_enum','minimum','maximum','step'])if(old?.[key]!==undefined)annotations[key]=clone(old[key]);
+        if(compatible)for(const key of ['enum','item_enum','minimum','maximum','step','items','widget'])if(old?.[key]!==undefined)annotations[key]=clone(old[key]);
         return {key,type,...annotations,...(actual==='null'&&type!=='null'?{nullable:true}:{}),unit:['value','x','y','z'].includes(key)&&typeof object.unit==='string'?object.unit:(old?.unit||''),...(old?.nullable?{nullable:true}:{}),...(old?.readonly?{readonly:true}:{}),...(type==='object'?{fields:fields(value,old?.fields,depth+1,[...path,key])}:{value:clone(value)})};
       });
     }
     const schema={version:1,spatial_version:1,fields:fields(config,previous?.fields)};toConfig(schema);return schema;
   }
   function toConfig(schema){
+    contract.validateDefinitions(schema);
     if(schema?.version!==1)throw Error('Config schema version must be 1');let count=0;
     function checkJSON(v,depth){if(v===undefined||typeof v==='function'||typeof v==='symbol')throw Error('Config requires JSON values');if(depth>16)throw Error('Config nesting exceeds 16 levels');if(typeof v==='number'&&!Number.isFinite(v))throw Error('Config numbers must be finite');if(Array.isArray(v)){if(v.length>10000)throw Error('Config array is too large');for(const x of v)checkJSON(x,depth+1);}else if(v&&typeof v==='object')for(const [k,x] of Object.entries(v)){if(forbidden.has(k))throw Error('Reserved Config Key: '+k);checkJSON(x,depth+1);}}
     function group(fields,depth){
@@ -80,8 +84,8 @@
     return 'optional';
   }
   function validateValueEdits(before,after,path=[]){
-    if(before!==null&&after!==null&&typeof before!==typeof after)throw Error(path.join('.')+' 입력 형식을 확인하세요');
-    if(Array.isArray(before)!==Array.isArray(after)&&before!==null)throw Error(path.join('.')+' 배열 형식을 유지하세요');
+    if(before!==null&&after!==null&&typeof before!==typeof after)throw contract.issue('CFG-J004','입력 형식을 확인하세요',path);
+    if(Array.isArray(before)!==Array.isArray(after)&&before!==null)throw contract.issue('CFG-J004','배열 형식을 유지하세요',path);
     if(Array.isArray(before)&&Array.isArray(after))for(let i=0;i<Math.min(before.length,after.length);i++)validateValueEdits(before[i],after[i],[...path,i]);
     if(before&&typeof before==='object'&&!Array.isArray(before)&&after&&typeof after==='object')for(const [key,value]of Object.entries(before)){if(Object.hasOwn(after,key))validateValueEdits(value,after[key],[...path,key]);}
     fromConfig({value:after});
@@ -97,7 +101,28 @@
     ['surface_tension','표면장력','N/m','interface'],['contact_angle','접촉각','°','interface'],['initial_phase_fraction','초기 상분율','','interface'],
     ['molecular_weight','분자량','kg/kmol','gas'],['latent_heat','잠열','J/kg','phase'],['transition_temperature','상변화 온도','K','phase'],
     ['temperature_samples','온도 표본','K','thermal','array']
-  ].map(([key,label,unit,scope,type='number'])=>({key,label,unit,scope,type}));
+  ].map(([key,label,unit,scope,type='number'])=>({key,label,unit,scope,type,
+    category:['voltage','electric_conductivity'].includes(key)?'전기':scope==='phase'||scope==='interface'?'상 경계 및 상변화':scope==='thermal'||scope==='solidThermal'?'열전달': ['porosity','permeability','surface_roughness'].includes(key)?'다공성 및 표면':'재료 물성',
+    ...(type==='array'?{items:{type:'number',nullable:true}}:{}),
+    ...(['emissivity','porosity','initial_phase_fraction'].includes(key)?{minimum:0,maximum:1}: {})}));
+  materialCatalog.push(
+    {key:'initial_velocity',label:'초기 속도',unit:'m/s',scope:'fluid',type:'array',widget:'vector3',category:'초기 조건',value:[null,null,null]},
+    {key:'initial_pressure',label:'초기 압력',unit:'Pa',scope:'fluid',type:'number',category:'초기 조건'},
+    {key:'heat_flux',label:'열유속',unit:'W/m²',scope:'thermal',type:'number',category:'열전달'},
+    {key:'turbulent_kinetic_energy',label:'난류 운동에너지',unit:'m²/s²',scope:'turbulent',type:'number',category:'난류',minimum:0},
+    {key:'dissipation_rate',label:'난류 소산율',unit:'m²/s³',scope:'turbulent',type:'number',category:'난류',minimum:0},
+    {key:'temperature_property_table',label:'온도별 물성 표',unit:'',scope:'thermal',type:'object',category:'물성 표',value:{T_K:[],values:[],unit:''}},
+    {key:'convection',label:'대류 열전달',unit:'',scope:'thermal',type:'object',category:'열전달',value:{heat_transfer_coefficient:{value:null,unit:'W/(m²·K)'},reference_temperature:{value:null,unit:'K'}}},
+    {key:'reference_note',label:'재료 참고 정보',unit:'',scope:'all',type:'string',category:'공통 정보'}
+  );
+  function propertyDefinition(item,name=item.label,key=item.key){
+    const value=Object.hasOwn(item,'value')?clone(item.value):item.type==='array'?[]:item.type==='object'?{}:item.type==='string'?'':null;
+    const input=Object.fromEntries(['items','widget','minimum','maximum','step','enum','item_enum'].filter(k=>item[k]!==undefined).map(k=>[k,clone(item[k])]));
+    const field=fromConfig({[key]:{name,catalog_key:item.key,type:item.type,unit:item.unit||'',...(Object.keys(input).length?{input}:{}),value}}).fields[0];
+    const definition=field.fields.find(f=>f.key==='value');definition.type=item.type;definition.nullable=true;
+    for(const k of ['items','widget','minimum','maximum','step','enum','item_enum'])if(item[k]!==undefined)definition[k]=clone(item[k]);
+    return field;
+  }
   function materialProfile(config,part,path=[],form=null){
     const solver=config.analysis?.solver||form?.solver?.id||form?.solver||config.openfoam_mapping?.solver||'';
     const known=['icoFoam','simpleFoam','pimpleFoam','pisoFoam','buoyantSimpleFoam','buoyantPimpleFoam','chtMultiRegionFoam','interFoam','interIsoFoam','rhoPimpleFoam','icoReactingMultiphaseInterFoam','warehouseBuoyantFoam'].includes(solver);
@@ -107,20 +132,30 @@
     const solid=state==='solid',fluid=['liquid','gas'].includes(state),interfaceFlow=['interFoam','interIsoFoam','icoReactingMultiphaseInterFoam'].includes(solver);
     const phaseSupported=fluid&&solver==='icoReactingMultiphaseInterFoam';
     const phaseEnabled=part.properties?.phase_change?.value===true;
-    const allowed={all:!!state,fluid,solid,thermal:thermal&&!!state,solidThermal:solid&&thermal,gas:state==='gas',interface:fluid&&interfaceFlow,phase:phaseSupported&&phaseEnabled};
+    const allowed={all:true,fluid,solid,thermal:thermal&&!!state,solidThermal:solid&&thermal,gas:state==='gas',interface:fluid&&interfaceFlow,phase:phaseSupported&&phaseEnabled,turbulent:fluid&&config.physics?.flow_regime!==undefined&&config.physics.flow_regime!=='laminar'};
     const catalog=materialCatalog.filter(f=>allowed[f.scope]);
     const basic=state?[...(solid||!known||interfaceFlow?['density']:[]),...(fluid?['kinematic_viscosity']:[]),...(thermal?['heat_capacity','thermal_conductivity','initial_temperature']:[])]:[];
     // Compressible density can be derived from the selected equation of state.
     return {solver,known,state,thermal,phaseSupported,phaseEnabled,catalog,basic,solidUnsupported:solid&&known&&solver!=='chtMultiRegionFoam'};
   }
   const parameterUnits={base_max_spacing_m:'m',T_K:'K',T_C:'°C',rho:'kg/m³',cp:'J/(kg·K)',mu:'Pa·s',nu:'m²/s',kappa:'W/(m·K)',evap_C:'1/s',cond_C:'1/s',Tsat_C:'°C',h_fg_J_kg:'J/kg',dx_mm:'mm',dt_s:'s',max_dt_s:'s',write_interval_s:'s',viz_interval_s:'s'};
+  function withDisplayMetadata(config,schema){
+    const copy=clone(config),rows=[];
+    const visit=(fields,path=[])=>{for(const f of fields){if(!path.length&&f.key==='_studio')continue;const p=[...path,f.key];const keys=['label','description','required','user_defined','readonly','enum','item_enum','minimum','maximum','step','items','widget'];
+      if(keys.some(k=>f[k]!==undefined)||(f.nullable&&f.type!=='null'))rows.push({path:p,type:f.type,unit:f.unit||'',...(f.nullable?{nullable:true}:{}),...Object.fromEntries(keys.filter(k=>f[k]!==undefined).map(k=>[k,clone(f[k])]))});
+      if(f.type==='object')visit(f.fields,p);
+    }};visit(schema.fields);
+    if(rows.length||copy._studio?.field_metadata){copy._studio??={};copy._studio.field_metadata=rows;}
+    return copy;
+  }
   function importedSchema(payload,previous=null,{valuesOnly=false}={}){
     if(!payload||typeof payload!=='object'||Array.isArray(payload))throw Error('Config must be a JSON object');
-    if(payload.version===1&&Array.isArray(payload.fields)){toConfig(payload);return fromConfig(toConfig(payload),payload);}
+    if((payload.format==='cfd-studio-config'&&payload.version!==1)||(Array.isArray(payload.fields)&&Object.hasOwn(payload,'version')&&payload.version!==1))throw contract.issue('CFG-J003','Unsupported document version',['version']);
+    if(payload.version===1&&Array.isArray(payload.fields)){const value=toConfig(payload);contract.validateValues(value,payload);return fromConfig(value,payload);}
     if(payload.config&&typeof payload.config==='object'&&(payload.config_schema||payload.input_schema)){
-      const definition=payload.config_schema||payload.input_schema;toConfig(definition);return fromConfig(payload.config,definition);
+      const definition=payload.config_schema||payload.input_schema;const baseline=toConfig(definition);validateValueEdits(baseline,payload.config);contract.validateValues(payload.config,definition);return fromConfig(payload.config,definition);
     }
-    if(valuesOnly&&previous)validateValueEdits(toConfig(previous),payload);
+    if(valuesOnly&&previous){validateValueEdits(toConfig(previous),payload);contract.validateValues(payload,previous);}
     return fromConfig(payload,previous);
   }
   function tableColumns(fields){
@@ -147,10 +182,10 @@
   }
   function open({config={},schema=null,onSave,onValidate=null,title='Config',schemaOnly=false,valuesOnly=false,readonly=false,submitLabel='저장',customSections=[],onMount=null,onClone=null,form=null}){
     let searchQuery='',renderOwnedPaths=[];
-    let draft=schemaOnly&&schema?clone(schema):fromConfig(config,schema),mode='fields',structure=false,showOptional=false,selected='';
+    let draft=schemaOnly&&schema?clone(schema):fromConfig(config,schema,{preferMetadata:true}),mode='fields',structure=false,showOptional=false,selected='';
     const rawValues=new WeakMap();toConfig(draft);
     function fieldMeta(path){const rows=draft.fields.find(f=>f.key==='_studio')?.fields?.find(f=>f.key==='field_metadata')?.value;return Array.isArray(rows)?rows.find(x=>x&&JSON.stringify(x.path)===JSON.stringify(path))||{}:{};}
-    function setFieldMeta(path,patch){const c=currentConfig();c._studio??={};const rows=c._studio.field_metadata??=[];if(!Array.isArray(rows))throw Error('속성 표시 정보는 목록이어야 합니다');const i=rows.findIndex(x=>JSON.stringify(x.path)===JSON.stringify(path));const record={...(i<0?{}:rows[i]),path:[...path],...patch};if(i<0)rows.push(record);else rows[i]=record;draft=fromConfig(c,draft);elementDraft=null;elementPath=null;}
+    function setFieldMeta(path,patch){const c=currentConfig();c._studio??={};const rows=c._studio.field_metadata??=[];if(!Array.isArray(rows))throw Error('속성 표시 정보는 목록이어야 합니다');const i=rows.findIndex(x=>JSON.stringify(x.path)===JSON.stringify(path));const record={...(i<0?{}:rows[i]),path:[...path],...patch};if(i<0)rows.push(record);else rows[i]=record;draft=fromConfig(c,draft,{preferMetadata:true});elementDraft=null;elementPath=null;}
     function displayField(field,path){const meta=fieldMeta(path);return {...field,...Object.fromEntries(['label','description'].filter(k=>typeof meta[k]==='string').map(k=>[k,meta[k]]))};}
 
     const el=(tag,text,cls)=>{const x=document.createElement(tag);if(text!=null)x.textContent=text;if(cls)x.className=cls;return x;};
@@ -181,13 +216,14 @@
     let pendingSpatial=false,pendingProperty=false;
     let saving=false,jsonPath=null,jsonSpatial=false,jsonPrimitive=false,jsonTransform=false,jsonSubset=null,jsonViewOnly=false,jsonSchema=false,jsonDirty=false,jsonBase='',jsonArea,adding=null,elementId=null,elementDraft=null,elementPath=null,propertyAdding=false,cleanPreview=null,previewTimer=null,previewVersion=0,closed=false,cameraState=null,lastScene='';
     const commitJSON=()=>{if(pendingProperty)throw Error('속성 이름 입력을 완료하거나 Esc로 취소하세요');if(pendingSpatial)throw Error('채움 적용 후 저장하거나 이동하세요');if(jsonDirty)throw Error('JSON 저장 또는 취소를 선택하세요');globalThis.CFDInput?.assertValid(body);flushElement();toConfig(draft);};
-    const guarded=fn=>{try{error.textContent='';fn();}catch(e){error.textContent=e.message;}};
+    const showError=e=>contract.display(error,e);
+    const guarded=fn=>{try{showError(null);fn();}catch(e){showError(e);}};
     const jsonButton=button('전체 JSON',()=>openJSON(null));jsonButton.classList.add('fc-json-action');jsonButton.dataset.agentJsonOpen='config';
     const structureButton=button('구조 편집',()=>guarded(()=>{if(valuesOnly)return;commitJSON();structure=!structure;mode='fields';render();}));structureButton.hidden=valuesOnly||readonly;
     const spatial=button('JSON',()=>openJSON(null,true));spatial.setAttribute('aria-label','전체 공간 형상 JSON');spatial.dataset.agentJsonOpen='geometry';
     const upload=el('input');upload.type='file';upload.accept='.json,application/json';upload.hidden=true;
-    upload.onchange=async()=>{const file=upload.files[0];if(!file)return;try{if(file.size>1000000)throw Error('JSON file must be under 1 MB');if(jsonDirty)throw Error('JSON 저장 또는 취소를 선택하세요');if(pendingProperty)throw Error('속성 이름 입력을 완료하거나 Esc로 취소하세요');const parsed=JSON.parse((await file.text()).replace(/^\uFEFF/,'')),next=importedSchema(parsed,draft,{valuesOnly});toConfig(next);draft=next;elementId=null;elementDraft=null;elementPath=null;selected='';mode='fields';pendingSpatial=false;error.textContent='';render();if(dialog.classList.contains('fc-json-open')){jsonPrimitive=false;jsonTransform=false;jsonSubset=null;jsonSpatial=false;jsonPath=null;jsonPane.dataset.jsonScope='config';jsonSchema=schemaOnly;jsonViewOnly=false;jsonArea.readOnly=readonly;jsonSave.hidden=readonly;jsonTitle.textContent='전체 Config JSON';loadJSON();}}catch(e){error.textContent=e.message;}upload.value='';};
-    const modes=el('div',null,'fc-modes'),tools=el('div',null,'fc-tools');const importButton=button('JSON 가져오기',()=>upload.click());importButton.hidden=readonly;tools.append(structureButton,jsonButton,importButton,button('JSON 내보내기',()=>guarded(()=>{commitJSON();const a=el('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(schemaOnly?blankDefinition(draft):sp.resolveFills(toConfig(draft)),null,2)],{type:'application/json'}));a.download=schemaOnly?'cfd-template.json':'cfd-config.json';a.click();render();setTimeout(()=>URL.revokeObjectURL(a.href),1000);})),upload);toolbar.append(modes,tools);
+    upload.onchange=async()=>{const file=upload.files[0];if(!file)return;try{if(file.size>1000000)throw Error('JSON file must be under 1 MB');if(jsonDirty)throw Error('JSON 저장 또는 취소를 선택하세요');if(pendingProperty)throw Error('속성 이름 입력을 완료하거나 Esc로 취소하세요');const parsed=JSON.parse((await file.text()).replace(/^\uFEFF/,'')),next=importedSchema(parsed,draft,{valuesOnly});toConfig(next);draft=next;elementId=null;elementDraft=null;elementPath=null;selected='';mode='fields';pendingSpatial=false;showError(null);render();if(dialog.classList.contains('fc-json-open')){jsonPrimitive=false;jsonTransform=false;jsonSubset=null;jsonSpatial=false;jsonPath=null;jsonPane.dataset.jsonScope='config';jsonSchema=schemaOnly;jsonViewOnly=false;jsonArea.readOnly=readonly;jsonSave.hidden=readonly;jsonTitle.textContent='전체 Config JSON';loadJSON();}}catch(e){showError(e);}upload.value='';};
+    const modes=el('div',null,'fc-modes'),tools=el('div',null,'fc-tools');const importButton=button('JSON 가져오기',()=>upload.click());importButton.hidden=readonly;tools.append(structureButton,jsonButton,importButton,button('JSON 내보내기',()=>guarded(()=>{commitJSON();const a=el('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(schemaOnly?blankDefinition(draft):exportDocument(),null,2)],{type:'application/json'}));a.download=schemaOnly?'cfd-template.json':'cfd-config.json';a.click();render();setTimeout(()=>URL.revokeObjectURL(a.href),1000);})),upload);toolbar.append(modes,tools);
     const hint=el('p',readonly?'실행 시점의 입력 기록 · 변경하려면 이 Config로 새 Case 선택':schemaOnly?'초기 형상과 입력 양식 정의 · 물성 및 운전값은 프로젝트에서 입력':'필수 항목을 먼저 입력하세요','fc-note');
     const workspace=el('div',null,'fc-workspace'),preview=el('aside',null,'fc-preview'),previewHeader=el('div',null,'fc-preview-header'),previewHost=el('div',null,'fc-preview-host'),previewNote=el('p',null,'fc-preview-note');
     previewHeader.append(el('strong','3D 형상'),spatial);preview.append(previewHeader,previewHost,previewNote);workspace.append(body);
@@ -214,7 +250,7 @@
     function openJSON(path,spatialScope=false,viewOnly=false){guarded(()=>{commitJSON();jsonViewOnly=viewOnly;jsonArea.readOnly=readonly||viewOnly;jsonSave.hidden=readonly||viewOnly;jsonTransform=spatialScope==='transform';jsonSubset=spatialScope&&typeof spatialScope==='object'?spatialScope.keys:null;jsonPrimitive=spatialScope==='primitive';jsonSpatial=spatialScope===true;jsonPath=path;jsonPane.dataset.jsonScope=jsonPrimitive?'primitive':jsonSpatial?'geometry':path?'section':'config';jsonSchema=schemaOnly&&!jsonPrimitive&&!jsonSpatial&&!jsonTransform&&!jsonSubset&&(!path||!!schemaAt(path));jsonTitle.textContent=jsonTransform?'변환 JSON':jsonSubset?(spatialScope.title||'선택 분류')+' JSON':jsonPrimitive?'형상 JSON':jsonSpatial?'전체 공간 형상 JSON':(jsonPath?jsonPath.map(key=>fieldLabel({key})).join(' / '):'전체 Config')+' JSON';render();loadJSON();dialog.classList.add('fc-json-open');jsonPane.inert=false;jsonPane.setAttribute('aria-hidden','false');jsonArea.focus({preventScroll:true});});}
 
     const editorCard=el('div',null,'fc-editor-card');editorCard.append(header,toolbar,hint,workspace,error,actions);dialog.prepend(editorCard,preview);hint.title='선택 항목의 기존값은 유지됩니다 · 전체 항목에서 확인';
-    if(onValidate){const report=el('section',null,'fc-validation');report.setAttribute('aria-live','polite');report.textContent='입력 검사로 누락 항목을 확인할 수 있습니다';workspace.after(report);const check=button('입력 검사',async()=>{check.disabled=true;try{commitJSON();render();validateTables(toConfig(draft));const result=await onValidate(toConfig(draft));report.replaceChildren(el('strong',result.missing_count?'필수 입력 '+result.missing_count+'개 확인 필요':'정의된 필수 입력 작성 완료'));const list=el('ul');for(const issue of result.issues){const item=el('li'),link=button(issue.path.map(key=>fieldLabel({key})).join(' / '),()=>{selected=issue.path[0];showOptional=true;mode='fields';render();const target=[...body.querySelectorAll('[data-field-path]')].find(n=>n.dataset.fieldPath===issue.path.join('.'));target?.scrollIntoView({block:'center'});target?.querySelector('input,select,textarea')?.focus();});link.title=issue.path.join('.');item.append(link,' · ',issue.message);list.append(item);}for(const note of result.model_review||[])list.append(el('li',note));report.append(list);}catch(e){report.textContent=e.message;}finally{check.disabled=false;}});actions.append(check);}
+    if(onValidate){const report=el('section',null,'fc-validation');report.setAttribute('aria-live','polite');report.textContent='입력 검사로 누락 항목을 확인할 수 있습니다';workspace.after(report);const check=button('입력 검사',async()=>{check.disabled=true;try{commitJSON();render();validateTables(toConfig(draft));const result=await onValidate(toConfig(draft));report.replaceChildren(el('strong',result.missing_count?'필수 입력 '+result.missing_count+'개 확인 필요':'정의된 필수 입력 작성 완료'));const list=el('ul');for(const issue of result.issues){const item=el('li'),link=button(issue.path.map(key=>fieldLabel({key})).join(' / '),()=>{selected=issue.path[0];showOptional=true;mode='fields';render();const target=[...body.querySelectorAll('[data-field-path]')].find(n=>n.dataset.fieldPath===issue.path.join('.'));target?.scrollIntoView({block:'center'});target?.querySelector('input,select,textarea')?.focus();});link.title=issue.path.join('.');const info=contract.normalize(contract.issue('CFG-J009',issue.message,issue.path),globalThis.CFDI18n?.language);item.dataset.errorInfo=JSON.stringify(info);item.dataset.errorCode=info.code;item.append(link,' · ['+info.code+'] ',issue.message);list.append(item);}for(const note of result.model_review||[])list.append(el('li',note));report.append(list);}catch(e){contract.display(report,e);}finally{check.disabled=false;}});actions.append(check);}
     const sp=spatialAPI();
     function writePath(obj,path,value){const parent=sp.at(obj,path.slice(0,-1));if(!parent)throw Error('선택한 요소를 찾을 수 없습니다');parent[path.at(-1)]=value;}
     function currentConfig(){let value=toConfig(draft);if(elementDraft&&elementPath)writePath(value,elementPath,toConfig(elementDraft));for(const entry of readonly?[]:sp.elements(value)){if(entry.value.shape&&(['tank','board','coil'].includes(entry.path[0])||entry.path[0]==='loading')){const reference=entry.value._transform_reference;value=sp.applyPrimitive(value,entry.path,sp.primitiveDefinition(value,entry.path));if(reference)sp.at(value,entry.path)._transform_reference=reference;}}// Keep an incomplete draft navigable; preview and final save validate fill geometry.
@@ -234,7 +270,7 @@
         if(closed||generation!==previewVersion){clean();return;}cleanPreview=clean;
       }catch(e){lastScene='';++previewVersion;cleanPreview?.();cleanPreview=null;previewHost.replaceChildren(el('p','형상 입력을 확인하세요','fc-empty'));previewNote.textContent=e.message;}
     }
-    const syncInputs=()=>{error.textContent='';schedulePreview();if(dialog.classList.contains('fc-json-open')&&!jsonDirty){try{const value=currentConfig(),definition=schemaOnly?fromConfig(value,draft):null;const part=jsonTransform||jsonSubset?sectionJSON(value):jsonPrimitive?sp.primitiveDefinition(value,jsonPath):jsonSpatial?sp.document(value):schemaOnly?(jsonPath?definition.fields.find(f=>f.key===jsonPath[0]):definition):(jsonPath?sp.at(value,jsonPath):value);jsonBase=JSON.stringify(part,null,2);jsonArea.value=jsonBase;}catch(_){}}};body.addEventListener('input',syncInputs);body.addEventListener('change',syncInputs);
+    const syncInputs=()=>{showError(null);schedulePreview();if(dialog.classList.contains('fc-json-open')&&!jsonDirty){try{const value=currentConfig(),definition=schemaOnly?fromConfig(value,draft):null;const part=jsonTransform||jsonSubset?sectionJSON(value):jsonPrimitive?sp.primitiveDefinition(value,jsonPath):jsonSpatial?sp.document(value):schemaOnly?(jsonPath?definition.fields.find(f=>f.key===jsonPath[0]):definition):(jsonPath?sp.at(value,jsonPath):value);jsonBase=JSON.stringify(part,null,2);jsonArea.value=jsonBase;}catch(_){}}};body.addEventListener('input',syncInputs);body.addEventListener('change',syncInputs);
     function schemaAt(path){let field,fields=draft.fields;for(const key of path){field=fields?.find(f=>f.key===key);fields=field?.fields;}return field;}
     function renderElement(main,entry){
       if(!elementDraft||JSON.stringify(elementPath)!==JSON.stringify(entry.path))elementDraft=fromConfig(entry.value,{fields:schemaAt(entry.path)?.fields||[]});elementPath=entry.path;entry={...entry,value:toConfig(elementDraft)};for(const f of elementDraft.fields)if(['radius','height'].includes(f.key)&&f.type==='null'){f.type='number';f.nullable=true;}if(!readonly&&!elementDraft.fields.some(f=>f.key==='name'))elementDraft.fields.unshift({key:'name',type:'string',value:entry.label});const heading=el('div',null,'fc-titlebar'),title=el('h3',entry.label);title.setAttribute('translate','no');heading.append(title);
@@ -321,7 +357,7 @@
       const present=key=>(aliases[key]||[key]).some(k=>Object.hasOwn(entry.value,k)||Object.hasOwn(entry.value.property_tables||{},k))||(key==='initial_temperature'&&sp.partBindings(currentConfig(),entry.path).some(p=>String(p.at(-1)).startsWith('init_T_')));
       function drawProperty(property,virtual=false,required=false){
         const fields=property.fields||[],read=k=>fields.find(f=>f.key===k)?.value,value=fields.find(f=>f.key==='value'),type=read('type');
-        if(!value||!types.includes(type)||['object','null'].includes(type)){renderFields([property],section,[...entry.path,'properties']);return;}
+        if(!value||!types.includes(type)||type==='null'){renderFields([property],section,[...entry.path,'properties']);return;}
         const builtin=read('catalog_key')===property.key;
         value.type=type;value.nullable=true;value.label=builtin?(materialCatalog.find(p=>p.key===property.key)?.label||read('name')):read('name')||property.key;value.unit=read('unit')||'';
         const card=el('fieldset',null,'fc-section'),legend=el('legend'),propertyTitle=el('span',value.label);if(!builtin&&!virtual)propertyTitle.setAttribute('translate','no');legend.append(propertyTitle);legend.title=property.key;card.append(legend);section.append(card);if(read('description')){const note=el('p',read('description'),'fc-note');note.setAttribute('translate','no');card.append(note);}
@@ -331,7 +367,7 @@
         if(!readonly&&!property.readonly&&!virtual&&!required){renameLabel(propertyTitle,name=>{const field=property.fields.find(f=>f.key==='name');if(field)field.value=name;else property.fields.push({key:'name',type:'string',value:name});property.fields=property.fields.filter(f=>f.key!=='catalog_key');});const remove=button('−',()=>guarded(()=>{root.fields.splice(root.fields.indexOf(property),1);commitJSON();render();}));remove.classList.add('fc-property-remove');remove.setAttribute('aria-label','속성 삭제');remove.title='속성 삭제';widget.append(remove);}
       }
       // Existing tables stay canonical. Never add a competing constant for an existing property table.
-      if(!readonly)for(const key of profile.basic){if(root?.fields.some(f=>f.key===key)||present(key))continue;const item=materialCatalog.find(p=>p.key===key),record={name:item.label,catalog_key:key,type:item.type,unit:item.unit,value:null};drawProperty(fromConfig({[key]:record}).fields[0],true,true);}
+      if(!readonly)for(const key of profile.basic){if(root?.fields.some(f=>f.key===key)||present(key))continue;const item=materialCatalog.find(p=>p.key===key);drawProperty(propertyDefinition(item),true,true);}
       for(const property of root?.fields||[])if(property.key!=='phase_change')drawProperty(property,false,profile.basic.includes(property.key));
       const actualPhase=entry.value.phase_change||entry.value.components?.phase_change||sp.partBindings(currentConfig(),entry.path).some(p=>p[0]==='phase_change');
       if(profile.state&&!actualPhase){
@@ -350,12 +386,17 @@
         const input=(label,node)=>{const wrap=el('label',label);node.setAttribute('aria-label',label);wrap.append(node);grid.append(wrap);return node;};
         const choice=input('속성 종류',el('select')),name=input('속성 이름',el('input')),key=input('속성 키',el('input')),type=input('입력할 내용',el('select')),unit=input('단위',el('input'));
         const catalog=[{key:'custom',label:'직접 정의',unit:'',type:'number'},...profile.catalog.filter(p=>!root?.fields.some(f=>f.key===p.key)&&!present(p.key))];
-        for(const item of catalog)choice.append(new Option(item.label,item.key));for(const id of ['number','integer','string','boolean','array'])type.append(new Option(typeLabels[id],id));
+        choice.append(new Option('직접 정의','custom'));
+        for(const category of [...new Set(catalog.slice(1).map(x=>x.category))]){const group=el('optgroup');group.label=category;for(const item of catalog.filter(x=>x.category===category))group.append(new Option(item.label,item.key));choice.append(group);}
+        if(!profile.state)panel.append(el('p','고체·액체·기체를 선택하면 해당 상태의 속성을 추가로 표시합니다','fc-note'));
+        for(const id of ['number','integer','string','boolean','array','object'])type.append(new Option(typeLabels[id],id));
         name.placeholder='ex) '+(globalThis.CFDI18n?.translate('밀도')||'밀도');key.placeholder='ex) density';unit.placeholder='ex) kg/m³';
-        choice.onchange=()=>{const item=catalog.find(x=>x.key===choice.value);name.value=item.key==='custom'?'':(globalThis.CFDI18n?.translate(item.label)||item.label);key.value=item.key==='custom'?'':item.key;unit.value=item.unit;type.value=item.type;};
+        choice.onchange=()=>{const item=catalog.find(x=>x.key===choice.value);name.value=item.key==='custom'?'':(globalThis.CFDI18n?.translate(item.label)||item.label);key.value=item.key==='custom'?'':item.key;unit.value=item.unit;type.value=item.type;type.disabled=item.key!=='custom';};
         const buttons=el('div',null,'fc-actions');buttons.append(button('취소',()=>{propertyAdding=false;panel.remove();}),button('속성 추가',()=>guarded(()=>{
-          if(!name.value.trim())throw Error('표시 이름을 입력하세요');const root=propertyRoot();const record={name:name.value.trim(),type:type.value,unit:unit.value.trim(),value:type.value==='array'?[]:type.value==='string'?'':null};const item=catalog.find(x=>x.key===choice.value);if(item?.key!=='custom'&&key.value.trim()===item.key&&name.value.trim()===(globalThis.CFDI18n?.translate(item.label)||item.label))record.catalog_key=item.key;
-          const field=fromConfig({[key.value.trim()]:record}).fields[0];toConfig({version:1,fields:[...root.fields,field]});root.fields.push(field);propertyAdding=false;commitJSON();render();
+          if(!name.value.trim())throw Error('표시 이름을 입력하세요');const root=propertyRoot(),item=catalog.find(x=>x.key===choice.value);
+          const field=propertyDefinition(item.key==='custom'?{key:key.value.trim(),label:name.value.trim(),type:type.value,unit:unit.value.trim()}:item,name.value.trim(),key.value.trim());
+          field.fields.find(f=>f.key==='unit').value=unit.value.trim();
+          if(item.key==='custom'||key.value.trim()!==item.key||name.value.trim()!==(globalThis.CFDI18n?.translate(item.label)||item.label))field.fields=field.fields.filter(f=>f.key!=='catalog_key');toConfig({version:1,fields:[...root.fields,field]});root.fields.push(field);propertyAdding=false;commitJSON();render();
         })));panel.append(buttons);
       }
       if(propertyAdding)showAdd();
@@ -374,14 +415,14 @@
     });}
     function arrayControl(field,path){
       const list=el('div',null,'fc-array'),disabled=readonly||(schemaOnly&&!spatialPath(path))||field.readonly;
-      const values=Array.isArray(field.value)?field.value:[],pointList=probeListPath(path)&&!values.some(v=>v&&typeof v==='object'&&!Array.isArray(v));let page=0,itemType=pointList?'array':kind(values.find(v=>v!==null)??0);if(itemType==='integer')itemType='number';
+      const values=Array.isArray(field.value)?field.value:[],pointList=probeListPath(path)&&!values.some(v=>v&&typeof v==='object'&&!Array.isArray(v));let page=0,itemType=field.items?.type||(pointList?'array':kind(values.find(v=>v!==null)??0));if(itemType==='integer')itemType='number';
       const redraw=()=>{list.replaceChildren();const head=el('div',null,'fc-array-head'),count=el('span',String(values.length));count.setAttribute('translate','no');head.append(count);list.append(head);
-        if(!disabled){const add=button('+',()=>{if(values.length>=10000)return;const sample=values.find(v=>kind(v)===itemType||(itemType==='number'&&typeof v==='number'));values.push(pointList?[null,null,null]:(['mesh','porous_mesh'].includes(path[0])&&path[1]==='refinement_regions')?{name:'Region '+(values.length+1),shape:'box',unit:sample?.unit||'m',min:[null,null,null],max:[null,null,null],cell_size:{value:null,unit:sample?.cell_size?.unit||'m'}}:itemType==='object'?blankArrayItem(sample||{}):itemType==='array'?blankArrayItem(sample||[]):itemType==='string'?'':null);field.value=values;page=Math.floor((values.length-1)/40);redraw();list.dispatchEvent(new Event('input',{bubbles:true}));});add.setAttribute('aria-label','목록 항목 추가');head.append(add);
-          if(!values.length&&!pointList&&!(['mesh','porous_mesh'].includes(path[0])&&path[1]==='refinement_regions')){const type=el('select');type.setAttribute('aria-label','목록 항목 형식');for(const t of ['number','string','boolean','object','array'])type.append(new Option(typeLabels[t],t));type.value=itemType;type.onchange=()=>itemType=type.value;head.prepend(type);}
+        if(!disabled){const add=button('+',()=>{if(values.length>=10000)return;const sample=values.find(v=>kind(v)===itemType||(itemType==='number'&&typeof v==='number'));values.push(field.items?contract.blankItem(field.items):pointList?[null,null,null]:(['mesh','porous_mesh'].includes(path[0])&&path[1]==='refinement_regions')?{name:'Region '+(values.length+1),shape:'box',unit:sample?.unit||'m',min:[null,null,null],max:[null,null,null],cell_size:{value:null,unit:sample?.cell_size?.unit||'m'}}:itemType==='object'?blankArrayItem(sample||{}):itemType==='array'?blankArrayItem(sample||[]):itemType==='string'?'':null);field.value=values;page=Math.floor((values.length-1)/40);redraw();list.dispatchEvent(new Event('input',{bubbles:true}));});add.setAttribute('aria-label','목록 항목 추가');head.append(add);
+          if(!field.items&&!values.length&&!pointList&&!(['mesh','porous_mesh'].includes(path[0])&&path[1]==='refinement_regions')){const type=el('select');type.setAttribute('aria-label','목록 항목 형식');for(const t of ['number','string','boolean','object','array'])type.append(new Option(typeLabels[t],t));type.value=itemType;type.onchange=()=>itemType=type.value;head.prepend(type);}
         }
         if(values.length>40){head.append(button('‹',()=>{page=Math.max(0,page-1);redraw();}),el('span',(page+1)+' / '+Math.ceil(values.length/40)),button('›',()=>{page=Math.min(Math.ceil(values.length/40)-1,page+1);redraw();}));}
         for(let i=page*40;i<Math.min(values.length,(page+1)*40);i++){
-          const value=pointList&&Array.isArray(values[i])&&values[i].length===0?[null,null,null]:values[i],type=value===null?itemType:(typeof value==='number'?'number':kind(value)),fieldItem={key:String(i),type,nullable:true,readonly:disabled,unit:'',label:fieldLabel(field,path)+' '+(i+1),...(type==='object'?{fields:fromConfig(value||{}).fields}:{value})};
+          const value=pointList&&Array.isArray(values[i])&&values[i].length===0?[null,null,null]:values[i],type=value===null?itemType:(typeof value==='number'?'number':kind(value)),fieldItem={...clone(field.items||{}),key:String(i),type,nullable:true,readonly:disabled,unit:'',label:fieldLabel(field,path)+' '+(i+1),...(type==='object'?{fields:fromConfig(value||{},{version:1,fields:field.items?.fields||[]}).fields}:{value})};
           const row=el('div',null,'fc-array-row'),number=el('span',String(i+1),'fc-array-index');number.setAttribute('translate','no');row.append(number);list.append(row);
           const cell=el('div',null,'fc-array-value');row.append(cell);if(type==='object')renderFields(fieldItem.fields,cell,[...path,i]);else cell.append(control(fieldItem,[...path,i]));
           const update=()=>{try{values[i]=type==='object'?toConfig({version:1,fields:fieldItem.fields}):fieldItem.value;field.value=values;}catch(_){values[i]=undefined;}};cell.addEventListener('input',update);cell.addEventListener('change',update);
@@ -391,7 +432,7 @@
     }
     function coordinateField(field,path){
       return field.type==='array'&&field.value?.length===3&&field.value.every(x=>x===null||typeof x==='number')&&(
-        ['position','coordinates','origin','U','gravity','base_max_spacing_m'].includes(field.key)||
+        field.widget==='vector3'||['position','coordinates','origin','U','gravity','base_max_spacing_m'].includes(field.key)||
         ((spatialPath(path)||['mesh','porous_mesh'].includes(path[0]))&&['min','max','center','min_m','max_m'].includes(field.key))||
         (typeof path.at(-1)==='number'&&probeListPath(path.slice(0,-1))));
     }
@@ -541,9 +582,11 @@
       renderAdd(main);schedulePreview();
       }finally{const nav=body.querySelector('.fc-nav'),main=body.querySelector('.fc-main');if(nav)nav.scrollTop=navScroll;if(main&&keepMain)main.scrollTop=mainScroll;body.dataset.viewKey=elementId||selected;}
     }
-    const controller={dialog,toolbar,actions,body,getConfig:()=>{if(pendingSpatial)throw Error('채움 적용 후 저장하거나 이동하세요');if(jsonDirty)throw Error('JSON 저장 또는 취소를 선택하세요');globalThis.CFDInput?.assertValid(body);const value=sp.resolveFills(currentConfig());validateTables(value);sp.validateRefinements(value);for(const e of sp.elements(value))if(e.value.interior)sp.fillSpace(value,e.path);return value;},setConfig:value=>{commitJSON();draft=fromConfig(value,draft);elementId=null;render();if(dialog.classList.contains('fc-json-open'))loadJSON();},mutate:fn=>{commitJSON();const value=toConfig(draft);fn(value);draft=fromConfig(value,draft);schedulePreview();},render,openJSON,close:()=>dialog.close()};
+    function exportDocument(){const value=sp.resolveFills(currentConfig());return {format:'cfd-studio-config',version:1,config:withDisplayMetadata(value,draft),config_schema:fromConfig(value,draft)};}
+    const controller={exportDocument:()=>{commitJSON();return clone(schemaOnly?blankDefinition(draft):exportDocument());},dialog,toolbar,actions,body,getConfig:()=>{if(pendingSpatial)throw Error('채움 적용 후 저장하거나 이동하세요');if(jsonDirty)throw Error('JSON 저장 또는 취소를 선택하세요');globalThis.CFDInput?.assertValid(body);const value=sp.resolveFills(currentConfig());validateTables(value);sp.validateRefinements(value);for(const e of sp.elements(value))if(e.value.interior)sp.fillSpace(value,e.path);return value;},setConfig:value=>{commitJSON();draft=fromConfig(value,draft);elementId=null;render();if(dialog.classList.contains('fc-json-open'))loadJSON();},mutate:fn=>{commitJSON();const value=toConfig(draft);fn(value);draft=fromConfig(value,draft);schedulePreview();},render,openJSON,close:()=>dialog.close()};
     if(onMount)onMount(controller);
-    const save=button(submitLabel,async()=>{if(saving)return;save.disabled=true;let locks=[];try{commitJSON();if(schemaOnly)draft=blankDefinition(draft);const value=sp.resolveFills(toConfig(draft));validateTables(value);sp.validateRefinements(value);for(const e of sp.elements(value))if(e.value.interior)sp.fillSpace(value,e.path);if(!schemaOnly&&!form?.definition_only){const issue=sp.runnerGeometryIssue(value);if(issue)throw Error(issue);}saving=true;locks=[...dialog.children].map(node=>[node,node.inert]);for(const [node]of locks)node.inert=true;await onSave(value,fromConfig(value,draft));dialog.close();}catch(e){error.textContent=e.message;if(elementId&&!elementDraft)render();}finally{saving=false;for(const [node,locked]of locks)node.inert=locked;save.disabled=false;}});save.classList.add('pri');
+    dialog.cfdConfigEditor=controller;
+    const save=button(submitLabel,async()=>{if(saving)return;save.disabled=true;let locks=[];try{commitJSON();if(schemaOnly)draft=blankDefinition(draft);const value=sp.resolveFills(toConfig(draft));contract.validateValues(value,draft);validateTables(value);sp.validateRefinements(value);for(const e of sp.elements(value))if(e.value.interior)sp.fillSpace(value,e.path);if(!schemaOnly&&!form?.definition_only){const issue=sp.runnerGeometryIssue(value);if(issue)throw Error(issue);}saving=true;locks=[...dialog.children].map(node=>[node,node.inert]);for(const [node]of locks)node.inert=true;const stored=schemaOnly?value:withDisplayMetadata(value,draft);await onSave(stored,fromConfig(stored,draft));dialog.close();}catch(e){showError(e);if(elementId&&!elementDraft)render();}finally{saving=false;for(const [node,locked]of locks)node.inert=locked;save.disabled=false;}});save.classList.add('pri');
     actions.append(button(readonly?'닫기':'취소',()=>dialog.close()));if(!readonly)actions.append(save);else if(onClone)actions.append(button('이 Config로 새 Case',()=>{const value=toConfig(draft);dialog.close();onClone(value);}));
     dialog.oncancel=event=>{if(saving)event.preventDefault();};dialog.onclose=()=>{closed=true;previewVersion++;clearTimeout(previewTimer);cleanPreview?.();dialog.remove();};render();document.body.append(dialog);dialog.showModal();schedulePreview();return controller;
 
@@ -553,7 +596,7 @@
     if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([key,item])=>[key,['name','label','description','unit','type','model','method','model_options'].includes(key)||key.startsWith('_')?clone(item):blankComponents(item)]));
     return typeof value==='string'?'':null;
   }
-  function blankDefinition(schema){const copy=clone(schema);copy.spatial_version=1;const visit=(fields,path=[])=>{for(const field of fields){const p=[...path,field.key];if(field.key==='properties'&&field.type==='object'&&field.fields.every(f=>f.type==='object'&&f.fields.some(v=>v.key==='type')&&f.fields.some(v=>v.key==='value')))continue;if(p.join('.')==='_studio.field_metadata'||spatialPath(p))continue;if(field.type==='object')visit(field.fields,p);else if(!field.readonly){field.nullable=true;field.value=field.type==='array'?[]:field.type==='string'?'':null;}}};visit(copy.fields);const config=toConfig(copy);for(const entry of spatialAPI().elements(config)){if(entry.value.components)entry.value.components=blankComponents(entry.value.components);for(const property of Object.values(entry.value.properties||{}))if(property&&typeof property==='object'&&Object.hasOwn(property,'value')&&typeof property.type==='string')property.value=property.type==='array'?[]:property.type==='string'?'':null;}return fromConfig(config,copy);}
+  function blankDefinition(schema){const copy=clone(schema);copy.spatial_version=1;const visit=(fields,path=[])=>{for(const field of fields){const p=[...path,field.key];if(field.key==='properties'&&field.type==='object'&&field.fields.every(f=>f.type==='object'&&f.fields.some(v=>v.key==='type')&&f.fields.some(v=>v.key==='value')))continue;if(p.join('.')==='_studio.field_metadata'||spatialPath(p))continue;if(field.type==='object')visit(field.fields,p);else if(!field.readonly){field.nullable=true;field.value=field.widget==='vector3'?[null,null,null]:field.type==='array'?[]:field.type==='string'?'':null;}}};visit(copy.fields);const config=toConfig(copy);for(const entry of spatialAPI().elements(config)){if(entry.value.components)entry.value.components=blankComponents(entry.value.components);for(const property of Object.values(entry.value.properties||{}))if(property&&typeof property==='object'&&Object.hasOwn(property,'value')&&typeof property.type==='string')property.value=property.type==='object'?blankComponents(property.value):Array.isArray(property.value)&&property.value.length===3?property.value.map(()=>null):property.type==='array'?[]:property.type==='string'?'':null;}return fromConfig(config,copy);}
 
-  const api={sceneOwnership,withoutScene,probeListPath,blankArrayItem,importedSchema,tableColumns,validateTables,materialProfile,materialCatalog,validateValueEdits,fromConfig,toConfig,newField,blankDefinition,fieldLabel,fieldStatus,open};if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.CFDFormConfig=api;
+  const api={sceneOwnership,withoutScene,probeListPath,blankArrayItem,importedSchema,tableColumns,validateTables,materialProfile,materialCatalog,propertyDefinition,withDisplayMetadata,validateValueEdits,fromConfig,toConfig,newField,blankDefinition,fieldLabel,fieldStatus,open};if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.CFDFormConfig=api;
 })();

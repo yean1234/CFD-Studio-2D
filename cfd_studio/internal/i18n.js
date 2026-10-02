@@ -755,6 +755,18 @@ add("아래 변경값을 확인하세요 · 버튼을 누르기 전에는 응답
 add("이 조건으로 다시 추천","Recommend with these conditions","この条件で再推薦");
 add("선택한 조건이 등록된 솔버 양식과 일치하지 않습니다","The selected conditions do not match a registered solver template","選択した条件が登録済みのソルバー入力形式と一致しません");
 add("변경한 조건으로 추천할 수 없습니다","Unable to recommend with the changed conditions","変更した条件では推薦できません");
+add("전기","Electrical","電気");
+add("상 경계 및 상변화","Interfaces and phase change","界面・相変化");
+add("다공성 및 표면","Porous media and surfaces","多孔質・表面");
+add("물성 표","Property tables","物性表");
+add("공통 정보","General information","共通情報");
+add("초기 속도","Initial velocity","初期速度");
+add("초기 압력","Initial pressure","初期圧力");
+add("열유속","Heat flux","熱流束");
+add("대류 열전달","Convective heat transfer","対流熱伝達");
+add("온도별 물성 표","Temperature-dependent property table","温度依存物性表");
+add("재료 참고 정보","Material reference note","材料参考情報");
+add("고체·액체·기체를 선택하면 해당 상태의 속성을 추가로 표시합니다","Select solid, liquid or gas to show additional properties for that state","固体・液体・気体を選択すると、その状態に応じた属性が表示されます");
 let language='ko';
 try{const saved=root.localStorage?.getItem(key);if(supported.includes(saved))language=saved;}catch(_){}
 add("물리 컴포넌트","Physical components","物理コンポーネント");

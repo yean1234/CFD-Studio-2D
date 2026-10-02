@@ -1,8 +1,39 @@
 # AIエージェント利用ガイド
 
-- CFD Studio V1.0 · エージェントインターフェース v1.1
+- CFD Studio V1.0 · エージェントインターフェース v1.2
 
 [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
+
+## Templateを基準にしたConfig作成
+
+1. アンケートとソルバー選択からTemplateを生成
+2. **書式編集 → JSONエクスポート**または`CFDAgent.configDocument()`で生成済み書式を取得
+3. 出力されたJSONを基準に編集し、別のConfigを推測で作成しない
+4. 拡張項目の型・表示名・単位・`items`を`config_schema`に明示し、値を`config`に入力
+5. JSONを下書きに反映し、入力一覧・3D形状・単位・未確定値をユーザーに確認してもらう
+6. 確認後に保存し、計算開始はCase・終了条件・キューを確認する別の手順として実施
+
+- Configの出力形式：`format: "cfd-studio-config"`、`version: 1`、`config`、`config_schema`
+- Templateは`version`・`fields`形式、空間JSONは編集画面から取得した形式を維持
+- 空のリストには`items`で行書式を定義、XYZ入力には`widget: "vector3"`を指定
+- 既存キー・単位・識別子・関係・無関係な値を維持し、独自項目は明示的に追加
+- UI表示とソルバーへの計算接続は別の機能のため、実行アダプターの対応範囲を確認
+- [JSON規則](CONFIG-JSON.md) · [エラーコード](ERROR-CODES.md) · [多言語エラー辞書](config-error-codes.json)
+
+### 簡潔な状態確認
+
+| 読み取りメソッド | 用途 |
+| --- | --- |
+| `CFDAgent.status()` | 画面・一時停止・エラーを取得、全入力やログは省略 |
+| `CFDAgent.configRules()` | 表示規則を最初に1回確認 |
+| `CFDAgent.configDocument()` | 開いている編集画面の文書を出力、未反映編集はエラーで通知 |
+| `CFDAgent.errorInfo("CFG-J004")` | 指定コードの原因と対処だけを取得 |
+| `CFDAgent.state()` | 画面変更後や操作対象を探す際の詳細確認 |
+
+- インターフェースv1.2で追加した読み取り機能、既存コマンドとの互換性を維持
+- `code`・`path`・`action`で該当項目を修正し、ソース全体の解析や操作の無条件反復を避ける
+- `APP-X001`は未分類エラー、詳細を保存して原因を確認
+- 停止信号と待機手順を守り、ユーザーの再開操作を代行しない
 
 ## 結果の確認
 

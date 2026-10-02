@@ -1,8 +1,39 @@
 # AI Agent Guide
 
-- CFD Studio V1.0 · Agent interface v1.1
+- CFD Studio V1.0 · Agent interface v1.2
 
 [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
+
+## Template-based Config workflow
+
+1. Generate the Template using the survey and solver selection
+2. Export its generated schema with **Edit form → Export JSON** or `CFDAgent.configDocument()`
+3. Edit from that exported document, rather than inventing a replacement Config
+4. Declare extensions in `config_schema` with type, label, unit and `items`; put values in `config`
+5. Apply the JSON draft and ask the user to review the visible inputs, 3D geometry, units and unresolved values
+6. Save after review; calculation is a separate step requiring confirmation of the Case, termination and queue
+
+- Config export envelope: `format: "cfd-studio-config"`, `version: 1`, `config`, `config_schema`
+- Template exports use `version` and `fields`; retain the spatial document format returned by its editor
+- Use `items` for empty list row definitions and `widget: "vector3"` for XYZ inputs
+- Preserve existing keys, units, IDs, relationships and unrelated values; declare custom extensions explicitly
+- Rendering an input does not connect it to a solver; inspect execution adapter support
+- [JSON rules](CONFIG-JSON.md) · [Error codes](ERROR-CODES.md) · [Multilingual error dictionary](config-error-codes.json)
+
+### Compact inspection
+
+| Read method | Purpose |
+| --- | --- |
+| `CFDAgent.status()` | Screen, pause and errors without full inputs or logs |
+| `CFDAgent.configRules()` | Read supported rendering rules once |
+| `CFDAgent.configDocument()` | Export the open editor document; pending edits return an error |
+| `CFDAgent.errorInfo("CFG-J004")` | Retrieve only that code's cause and remedy |
+| `CFDAgent.state()` | Inspect controls after a screen change or when finding the next action |
+
+- New read methods in interface v1.2; existing commands remain compatible
+- Use `code`, `path` and `action` to fix the affected input; avoid inspecting the entire source or blindly repeating actions
+- `APP-X001` means an unclassified error; retain its details and investigate
+- Honor pause signals and the existing wait workflow; never simulate the user's Resume action
 
 ## Result review
 

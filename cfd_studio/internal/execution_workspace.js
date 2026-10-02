@@ -10,11 +10,18 @@
   const modelName = run => run.form_snapshot?.name || forms.find(f=>f.id===run.form_id)?.name || forms.find(f=>f.model===run.model)?.name || run.model || '모델 미확인';
   const node = (tag, text, cls) => {const e=document.createElement(tag); if(text!=null)e.textContent=text; if(cls)e.className=cls; return e;};
   async function api(path, body) {
-    const response = await fetch('/api/executions'+path, body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const value = await response.json();
-    if(!response.ok||value.ok===false)throw Error(value.msg||'요청 실패');
-    return value;
+    try {
+      const response = await fetch('/api/executions'+path, body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const value = await response.json();
+      if(!response.ok||value.ok===false)throw Error(value.msg||'요청 실패');
+      return value;
+    } catch(error) {
+      const contract=globalThis.CFDConfigContract;if(!contract)throw error;
+      const info=contract.normalize(error,globalThis.CFDI18n?.language);
+      const failure=new Error('['+info.code+'] '+info.message+' · '+info.action+' · '+info.detail);failure.code=info.code;failure.path=info.path;throw failure;
+    }
   }
+
   function currentProject(){return data.projects.find(p=>p.id===projectId);}
   function renderViewerCases(){
     const p=currentProject(),list=$('ewViewerCaseList');if(!list)return;

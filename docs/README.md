@@ -37,3 +37,9 @@
 - [저장고 격자 검사](warehouse-porous-grid-review-20260928.md)
 - [농도 모듈 검토](concentration-module-review-20260927.md)
 - [결과 무결성 검토](result-integrity-review-20260927.md)
+
+## Config
+
+- [JSON 규칙](CONFIG-JSON.md)
+- [오류 코드](ERROR-CODES.md)
+- [다국어 오류 사전](config-error-codes.json)

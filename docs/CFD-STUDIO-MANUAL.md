@@ -585,3 +585,11 @@
 - 이름 입력 중 Enter·다른 곳 클릭으로 반영 · Esc로 취소 · 빈 이름 차단
 - 정의 JSON의 자료형을 바꾸면 해당 형식으로 입력 UI 갱신 · 계산 지원 여부는 별도 검사
 - 추가 속성 저장과 솔버의 계산 적용은 별개 · 솔버 입력 연결이 있는 항목만 계산에 반영
+
+## Config 입력 규약
+
+- [Config JSON](CONFIG-JSON.md): Template 출력 기준 작성·확장·UI 표시 규칙
+- [오류 코드](ERROR-CODES.md): 예상 오류별 원인·해결 방법
+- [다국어 오류 사전](config-error-codes.json): 에이전트용 코드 조회 자료
+- 에이전트 인터페이스 v1.2: `status()`·`configRules()`·`configDocument()`·`errorInfo(code)` 추가
+- 새 속성의 UI 표시·저장은 기존 실행 어댑터의 계산 지원 범위를 확장하지 않음

@@ -35,7 +35,7 @@
    node.setAttribute('aria-describedby',[node.getAttribute('aria-describedby'),note.id].filter(Boolean).join(' '));
    if(active){node.focus({preventScroll:true});if(start!==null&&end!==null)node.setSelectionRange(start,end);}
   }
-  if(record.note){record.note.textContent=message;record.note.hidden=!message;}
+  if(record.note){if(globalThis.CFDConfigContract){const e=message?new Error(message):null;if(e)e.path=(node.dataset.configPath||'').split('.').filter(Boolean);CFDConfigContract.display(record.note,e);}else record.note.textContent=message;record.note.hidden=!message;}
  }
  function check(node,{show=true,editing=false}={}){
   if(!node?.matches?.('input,textarea,select')||node.disabled||node.readOnly)return true;
@@ -64,7 +64,7 @@
   node.addEventListener('input',()=>check(node,{editing:true}));return node;
  }
  function assertValid(root){let first;for(const node of root.querySelectorAll('input,textarea,select'))if(!check(node)&&!first)first=node;
-  if(first){for(let p=first.parentElement;p&&p!==root;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;first.focus();throw Error('빨간색으로 표시된 입력값을 수정하세요.');}}
+  if(first){for(let p=first.parentElement;p&&p!==root;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;first.focus();const info=records.get(first)?.note?.dataset.errorInfo;const detail=info?JSON.parse(info):null;throw globalThis.CFDConfigContract?CFDConfigContract.issue(detail?.code||'CFG-J004',detail?.detail||first.validationMessage,(first.dataset.configPath||'').split('.').filter(Boolean)):Error('빨간색으로 표시된 입력값을 수정하세요.');}}
  for(const event of ['input','change','focusout'])document.addEventListener(event,e=>{
   // Submit-only forms defer feedback until native submission validation.
   if(e.target.closest?.('form[data-validation="submit"]')){

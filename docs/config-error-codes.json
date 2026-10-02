@@ -1,0 +1,299 @@
+{
+  "version": 1,
+  "codes": {
+    "CFG-J001": {
+      "code": "CFG-J001",
+      "message": {
+        "ko": "JSON 문법이 올바르지 않습니다",
+        "en": "Invalid JSON syntax",
+        "ja": "JSON構文が正しくありません"
+      },
+      "action": {
+        "ko": "쉼표·따옴표·괄호를 확인하세요",
+        "en": "Check commas, quotes and brackets",
+        "ja": "カンマ・引用符・括弧を確認してください"
+      },
+      "retry": "review"
+    },
+    "CFG-J002": {
+      "code": "CFG-J002",
+      "message": {
+        "ko": "Config는 JSON 객체여야 합니다",
+        "en": "Config must be a JSON object",
+        "ja": "ConfigはJSONオブジェクトで指定してください"
+      },
+      "action": {
+        "ko": "Template에서 출력한 객체 형식을 사용하세요",
+        "en": "Use the object exported by the Template",
+        "ja": "Templateから出力したオブジェクトを使用してください"
+      },
+      "retry": "review"
+    },
+    "CFG-J003": {
+      "code": "CFG-J003",
+      "message": {
+        "ko": "입력 양식의 정의가 올바르지 않습니다",
+        "en": "Invalid input schema",
+        "ja": "入力書式の定義が正しくありません"
+      },
+      "action": {
+        "ko": "version 1과 fields의 key·type·value를 확인하세요",
+        "en": "Check version 1 and field key, type and value",
+        "ja": "version 1とfieldsのkey・type・valueを確認してください"
+      },
+      "retry": "review"
+    },
+    "CFG-J004": {
+      "code": "CFG-J004",
+      "message": {
+        "ko": "입력값의 자료형이 맞지 않습니다",
+        "en": "Value has the wrong type",
+        "ja": "入力値の型が一致しません"
+      },
+      "action": {
+        "ko": "값은 지정된 자료형으로 입력하고 양식 변경은 스키마에 명시하세요",
+        "en": "Use the declared type; declare type changes in the schema",
+        "ja": "指定型で入力し、型変更はスキーマに明示してください"
+      },
+      "retry": "review"
+    },
+    "CFG-J005": {
+      "code": "CFG-J005",
+      "message": {
+        "ko": "같은 그룹에 중복된 키가 있습니다",
+        "en": "Duplicate key in a group",
+        "ja": "同じグループにキーが重複しています"
+      },
+      "action": {
+        "ko": "표시 이름과 별개로 JSON 키를 고유하게 지정하세요",
+        "en": "Use unique JSON keys independently of display names",
+        "ja": "表示名とは別にJSONキーを一意にしてください"
+      },
+      "retry": "review"
+    },
+    "CFG-J006": {
+      "code": "CFG-J006",
+      "message": {
+        "ko": "사용할 수 없는 예약 키입니다",
+        "en": "Reserved key is not allowed",
+        "ja": "予約キーは使用できません"
+      },
+      "action": {
+        "ko": "__proto__·prototype·constructor 대신 다른 키를 사용하세요",
+        "en": "Do not use __proto__, prototype or constructor",
+        "ja": "__proto__・prototype・constructor以外のキーを使用してください"
+      },
+      "retry": "review"
+    },
+    "CFG-J007": {
+      "code": "CFG-J007",
+      "message": {
+        "ko": "입력 문서의 크기 제한을 초과했습니다",
+        "en": "Input exceeds document limits",
+        "ja": "入力がサイズ制限を超えています"
+      },
+      "action": {
+        "ko": "1 MB·중첩 16단계·필드 512개·목록 10000개 제한을 확인하세요",
+        "en": "Check 1 MB, 16 levels, 512 fields and 10000 list items",
+        "ja": "1 MB・16階層・512フィールド・10000項目の制限を確認してください"
+      },
+      "retry": "review"
+    },
+    "CFG-J008": {
+      "code": "CFG-J008",
+      "message": {
+        "ko": "허용 범위를 벗어난 값입니다",
+        "en": "Value is outside the allowed range",
+        "ja": "値が許容範囲外です"
+      },
+      "action": {
+        "ko": "표시된 최소·최대·정수 조건을 확인하세요",
+        "en": "Check the displayed bounds and integer requirements",
+        "ja": "表示された最小・最大・整数条件を確認してください"
+      },
+      "retry": "review"
+    },
+    "CFG-J009": {
+      "code": "CFG-J009",
+      "message": {
+        "ko": "필수 입력값이 비어 있습니다",
+        "en": "Required value is missing",
+        "ja": "必須入力値が未入力です"
+      },
+      "action": {
+        "ko": "표시된 항목을 입력한 뒤 다시 확인하세요",
+        "en": "Fill the indicated field and check again",
+        "ja": "該当項目を入力して再確認してください"
+      },
+      "retry": "review"
+    },
+    "CFG-J010": {
+      "code": "CFG-J010",
+      "message": {
+        "ko": "정의된 선택지와 값이 맞지 않습니다",
+        "en": "Value is not a declared option",
+        "ja": "値が定義された選択肢と一致しません"
+      },
+      "action": {
+        "ko": "선택지를 사용하거나 Template의 enum 정의를 확인하세요",
+        "en": "Use an option or review the Template enum",
+        "ja": "選択肢を使用するかTemplateのenum定義を確認してください"
+      },
+      "retry": "review"
+    },
+    "CFG-U001": {
+      "code": "CFG-U001",
+      "message": {
+        "ko": "아직 반영하지 않은 편집이 있습니다",
+        "en": "An edit is still pending",
+        "ja": "未反映の編集があります"
+      },
+      "action": {
+        "ko": "JSON 저장·이름 입력 완료 또는 취소 후 진행하세요",
+        "en": "Apply or cancel the pending JSON or name edit",
+        "ja": "JSON・名前の編集を反映または取消してください"
+      },
+      "retry": "review"
+    },
+    "CFG-U002": {
+      "code": "CFG-U002",
+      "message": {
+        "ko": "읽기 전용 입력은 변경할 수 없습니다",
+        "en": "Read-only input cannot be changed",
+        "ja": "読み取り専用の入力は変更できません"
+      },
+      "action": {
+        "ko": "이 Config로 새 Case를 만들어 변경하세요",
+        "en": "Create a new Case from this Config",
+        "ja": "このConfigから新しいCaseを作成してください"
+      },
+      "retry": "review"
+    },
+    "CFG-U003": {
+      "code": "CFG-U003",
+      "message": {
+        "ko": "이 속성에 필요한 물질 상태가 지정되지 않았습니다",
+        "en": "Material state is needed for this property",
+        "ja": "この属性には物質状態の指定が必要です"
+      },
+      "action": {
+        "ko": "고체·액체·기체를 선택하거나 공통 속성을 사용하세요",
+        "en": "Select solid, liquid or gas, or use a common property",
+        "ja": "固体・液体・気体を選ぶか共通属性を使用してください"
+      },
+      "retry": "review"
+    },
+    "CFG-U004": {
+      "code": "CFG-U004",
+      "message": {
+        "ko": "지원하지 않는 입력 표시 방식입니다",
+        "en": "Unsupported input widget",
+        "ja": "未対応の入力表示形式です"
+      },
+      "action": {
+        "ko": "기본 자료형 또는 vector3와 올바른 items 정의를 사용하세요",
+        "en": "Use a basic type or vector3 with valid items",
+        "ja": "基本型またはvector3と正しいitems定義を使用してください"
+      },
+      "retry": "review"
+    },
+    "CFG-G001": {
+      "code": "CFG-G001",
+      "message": {
+        "ko": "공간 형상 정의를 확인해야 합니다",
+        "en": "Geometry definition needs correction",
+        "ja": "空間形状の定義を確認してください"
+      },
+      "action": {
+        "ko": "형상 종류·좌표·치수·단위·공간 채움 연결을 확인하세요",
+        "en": "Check shape, coordinates, dimensions, units and fill links",
+        "ja": "形状・座標・寸法・単位・充填接続を確認してください"
+      },
+      "retry": "review"
+    },
+    "CFG-G002": {
+      "code": "CFG-G002",
+      "message": {
+        "ko": "표의 행 수가 서로 다릅니다",
+        "en": "Table columns have different lengths",
+        "ja": "表の列ごとの行数が一致しません"
+      },
+      "action": {
+        "ko": "온도와 물성값을 같은 행 수로 입력하세요",
+        "en": "Give temperature and property columns equal row counts",
+        "ja": "温度と物性値を同じ行数で入力してください"
+      },
+      "retry": "review"
+    },
+    "APP-N001": {
+      "code": "APP-N001",
+      "message": {
+        "ko": "서버에 연결할 수 없습니다",
+        "en": "Cannot reach the server",
+        "ja": "サーバーに接続できません"
+      },
+      "action": {
+        "ko": "Studio 실행 상태를 확인하고 저장 여부 확인 후 재시도하세요",
+        "en": "Check Studio and saved state before retrying",
+        "ja": "Studioと保存状態を確認してから再試行してください"
+      },
+      "retry": "review"
+    },
+    "APP-I001": {
+      "code": "APP-I001",
+      "message": {
+        "ko": "파일을 읽거나 저장하지 못했습니다",
+        "en": "File read or save failed",
+        "ja": "ファイルの読込・保存に失敗しました"
+      },
+      "action": {
+        "ko": "폴더 접근 권한·드라이브 연결·남은 공간을 확인하세요",
+        "en": "Check permissions, drive connection and free space",
+        "ja": "アクセス権・ドライブ接続・空き容量を確認してください"
+      },
+      "retry": "review"
+    },
+    "APP-S001": {
+      "code": "APP-S001",
+      "message": {
+        "ko": "해당 Config의 실행 연결이 없습니다",
+        "en": "No execution adapter for this Config",
+        "ja": "このConfigの実行接続がありません"
+      },
+      "action": {
+        "ko": "연결된 Template을 선택하거나 실행 어댑터 지원 범위를 확인하세요",
+        "en": "Select a connected Template or check adapter support",
+        "ja": "接続済みTemplateまたは実行アダプターの対応範囲を確認してください"
+      },
+      "retry": "review"
+    },
+    "APP-S002": {
+      "code": "APP-S002",
+      "message": {
+        "ko": "솔버 실행 파일을 찾을 수 없습니다",
+        "en": "Solver executable not found",
+        "ja": "ソルバー実行ファイルが見つかりません"
+      },
+      "action": {
+        "ko": "Template의 설치 확인과 OpenFOAM 환경을 확인하세요",
+        "en": "Check solver installation and the OpenFOAM environment",
+        "ja": "ソルバーのインストール確認とOpenFOAM環境を確認してください"
+      },
+      "retry": "review"
+    },
+    "APP-X001": {
+      "code": "APP-X001",
+      "message": {
+        "ko": "처리 중 분류되지 않은 오류가 발생했습니다",
+        "en": "Unclassified operation error",
+        "ja": "未分類の処理エラーが発生しました"
+      },
+      "action": {
+        "ko": "코드와 상세 내용을 보관하고 같은 작업을 자동 반복하지 마세요",
+        "en": "Keep the code and details; do not retry automatically",
+        "ja": "コードと詳細を保存し、自動で再実行しないでください"
+      },
+      "retry": "review"
+    }
+  }
+}
