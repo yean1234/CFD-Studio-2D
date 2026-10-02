@@ -121,3 +121,36 @@ test('template geometry does not implicitly include shared porous operating valu
  const c={loading:{blocks:[{id:'A',min_m:[0,0,0],max_m:[1,1,1]}],porosity:.4,tortuosity:2}};
  const blank=toConfig(blankDefinition(fromConfig(c)));assert.deepEqual(blank.loading.blocks,c.loading.blocks);assert.equal(blank.loading.porosity,null);assert.equal(blank.loading.tortuosity,null);assert.equal(c.loading.porosity,.4);
 });
+
+test('Template order and input definitions are independent of Config key order and names',()=>{
+ const schema=fromConfig({control:{refinement:2,mode:'a',outputs:[]},geometry:{regions:[]}});
+ Object.assign(schema.fields[0].fields[0],{type:'integer',enum:[2,3,6],minimum:2,maximum:6,step:1});
+ Object.assign(schema.fields[0].fields[2],{item_enum:['custom_A','custom_B']});
+ const result=fromConfig({geometry:{regions:[]},control:{outputs:['custom_A'],mode:'b',refinement:3}},schema);
+ assert.deepEqual(result.fields.map(f=>f.key),['control','geometry']);
+ assert.deepEqual(result.fields[0].fields.map(f=>f.key),['refinement','mode','outputs']);
+ assert.deepEqual(result.fields[0].fields[0].enum,[2,3,6]);assert.equal(result.fields[0].fields[0].maximum,6);
+ assert.deepEqual(result.fields[0].fields[2].item_enum,['custom_A','custom_B']);
+ assert.equal(fromConfig({refinement:3,turbulence:'user_model'}).fields[0].enum,undefined);
+});
+test('JSON type changes discard obsolete input options and keep compatible metadata',()=>{
+ const before=fromConfig({control:2});Object.assign(before.fields[0],{enum:[1,2,4],label:'Control',minimum:1});
+ const next=fromConfig({control:{enabled:true}},before);
+ assert.equal(next.fields[0].type,'object');assert.equal(next.fields[0].enum,undefined);assert.equal(next.fields[0].minimum,undefined);
+ assert.equal(next.fields[0].label,'Control');assert.deepEqual(toConfig(next),{control:{enabled:true}});
+});
+test('user-created field ownership survives raw Config save and reopen',()=>{
+ const config={numerics:{custom:null,basic:2},_studio:{field_metadata:[{path:['numerics','custom'],user_defined:true,type:'boolean',nullable:true,label:'Custom switch',unit:''}]}};
+ const schema=fromConfig(config);const [custom,basic]=schema.fields[0].fields;
+ assert.equal(custom.type,'boolean');assert.equal(custom.user_defined,true);assert.equal(custom.label,'Custom switch');
+ assert.equal(basic.user_defined,undefined);assert.deepEqual(toConfig(schema),config);
+});
+
+test('value-only JSON rejects wrong types while explicit schema changes rebuild controls',()=>{
+ const {importedSchema}=require('../cfd_studio/internal/form_config_editor.js');
+ const before=fromConfig({run:{dt_s:0.1}});
+ assert.throws(()=>importedSchema({run:{dt_s:'wrong'}},before,{valuesOnly:true}),/입력 형식/);
+ const c={run:{dt_s:'label',enabled:true}},schema=fromConfig(c);
+ assert.deepEqual(toConfig(importedSchema({config:c,config_schema:schema},before,{valuesOnly:true})),c);
+ assert.equal(toConfig(importedSchema({run:{dt_s:0.2},extra:1},before,{valuesOnly:true})).extra,1);
+});

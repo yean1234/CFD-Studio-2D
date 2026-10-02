@@ -7,6 +7,32 @@
       "template": "config:immersion",
       "solvers": [
         "icoReactingMultiphaseInterFoam"
+      ],
+      "input_options": [
+        {
+          "path": [
+            "run",
+            "time_mode"
+          ],
+          "enum": [
+            "fixed",
+            "adaptive"
+          ]
+        },
+        {
+          "path": [
+            "run",
+            "output_fields"
+          ],
+          "item_enum": [
+            "bubble",
+            "phase",
+            "flow",
+            "therm",
+            "pressure",
+            "turbulence"
+          ]
+        }
       ]
     },
     {
@@ -16,6 +42,29 @@
       "solvers": [
         "simpleFoam",
         "pimpleFoam"
+      ],
+      "input_options": [
+        {
+          "path": [
+            "run",
+            "time_step_mode"
+          ],
+          "enum": [
+            "fixed",
+            "adaptive"
+          ]
+        },
+        {
+          "path": [
+            "run",
+            "output_fields"
+          ],
+          "item_enum": [
+            "flow",
+            "pressure",
+            "turbulence"
+          ]
+        }
       ]
     },
     {
@@ -24,6 +73,29 @@
       "template": "warehouse",
       "solvers": [
         "warehouseBuoyantFoam"
+      ],
+      "input_options": [
+        {
+          "path": [
+            "numerics",
+            "advection_scheme"
+          ],
+          "enum": [
+            "upwind",
+            "bounded_high_order"
+          ]
+        },
+        {
+          "path": [
+            "porous_mesh",
+            "refinement"
+          ],
+          "enum": [
+            1,
+            2,
+            4
+          ]
+        }
       ]
     }
   ]

@@ -40,6 +40,18 @@ class CFDForms:
         from cfd_studio.form_schema import blank_schema, config_from_schema
         for item in items:
             item['input_schema']=blank_schema(item['config'],item.get('input_schema') or item.get('config_schema'))
+            # Presentation options come from the registered Template adapter, never a project name.
+            definition=next((d for d in _DEFINITIONS['forms'] if d['id']==item['model']),{})
+            for option in definition.get('input_options',[]):
+                fields=item['input_schema']['fields']
+                field=None
+                for key in option['path']:
+                    field=next((f for f in fields if f['key']==key),None)
+                    if field is None:break
+                    fields=field.get('fields',[])
+                if field is not None:
+                    for key in ('enum','item_enum'):
+                        if key in option:field.setdefault(key,copy.deepcopy(option[key]))
             item['blank_config']=config_from_schema(item['input_schema'])
         from cfd_studio.result_series import output_definitions
         return [{**item, 'capabilities': copy.deepcopy(FORM_OUTPUTS.get(item['model'], {})), 'outputs': output_definitions(item['model']),

@@ -4,6 +4,10 @@
 const supported=['ko','en','ja'],key='cfd-studio-language';
 const messages=Object.create(null);
 function add(source,en,ja){messages[source]=[en,ja];}
+add("사용자 추가 속성의 이름: 더블클릭으로 변경 · Enter 또는 다른 곳 클릭으로 반영 · Esc로 취소","Custom property names: double-click to rename · Enter or click elsewhere to apply · Esc to cancel","ユーザー追加属性名：ダブルクリックで変更 · Enterまたは別の場所をクリックして反映 · Escで取消");
+add("기본 항목의 이름·자료형·단위는 Template 정의 유지 · 값은 입력칸에서 변경","Base names, types and units follow the Template · Edit values directly in their inputs","基本項目の名前・型・単位はTemplate定義を維持 · 値は入力欄で変更");
+add("더블클릭하여 이름 변경","Double-click to rename","ダブルクリックで名前を変更");
+add("속성 이름 입력을 완료하거나 Esc로 취소하세요","Finish the property name or press Esc to cancel","属性名の入力を完了するか、Escで取り消してください");
 add("전달됨","Dispatched","送信済み");
 add("전달 실패","Rejected","送信失敗");
 add("에이전트 조작 중","Agent operating","エージェント操作中");

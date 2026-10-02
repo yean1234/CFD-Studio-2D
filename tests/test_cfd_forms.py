@@ -15,6 +15,19 @@ class FormTests(unittest.TestCase):
         self.base = Path(self.tmp.name)
         self.w = ExecutionWorkspace(ROOT, [], folder=self.base/'registry', output=self.base/'output')
 
+    def test_input_options_follow_template_adapter_and_preserve_explicit_definition(self):
+        form=self.new_form('Any project target')
+        schema=copy.deepcopy(self.w.form(form['id'])['input_schema'])
+        run=next(f for f in schema['fields'] if f['key']=='run')
+        output=next(f for f in run['fields'] if f['key']=='output_fields')
+        self.assertIn('flow',output['item_enum'])
+        output['item_enum']=['flow','custom_field']
+        self.w.save_form('Renamed target',form['model'],form['solver'],form['config'],
+                         form_id=form['id'],revision=form['revision'],input_schema=schema)
+        fresh=self.w.form(form['id'])
+        run=next(f for f in fresh['input_schema']['fields'] if f['key']=='run')
+        self.assertEqual(next(f for f in run['fields'] if f['key']=='output_fields')['item_enum'],['flow','custom_field'])
+
     def new_form(self, name='액침 양식'):
         f = self.w.form('immersion')
         return self.w.save_form(name, f['model'], f['solver'], f['config'], sections={'tank': '수조 치수'})

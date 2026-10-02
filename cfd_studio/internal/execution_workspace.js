@@ -244,7 +244,7 @@
       };
 
       f.querySelector('[data-check]').onclick=async()=>{const check=f.querySelector('[data-check]');check.disabled=true;f.querySelector('[data-install-result]').textContent='설치 확인 중';try{const r=await api('/solver-check',{});if(!d.isConnected)return;solvers=r.result.solvers;installation=r.result.installation;draw();}catch(e){f.querySelector('[data-install-result]').textContent=e.message;}finally{check.disabled=false;}};
-      f.querySelector('[data-config]').onclick=()=>CFDFormConfig.open({config,schema,schemaOnly:true,title:'Config 양식',onSave:async(value,definition)=>{config=value;schema=definition;draw();}});
+      f.querySelector('[data-config]').onclick=()=>CFDFormConfig.open({config,schema,schemaOnly:true,title:'Config 양식',form:{solver:solver().id,definition_only:!connected},onSave:async(value,definition)=>{config=value;schema=definition;draw();}});
       f.querySelector('[data-wizard]').onclick=()=>survey({answers:{...config?.analysis?.choices,time_mode:config?.analysis?.time_mode},selected:solver().id,fixedSolver:existing?.solver||null,replace:configured},async selection=>{config=selection.result.config;schema=selection.result.config_schema;f.elements.solver.value=selection.solver;configured=true;draw();});
       f.querySelector('[data-cancel]').onclick=()=>d.close();d.onclose=()=>{d.remove();flow?.finish();};d.oncancel=e=>{if(f.querySelector('[type=submit]').disabled)e.preventDefault();};
       f.onsubmit=async e=>{e.preventDefault();const submit=f.querySelector('[type=submit]');submit.disabled=true;f.querySelector('[data-cancel]').disabled=true;try{if(!configured)throw Error('설문을 완료하고 솔버를 선택하세요');const saved=await api('/form',{id,revision:existing?.revision,name:f.elements.name.value,model:existing?.model||'solver_definition',solver:solver().id,description:f.elements.description.value,config:connected?existing.config:config,sections:existing?.sections||{},input_schema:schema});await flow?.onSaved(saved.result);d.close();await refresh();}catch(e){f.querySelector('[role=alert]').textContent=e.message;}finally{submit.disabled=false;f.querySelector('[data-cancel]').disabled=false;}};
@@ -339,7 +339,7 @@
           const value=projectConfig|| (f.elements.preset.value?(await api('/template?id='+encodeURIComponent(f.elements.preset.value))).config:selected.blank_config);
           if(token!==configEpoch||!d.isConnected)return;
           const editorSchema=CFDFormConfig.fromConfig(value,selected.input_schema);
-          CFDFormConfig.open({config:value,schema:editorSchema,valuesOnly:true,title:'프로젝트 Config',onValidate:selected.definition_only?async c=>(await api('/form-inspect',{solver:selected.solver,config:c})).result:null,onSave:async c=>{
+          CFDFormConfig.open({config:value,schema:editorSchema,valuesOnly:true,title:'프로젝트 Config',form:selected,onValidate:selected.definition_only?async c=>(await api('/form-inspect',{solver:selected.solver,config:c})).result:null,onSave:async c=>{
             await api('/project-config-check',{form_id:selected.id,config:c});if(token!==configEpoch||f.elements.form_id.value!==selected.id)return;projectConfig=structuredClone(c);configStatus.textContent='Config 입력 완료';configButton.textContent='Config 편집';
           }});
         }catch(e){f.querySelector('[role=alert]').textContent=e.message;}
