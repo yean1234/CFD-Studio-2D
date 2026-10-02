@@ -4,6 +4,13 @@
 - **Windows 10/11 x64 지원 · macOS 미지원**
 - 한국어·영어·일본어 인터페이스
 
+## 개발 목적
+
+- **AI 에이전트로 CFD를 수행할 때 조작 비용을 줄이고, 사용자가 같은 화면에서 확인할 수 있도록 설계한 OpenFOAM CFD 인터페이스 도구**
+- Template JSON과 공통 화면 명령으로 소스 분석·반복 입력 부담 절감
+- Config 변경 검토·조작 담당·인계·사용자 중단으로 협업 과정 확인
+- 실제 LLM 비용 절감률은 별도 측정 필요 · [설계 근거와 제한](docs/AGENT-COLLABORATION.md)
+
 ## 시작
 
 1. 저장소 전체 다운로드 또는 Git clone
@@ -30,6 +37,8 @@
 | [배포](docs/distribution.md) | 포함 파일·제외 데이터·검증 범위 |
 | [문서 목록](docs/README.md) | 기술 문서·이전 검토 기록 |
 
+- 사용자 안내: [English](docs/CFD-STUDIO-USER-GUIDE.en.md) · [日本語](docs/CFD-STUDIO-USER-GUIDE.ja.md)
+- 설명서: [English](docs/CFD-STUDIO-MANUAL.en.md) · [日本語](docs/CFD-STUDIO-MANUAL.ja.md)
 - AI 에이전트 사용법: [한국어](docs/CFD-STUDIO-AGENT-GUIDE.md) · [English](docs/CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](docs/CFD-STUDIO-AGENT-GUIDE.ja.md)
 
 ## 기능
@@ -45,6 +54,8 @@
 - Data Sheet 오른쪽: 저장 시점의 선상 프로파일 · 거리별 값 조회
 - 3D 영상·사진, 그래프 이미지·CSV, Case 전체 CSV 내보내기
 - 에이전트 전용 화면 명령·JSON 입력·사용자 검토·일시정지 신호
+- 에이전트 인터페이스 v1.3: 필요한 상태 조회·Config 변경 검토·조작 담당과 인계
+- [JSON 규칙](docs/CONFIG-JSON.md) · [오류 코드](docs/ERROR-CODES.md) · [협업과 참고 문헌](docs/AGENT-COLLABORATION.md)
 
 ## 지원 범위
 

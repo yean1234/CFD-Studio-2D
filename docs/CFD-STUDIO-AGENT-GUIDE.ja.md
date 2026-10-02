@@ -1,8 +1,23 @@
 # AIエージェント利用ガイド
 
-- CFD Studio V1.0 · エージェントインターフェース v1.2
+- CFD Studio V1.0 · エージェントインターフェース v1.3
 
 [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
+
+## 協働機能 v1.3
+
+- 目的：OpenFOAM CFDのエージェント操作で繰り返し入力・取得を減らし、同じ画面でユーザーが確認できるよう支援
+- **必要な状態の取得**：`observe({after})`・`inspect({query,limit})`・`waitForChange({after,timeoutMs})`を使用、変化のないConfig全体の繰り返し取得を避ける
+- **Config変更確認**：`review.open`で変更前後と3Dをユーザーに確認してもらい、`review.status()`を取得、確認は保存・計算の許可ではない
+- **担当と引継ぎ**：`claim({name,task})`のtokenをrunの`owner`に指定、`release({owner,summary})`で引継ぎ、次の担当は`handoff()`と実画面を照合
+- 既存命令に`run(command,args,{owner,expectedContext:CFDAgent.observe().context,response:"compact"})`を指定
+- 担当の有効時間は120秒、成功命令または`renew({owner})`で更新、他の担当は読み取りのみ
+- ユーザー入力や選択変更後は再取得し、古い状態でユーザーの変更を上書きしない
+- **ユーザーに操作権を返す**は担当解除と命令一時停止であり、ソルバー停止とは別
+- 担当・引継ぎ・確認は現在ページのメモリー、再読込時にリセット、サーバーや他タブのロックではない
+- 引継ぎは参考情報であり権限付与ではない、既に明示された同じ依頼範囲を繰り返し確認しない
+- 作業別プロンプト：`recipe("observe"|"review"|"handoff","ja")`、または**作業ガイド → 作業プロンプトをコピー**
+- [機能・命令エラー・参考文献](AGENT-COLLABORATION.md)
 
 ## Templateを基準にしたConfig作成
 

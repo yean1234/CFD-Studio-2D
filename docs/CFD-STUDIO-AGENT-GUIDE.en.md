@@ -1,8 +1,23 @@
 # AI Agent Guide
 
-- CFD Studio V1.0 · Agent interface v1.2
+- CFD Studio V1.0 · Agent interface v1.3
 
 [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
+
+## Collaboration v1.3
+
+- Purpose: reduce repeated input and observation effort when agents operate OpenFOAM CFD, while users review the same visible workflow
+- **Selective observation**: use `observe({after})`, `inspect({query,limit})` and `waitForChange({after,timeoutMs})`; do not repeatedly load unchanged Config
+- **Config review**: call `review.open`, ask the user to inspect before/after values and 3D, then read `review.status()`; review is not permission to save or calculate
+- **Control and handoff**: `claim({name,task})`, pass its token as run `owner`, then `release({owner,summary})`; the next operator reads `handoff()` and verifies the live screen
+- Use existing commands with `run(command,args,{owner,expectedContext:CFDAgent.observe().context,response:"compact"})`
+- Operator lease: 120 seconds, renewed by successful commands or `renew({owner})`; other operators remain read-only
+- Reobserve after user edits or selection changes; never overwrite concurrent user changes from stale context
+- **Return control to user** clears the operator and pauses agent commands without stopping a solver
+- Operator, handoff and review are page-local memory and reset on reload; no server or cross-tab lock
+- Handoff is context, not authorization; do not ask again for the same already-authorized scope
+- Localized recipes: `recipe("observe"|"review"|"handoff","en")`, or **Workflow guide → Copy workflow prompt**
+- [Features, command errors and research references](AGENT-COLLABORATION.md)
 
 ## Template-based Config workflow
 
@@ -30,7 +45,7 @@
 | `CFDAgent.errorInfo("CFG-J004")` | Retrieve only that code's cause and remedy |
 | `CFDAgent.state()` | Inspect controls after a screen change or when finding the next action |
 
-- New read methods in interface v1.2; existing commands remain compatible
+- New read methods in interface v1.3; existing commands remain compatible
 - Use `code`, `path` and `action` to fix the affected input; avoid inspecting the entire source or blindly repeating actions
 - `APP-X001` means an unclassified error; retain its details and investigate
 - Honor pause signals and the existing wait workflow; never simulate the user's Resume action

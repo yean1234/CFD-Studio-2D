@@ -1,8 +1,23 @@
 # AI 에이전트 사용법
 
-- CFD Studio V1.0 · 에이전트 인터페이스 v1.2
+- CFD Studio V1.0 · 에이전트 인터페이스 v1.3
 
 [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
+
+## 협업 기능 v1.3
+
+- 목적: OpenFOAM CFD를 AI 에이전트로 조작할 때 반복 입력·조회 부담을 줄이고 사용자가 같은 화면에서 확인하도록 지원
+- **필요한 상태만 조회**: `observe({after})`, `inspect({query,limit})`, `waitForChange({after,timeoutMs})` 사용 · 변하지 않은 전체 Config 반복 조회 금지
+- **Config 변경 검토**: `review.open` 호출 → 사용자에게 변경 전후와 3D 확인 안내 → `review.status()` 확인 · 검토는 저장·계산 승인이 아님
+- **조작 담당·인계**: `claim({name,task})` → 반환된 token을 run의 `owner`로 전달 → `release({owner,summary})` → 다음 담당이 `handoff()`와 실제 화면 확인
+- `run(command,args,{owner,expectedContext:CFDAgent.observe().context,response:"compact"})`: 기존 명령을 간결한 응답으로 사용
+- 담당 유효 시간 120초 · 성공한 명령 또는 `renew({owner})`로 갱신 · 다른 담당이 있으면 읽기만 수행
+- 사용자가 입력이나 선택 대상을 바꾸면 오래된 context의 작업을 재조회 · 변경된 내용을 덮어쓰지 않음
+- **사용자에게 조작권 반환**은 담당 해제와 일시정지 · 현재 계산 중단과 별개
+- 담당·인계·검토는 현재 페이지의 메모리 · 재시작 후 재확인 · 서버·다른 탭까지 잠그지 않음
+- 인계는 참고 메모이며 권한 부여가 아님 · 이미 명확히 승인된 동일 작업을 반복 확인하지 않음
+- 작업별 프롬프트: `recipe("observe"|"review"|"handoff","ko")` · 화면의 **작업 안내 → 작업 프롬프트 복사**에서도 제공
+- [기능·명령·협업 오류·참고 문헌](AGENT-COLLABORATION.md)
 
 ## Template 기반 Config 작성
 
@@ -30,7 +45,7 @@
 | `CFDAgent.errorInfo("CFG-J004")` | 해당 코드의 원인·해결 방법만 조회 |
 | `CFDAgent.state()` | 화면이 바뀌었거나 조작할 입력을 찾아야 할 때 상세 조회 |
 
-- 인터페이스 v1.2의 추가 읽기 기능 · 기존 명령과 호환
+- 인터페이스 v1.3의 추가 읽기 기능 · 기존 명령과 호환
 - 오류의 `code`·`path`·`action`으로 해당 입력만 수정 · 전체 소스 분석이나 같은 명령 반복부터 시작하지 않음
 - `APP-X001`: 분류되지 않은 오류 · 상세 내용을 보존하고 원인 확인
 - 일시정지 시 기존 대기 절차 유지 · 재개 버튼을 대신 누르거나 우회하지 않음

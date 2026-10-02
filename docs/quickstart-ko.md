@@ -62,3 +62,10 @@
 - [사용법](CFD-STUDIO-USER-GUIDE.md): 화면별 조작·스크린샷
 - [설명서](CFD-STUDIO-MANUAL.md): 모델·단위·검증 상태·제한 사항
 - [AI 에이전트 사용법](CFD-STUDIO-AGENT-GUIDE.md): JSON 입력·단계별 검토·실행 확인
+
+## AI 에이전트
+
+- 환경 설정 → LLM 에이전트 → 에이전트 안내
+- 작업 안내에서 필요한 상태 조회·Config 변경 검토·담당 인계 프롬프트 선택
+- 생성된 Template JSON을 기준으로 입력 · Config 변경 검토에서 확인 · 저장·계산은 별도
+- [협업 안내](AGENT-COLLABORATION.md)

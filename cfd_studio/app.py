@@ -3703,7 +3703,7 @@ class H(BaseHTTPRequestHandler):
 
     def _do_GET(self):
         u = urlparse(self.path)
-        if (u.path.startswith("/api/executions") or u.path in ("/execution_workspace.js", "/spatial_editor.js", "/form_config_editor.js", "/config_contract.js", "/form_wizard.js", "/config_editor.js", "/input_validation.js", "/warehouse_viewer.js", "/viewer_presentation.js", "/data_sheet_viewer.js", "/i18n.js", "/i18n_help.js", "/agent_controls.js")) and execution_get(self, EXECUTION_WORKSPACE):
+        if (u.path.startswith("/api/executions") or u.path in ("/execution_workspace.js", "/spatial_editor.js", "/form_config_editor.js", "/config_contract.js", "/form_wizard.js", "/config_editor.js", "/input_validation.js", "/warehouse_viewer.js", "/viewer_presentation.js", "/data_sheet_viewer.js", "/i18n.js", "/i18n_help.js", "/agent_controls.js", "/agent_collaboration.js")) and execution_get(self, EXECUTION_WORKSPACE):
             return
         if u.path.startswith(('/studies', '/api/studies', '/api/attempts', '/api/study-packages', '/api/capabilities')):
             if study_http.get(self, study_http.service(HERE, SCFG, PROJECT_DIR)):
@@ -5326,7 +5326,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <button id="ifT2" onclick="infoTab(2)">성능</button>
    <button id="ifT3" onclick="infoTab(3)">제작자</button>
   </div>
-  <div class="ibx" id="ifB0">
+  <div class="ibx" id="ifB0"><h4>개발 목적</h4><p>AI 에이전트의 조작 부담을 줄이고 사용자가 같은 화면에서 확인할 수 있는 OpenFOAM CFD 인터페이스</p><p>Template JSON·공통 명령·오류 코드로 반복 탐색과 입력을 줄이며 실제 LLM 비용 절감률은 별도 측정 필요</p>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-MANUAL.md" target="_blank" rel="noopener noreferrer"><b>설명서</b></a></p>
    <p>CFD Studio는 해석 양식 정의, 실행별 입력 보관, 대기열 관리와 결과 비교를 연결하는 작업 환경입니다.</p>
    <h4>작업 구조</h4>
@@ -5379,7 +5379,7 @@ INDEX_HTML = r'''<!DOCTYPE html>
    <p><b>Windows 10/11 x64 지원 · macOS(Mac) 미지원</b></p>
    <ul><li>최초 설치: WSL2 Ubuntu 설치·사용자 초기화 → <b>cfd_studio/설치.bat</b> → <b>cfd_studio/실행.bat</b></li><li>설치 완료 후 실행: <b>실행.bat</b> 더블클릭. Windows Python 포함. 전용 솔버·GPU 환경은 별도 준비</li></ul>
    <p><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-USER-GUIDE.md" target="_blank" rel="noopener noreferrer"><b>사용법</b></a> · <a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/cfd_studio/README.md" target="_blank" rel="noopener noreferrer">설치</a> · 모델·단위·검증 범위는 위 <b>설명서</b> 탭</p>
-   <h4>LLM 에이전트</h4><ul><li><b>환경 설정 → LLM 에이전트 → 에이전트 안내</b>에서 안내 프롬프트 복사</li><li>사용자가 보는 Studio 탭에 브라우저 조작 도구 연결 · 명령 실행 시 같은 버튼과 입력창 조작</li><li><b>Alt + Shift + A</b>: 안내 열기·접기 · <b>명령 일시정지</b>: 이후 명령 차단, 진행 중인 계산 유지</li><li>최상단 <b>에이전트 조작 중</b> 표시 · 오른쪽 <b>에이전트 조작 중단</b>으로 명령 차단 및 일시정지 신호 전달 · <b>에이전트 조작 재개</b>로 재개</li><li>Template 생성 후 출력한 JSON 양식에서 Config 수정 시작 · 확장 항목은 자료형·단위·행 양식 명시</li><li>Config와 3D 초안을 사용자와 확인한 뒤 최종 저장 · 계산은 별도 단계</li><li>status()로 간결한 상태 확인 · errorInfo(코드)로 원인·해결 방법 조회</li><li>명령 전달과 저장·계산 완료는 별도 확인</li><li><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-AGENT-GUIDE.md" target="_blank" rel="noopener noreferrer">에이전트 사용법</a></li></ul>
+   <h4>LLM 에이전트</h4><p>AI 에이전트의 반복 조작 부담을 줄이고 사용자가 같은 화면에서 확인할 수 있는 OpenFOAM CFD 인터페이스</p><ul><li><b>작업 안내 → 작업 프롬프트 복사</b>: 필요한 상태만 조회 / Config 변경 검토 / 조작 담당·인계</li><li><b>Config → 변경 검토 → 확인 완료</b>: 변경 전후를 사용자와 확인 · 저장·계산은 별도</li><li><b>사용자에게 조작권 반환</b>: 담당 해제와 명령 일시정지 · 실행 중인 계산 유지</li><li>담당·검토·인계는 현재 페이지에만 보관 · 실제 LLM 비용 절감률은 별도 측정 필요</li></ul><ul><li><b>환경 설정 → LLM 에이전트 → 에이전트 안내</b>에서 안내 프롬프트 복사</li><li>사용자가 보는 Studio 탭에 브라우저 조작 도구 연결 · 명령 실행 시 같은 버튼과 입력창 조작</li><li><b>Alt + Shift + A</b>: 안내 열기·접기 · <b>명령 일시정지</b>: 이후 명령 차단, 진행 중인 계산 유지</li><li>최상단 <b>에이전트 조작 중</b> 표시 · 오른쪽 <b>에이전트 조작 중단</b>으로 명령 차단 및 일시정지 신호 전달 · <b>에이전트 조작 재개</b>로 재개</li><li>Template 생성 후 출력한 JSON 양식에서 Config 수정 시작 · 확장 항목은 자료형·단위·행 양식 명시</li><li>Config와 3D 초안을 사용자와 확인한 뒤 최종 저장 · 계산은 별도 단계</li><li>status()로 간결한 상태 확인 · errorInfo(코드)로 원인·해결 방법 조회</li><li>명령 전달과 저장·계산 완료는 별도 확인</li><li><a href="https://github.com/ReYoungSung/CFD-Studio/blob/main/docs/CFD-STUDIO-AGENT-GUIDE.md" target="_blank" rel="noopener noreferrer">에이전트 사용법</a></li></ul>
   </div>
   <div class="ibx" id="ifB2" style="display:none">
    <h4 style="margin-top:0">계산 성능</h4>
@@ -8677,6 +8677,7 @@ __TRACER_VIEWER__
 <script src="/execution_workspace.js"></script>
 <script src="/i18n.js"></script>
 <script src="/i18n_help.js"></script>
+<script src="/agent_collaboration.js"></script>
 <script src="/agent_controls.js"></script>
 </body></html>
 '''

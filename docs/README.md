@@ -17,7 +17,7 @@
 - [한국어](CFD-STUDIO-AGENT-GUIDE.md)
 - [English](CFD-STUDIO-AGENT-GUIDE.en.md)
 - [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
-- Studio V1.0 · 에이전트 인터페이스 v1.1
+- Studio V1.0 · 에이전트 인터페이스 v1.3
 
 ## 기술 자료
 
@@ -43,3 +43,9 @@
 - [JSON 규칙](CONFIG-JSON.md)
 - [오류 코드](ERROR-CODES.md)
 - [다국어 오류 사전](config-error-codes.json)
+
+## 다국어 문서
+
+- 사용법: [English](CFD-STUDIO-USER-GUIDE.en.md) · [日本語](CFD-STUDIO-USER-GUIDE.ja.md)
+- 설명서: [English](CFD-STUDIO-MANUAL.en.md) · [日本語](CFD-STUDIO-MANUAL.ja.md)
+- [에이전트 협업·참고 문헌](AGENT-COLLABORATION.md)

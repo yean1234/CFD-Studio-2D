@@ -6,6 +6,15 @@
 - 소프트웨어 버전과 수치·실험 검증 상태는 별도 판정
 - 화면 조작: [사용법](CFD-STUDIO-USER-GUIDE.md)
 
+## 개발 목적과 장점
+
+- AI 에이전트 사용 시 조작 비용을 줄이면서 사람이 같은 화면에서 확인할 수 있는 OpenFOAM CFD 인터페이스
+- Template JSON을 기준으로 입력·확장 · 프로젝트별 실행과 결과 보존
+- 필요한 상태만 조회하고 코드별 오류를 확인하여 불필요한 소스 분석과 반복 조회 감소
+- 변경 검토·조작 담당·인계로 사람과 에이전트의 작업 과정 확인
+- 실제 비용 절감률·UX 효과는 별도 실험 대상 · [기능과 참고 문헌](AGENT-COLLABORATION.md)
+- [English](CFD-STUDIO-MANUAL.en.md) · [日本語](CFD-STUDIO-MANUAL.ja.md)
+
 ## 설치 환경
 
 - **지원 운영체제: Windows 10/11 x64**
@@ -593,3 +602,11 @@
 - [다국어 오류 사전](config-error-codes.json): 에이전트용 코드 조회 자료
 - 에이전트 인터페이스 v1.2: `status()`·`configRules()`·`configDocument()`·`errorInfo(code)` 추가
 - 새 속성의 UI 표시·저장은 기존 실행 어댑터의 계산 지원 범위를 확장하지 않음
+
+## 에이전트 인터페이스 v1.3
+
+- 필요한 상태 조회: observe·inspect·waitForChange·간결한 run 응답
+- Config 변경 검토: 변경 전후 비교·사용자 확인·입력 변경 시 무효
+- 담당·인계: 같은 페이지의 단일 조작 담당·120초 유효 시간·짧은 인계 메모
+- 검토와 담당은 메모리 상태 · 프로젝트 저장 또는 실행 승인과 구분
+- [사용법·오류·제한](AGENT-COLLABORATION.md)
