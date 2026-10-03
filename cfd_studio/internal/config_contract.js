@@ -1,4 +1,4 @@
-/* Shared Config display contract and bounded, machine-readable diagnostics. */
+/* Validate Config display schemas and return stable, localized error codes */
 (function(root){
 'use strict';
 const version=1,types=['string','number','integer','boolean','object','array','null'];
@@ -39,6 +39,7 @@ const patterns=[
  ['APP-S001',/실행.*연결|adapter/i],['APP-S002',/실행 파일.*없|solver.*not found/i],
  ['APP-I001',/permission|access denied|ENOSPC|ENOENT|디스크 공간|파일.*없|저장.*실패/i]
 ];
+// Explicit codes take precedence; text matching supports older error messages
 function normalize(error,language='ko'){
  const detail=String(error?.message??error??'').slice(0,700),embedded=detail.match(/\[(CFG-[JUG]\d{3}|APP-[NISX]\d{3})\]/)?.[1];
  const code=catalog[error?.code]?error.code:catalog[embedded]?embedded:error instanceof SyntaxError?'CFG-J001':patterns.find(([,p])=>p.test(detail))?.[0]||'APP-X001';

@@ -87,6 +87,8 @@ tests/              프로그램 검사
 
 ## 개발
 
+- [코드 작성 규칙](docs/code-conventions.md)
+
 ```bash
 python -m unittest discover -s tests -v
 node --test tests/test_*.js

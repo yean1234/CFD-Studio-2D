@@ -1,4 +1,4 @@
-/* Config schema editor. Field keys and units are user-owned, never translated. */
+/* Build Config inputs from schemas; preserve stored keys, units and custom labels */
 (() => {
   const contract=globalThis.CFDConfigContract||(typeof require==='function'?require('./config_contract.js'):null);
   const types=['string','number','integer','boolean','object','array','null'];
@@ -7,6 +7,7 @@
   const spatialAPI=()=>globalThis.CFDSpatial||(typeof require==='function'?require('./spatial_editor.js'):null);
   const spatialPath=path=>!!spatialAPI()?.isGeometryPath(path);
   const kind=value=>value===null?'null':Array.isArray(value)?'array':typeof value==='object'?'object':typeof value==='number'?(Number.isInteger(value)?'integer':'number'):typeof value;
+  // Reuse compatible field metadata while deriving controls from the actual JSON values
   function fromConfig(config,previous=null,{preferMetadata=false}={}){
     if(!config||typeof config!=='object'||Array.isArray(config))throw Error('Config must be a JSON object');
     const metadata=Array.isArray(config._studio?.field_metadata)?config._studio.field_metadata:[];
@@ -366,7 +367,7 @@
         if(virtual){let inserted=false;const persist=()=>{if(!inserted){propertyRoot().fields.push(property);inserted=true;}};widget.addEventListener('input',persist);widget.addEventListener('change',persist);}
         if(!readonly&&!property.readonly&&!virtual&&!required){renameLabel(propertyTitle,name=>{const field=property.fields.find(f=>f.key==='name');if(field)field.value=name;else property.fields.push({key:'name',type:'string',value:name});property.fields=property.fields.filter(f=>f.key!=='catalog_key');});const remove=button('−',()=>guarded(()=>{root.fields.splice(root.fields.indexOf(property),1);commitJSON();render();}));remove.classList.add('fc-property-remove');remove.setAttribute('aria-label','속성 삭제');remove.title='속성 삭제';widget.append(remove);}
       }
-      // Existing tables stay canonical. Never add a competing constant for an existing property table.
+      // Preserve property tables instead of adding competing constant values
       if(!readonly)for(const key of profile.basic){if(root?.fields.some(f=>f.key===key)||present(key))continue;const item=materialCatalog.find(p=>p.key===key);drawProperty(propertyDefinition(item),true,true);}
       for(const property of root?.fields||[])if(property.key!=='phase_change')drawProperty(property,false,profile.basic.includes(property.key));
       const actualPhase=entry.value.phase_change||entry.value.components?.phase_change||sp.partBindings(currentConfig(),entry.path).some(p=>p[0]==='phase_change');
@@ -584,6 +585,7 @@
     }
     const reviewBaseline=withDisplayMetadata(toConfig(draft),draft);let reviewedValue=null,reviewedAt=null,reviewDialog=null;
     function reviewValue(){return withDisplayMetadata(currentConfig(),draft);}
+    // Confirmation applies only to this exact draft and expires on pending edits
     function reviewStatus(){const value=reviewValue(),signature=JSON.stringify(value),delta=globalThis.CFDAgentCollaboration.diff(reviewBaseline,value,{limit:1});return {changes:delta.total,confirmed:!jsonDirty&&!pendingSpatial&&!pendingProperty&&reviewedValue===signature,confirmedAt:!jsonDirty&&!pendingSpatial&&!pendingProperty&&reviewedValue===signature?reviewedAt:null,pending:jsonDirty||pendingSpatial||pendingProperty};}
     function openReview(){guarded(()=>{
       commitJSON();reviewDialog?.close();const value=reviewValue(),signature=JSON.stringify(value),delta=globalThis.CFDAgentCollaboration.diff(reviewBaseline,value,{limit:200});

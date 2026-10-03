@@ -412,8 +412,8 @@ class ProjectStorage:
             raise ValueError('프로젝트 경로를 직접 입력하세요')
         env = os.environ.copy()
         env['CFD_PROJECT_PICK_START'] = str(start)
-        # An owned modal stays above the browser even when Studio has no console.
-        # Keep user paths in the environment, never interpolate them into PowerShell.
+        # Own the picker window so it stays above the browser
+        # Pass paths through the environment to avoid PowerShell code interpolation
         command = (
             "$ErrorActionPreference='Stop';[Console]::OutputEncoding=[Text.UTF8Encoding]::new();"
             "Add-Type -AssemblyName System.Windows.Forms;"

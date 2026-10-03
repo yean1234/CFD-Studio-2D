@@ -1,4 +1,4 @@
-/* UI-only localization. Solver input, identifiers, names and raw results stay unchanged. */
+/* Translate interface text while preserving identifiers, user names and result values */
 (function(root){
 'use strict';
 const supported=['ko','en','ja'],key='cfd-studio-language';

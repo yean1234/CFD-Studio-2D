@@ -24,8 +24,7 @@ def profile(solver):
     if purpose=='thermal_multiphase':media.append('liquid_liquid_gas')
     if solver=='warehouseBuoyantFoam':media=['gas']
     steady=item['time_mode']=='정상'
-    # General survey intentions may use a specialized solver. Its full physics
-    # still determines the generated inputs (e.g. phase fractions for VOF).
+    # Generate the selected solver's full inputs, including VOF phase fractions
     supported_purposes={'interface':['interface','flow'],
                         'thermal_multiphase':['thermal_multiphase','heat_flow','flow','interface']}.get(purpose,[purpose])
     options={'medium':media,'purpose':supported_purposes, 'regime':['laminar'] if solver=='icoFoam' else ['laminar','RAS','LES'],

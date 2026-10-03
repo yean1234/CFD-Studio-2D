@@ -1,4 +1,4 @@
-/* Project containers do not own solver settings. Each launch takes a snapshot. */
+/* Present projects, independent Cases, the queue and their saved results */
 (() => {
   const $ = id => document.getElementById(id);
   const selectedRuns=new Map(),caseProgress=new Map();
@@ -65,7 +65,7 @@
     const target=projectId,id=runId;reloadBusy=true;progressProject=target;caseProgress.clear();
     for(const run of currentProject().runs)caseProgress.set(run.id,{percent:null,label:'확인 중',active:true});
     renderCaseProgress();
-    // Paint the empty gauges before applying the inspected values.
+    // Render empty gauges first so inspected progress animates from zero
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     try{await checkCaseProgress();if(target===projectId&&id===runId&&id){await selectRun(id);if(target===projectId&&id===runId)DataSheetViewer.reload();}}
     finally{reloadBusy=false;}

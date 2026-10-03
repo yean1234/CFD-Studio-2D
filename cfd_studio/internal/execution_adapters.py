@@ -43,8 +43,7 @@ def install(workspace, g):
             recovered = recovery(case)
             if not recovered.get('resume'):
                 raise ValueError(recovered['resume_reason'])
-            # Preserve the original checkpoint and logs before the native resume path
-            # prunes incomplete writes or replaces log.restart.
+            # Preserve checkpoints and logs before resume cleans incomplete output
             destination = g['win2wsl'](str(Path(attempt['job_path']).parent/'Recovery_Source'))
             source = recovered['resume_source']
             command = (f'set -e; S={g["_shq"](source)}; D={g["_shq"](destination)}; test ! -e "$D"; mkdir "$D"; '
@@ -100,8 +99,7 @@ def install(workspace, g):
         expected_last = math.floor((latest+1e-7)/interval)
         prefixes = {'bubble':'bub','flow':'flow','therm':'therm','phase':'phase','pressure':'pressure','turbulence':'turbulence'}
         times_by_field = []
-        # Directory entries expose size without opening every historical frame.
-        # Full header validation remains in the completion gate and converter.
+        # Read entry sizes here; completion and conversion perform full header checks
         with os.scandir(pd) as entries:
             files = [(entry.name, entry.stat().st_size) for entry in entries if entry.is_file()]
         for field in fields:
@@ -139,7 +137,7 @@ def install(workspace, g):
             if time.time()-case['attempts'][-1]['started'] < 240:
                 return {'status': 'running'}
             return {'status': 'failed', 'error': '솔버 완료 기록이 없습니다. 실행 로그를 확인하세요.'}
-        # The next case must not replace the live case while result conversion is using it.
+        # Keep the active Case unchanged while result conversion reads it
         record = {'rid': rid, 'kind': 'legacy', 'path': g['proj_dir'](rid)}
         result = info(record)
         if result['result_status'] in ('none','update'):

@@ -1,4 +1,4 @@
-/* Localized in-app help; project data and the original Korean guide are preserved. */
+/* Replace in-app help with the selected language; retain Korean as the source */
 (()=>{
  const api=globalThis.CFDI18n;if(!api)return;
  const original=[0,1,2].map(i=>document.getElementById('ifB'+i).innerHTML);

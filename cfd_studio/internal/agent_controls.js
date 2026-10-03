@@ -1,4 +1,4 @@
-/* Versioned, browser-local agent interface. All mutations go through visible UI controls. */
+/* Route agent commands through visible controls and honor user pause signals */
 (function(root){
 'use strict';
 const VERSION='1.3';
@@ -74,7 +74,9 @@ function errors(){const result=[];for(const e of doc.querySelectorAll('[data-err
 
 function status(){return {collaboration:coord.state(),version:VERSION,session,busy,paused,active,signal:lastSignal?{...lastSignal}:null,lastAction,screen:doc.body.classList.contains('execution-viewer')?(doc.body.classList.contains('data-sheet-viewer')?'data':'3d'):'cfd',dialog:scope()===doc.body?null:scope().querySelector('h2,h3')?.textContent?.trim()||scope().id,errors:errors()};}
 let revision=0,lastObservation='',cursorVersion=0,waiters=0;
+// User edits and selection changes invalidate commands based on an older screen
 function context(){const w=root.CFDWorkspaceState?.()||{};return JSON.stringify([session,w.project_id||null,w.case_id||null,token(scope()),revision]);}
+// Compare compact semantic state; rendered frames and file changes are outside this cursor
 function observe({after}={}){
  const w=root.CFDWorkspaceState?.()||{},s=status();
  const value={...s,context:context(),workspace:{project_id:w.project_id||null,case_id:w.case_id||null,loading:!!w.loading,selected:w.selected||null,queue:w.queue?{active:w.queue.active||null,paused:!!w.queue.paused,failure:w.queue.failure||null}:null},review:reviewStatus()};
@@ -121,8 +123,7 @@ function find(command,args){
 }
 function available(e){if(e.closest('[data-agent-user-only]'))fail('USER_ACTION_REQUIRED');if(!visible(e)||!scope().contains(e))fail('CONTROL_NOT_VISIBLE');if(disabled(e))fail('CONTROL_DISABLED');}
 function emitInput(e){e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}
-// HTMLElement.click preserves native submission and listener behavior. Awaiting arbitrary
-// onclick callbacks would bypass browser activation; receipts intentionally mean dispatched.
+// Use native click dispatch so form submission and UI listeners follow the user flow
 function operate(command,args,e){
  available(e);e.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});e.focus({preventScroll:true});
  e.classList.add('agent-focus');setTimeout(()=>e.classList.remove('agent-focus'),1300);
@@ -195,10 +196,10 @@ async function run(command,args={},options={}){
   validate(command,args);if(paused)fail('PAUSED');if(busy)fail('BUSY');coord.check(options.owner);if(options.expectedContext!==undefined&&options.expectedContext!==context())fail('CONTEXT_CHANGED');
   busy=true;ownsLock=true;const e=find(command,args);available(e);lastAction=command+' · '+label(e);receipt.target=token(e);active=true;showIndicator();
   operate(command,args,e);
-  // Give event handlers and screen updates a chance to render, without waiting for a solver.
+  // Allow UI updates before returning; this receipt does not confirm save or solver completion
   await new Promise(resolve=>setTimeout(resolve,120));receipt.status='dispatched';if(options.owner)try{coord.renew(options.owner);}catch(_){}
  }catch(error){receipt.error=error.message;if(collaboration.errors[receipt.error])receipt.message=collaboration.errors[receipt.error][root.CFDI18n?.language||'ko'];}finally{
-  // A rejected concurrent request must not unlock the command already in flight.
+  // Only the request that acquired the lock may release it
   if(ownsLock)busy=false;
  }
  history.push(receipt);if(history.length>100)history.shift();if(receipt.target)showIndicator();else paint();

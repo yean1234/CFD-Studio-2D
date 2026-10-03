@@ -1,4 +1,4 @@
-/* Shared presentation of saved results. Never edits solver settings or fields. */
+/* Plot saved result series and line profiles without changing source fields */
 function sheetRows(series){
  const times=new Set(),maps=series.map(s=>{const m=new Map();for(const [t,v] of s.pts){if(Number.isFinite(t)){times.add(t);m.set(t,Number.isFinite(v)?v:null);}}return m;});
  return [...times].sort((a,b)=>a-b).map(t=>[t,...maps.map(m=>m.get(t)??null)]);

@@ -1,4 +1,4 @@
-/* Spatial JSON editor and geometry preview. Never executes user code or a solver. */
+/* Edit spatial JSON and preview geometry through supported shape definitions */
 (()=>{
  const keys=['dielectric_fluid','water','geometry','geometry_spec','domain','regions','tank','layers','board','coil','loading','silo','published','probes_mm','heater'];
  const clone=x=>structuredClone(x),isObject=x=>x&&typeof x==='object'&&!Array.isArray(x);
@@ -320,8 +320,7 @@
      entry.tag.style.maxWidth=Math.min(144,Math.max(76,width*.23))+'px';
      return {...entry,visible,anchorX:(point.x+1)*width/2,anchorY:(1-point.y)*height/2};
     }).filter(p=>p.visible).sort((a,b)=>a.anchorX-b.anchorX);
-    // Two outer lanes keep names away from the geometry. Sort each lane vertically
-    // so nearby anchors keep the same order and leader lines cross less often.
+    // Place tags beside the model; vertical ordering reduces leader-line crossings
     const middle=Math.ceil(positions.length/2);
     for(const [side,lane]of [[-1,positions.slice(0,middle)],[1,positions.slice(middle)]]){
      lane.sort((a,b)=>a.anchorY-b.anchorY);
@@ -343,7 +342,7 @@
    const resize=new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();draw();});resize.observe(host);
    const canvas=renderer.domElement;canvas.style.touchAction='none';canvas.setAttribute('aria-label','공간 3D 미리보기');
    canvas.onpointerdown=e=>{if(e.button!==0)return;pointer={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY};canvas.setPointerCapture(e.pointerId);};
-   // Swapping Y and Z reverses orbit handedness; keep the visible drag direction consistent.
+   // Reverse yaw for Z-up models so horizontal dragging has the same visible direction
    canvas.onpointermove=e=>{if(!pointer)return;yaw+=(e.clientX-pointer.x)*.007*(model.up[2]===1?-1:1);pitch=Math.max(-1.45,Math.min(1.45,pitch+(e.clientY-pointer.y)*.007));pointer.x=e.clientX;pointer.y=e.clientY;draw();};canvas.onpointerup=e=>{if(pointer&&Math.hypot(e.clientX-pointer.startX,e.clientY-pointer.startY)<4&&onSelect){const r=canvas.getBoundingClientRect(),ray=new T.Raycaster();ray.setFromCamera(new T.Vector2(2*(e.clientX-r.left)/r.width-1,1-2*(e.clientY-r.top)/r.height),camera);const hit=ray.intersectObjects(meshes,false)[0];if(hit)onSelect(hit.object.userData.elementId);}pointer=null;};canvas.onpointercancel=()=>pointer=null;
    canvas.addEventListener('wheel',e=>{e.preventDefault();distance=Math.max(1,Math.min(15,distance*Math.exp(Math.max(-100,Math.min(100,e.deltaY))*.001)));draw();},{passive:false});
    canvas.ondblclick=()=>{yaw=-.6;pitch=.4;distance=2.8;draw();};draw();

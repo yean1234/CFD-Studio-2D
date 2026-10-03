@@ -236,7 +236,7 @@ def validate_values(schema,config):
             key=field['key'];name=path+'.'+key if path else key
             if key not in obj:raise ValueError(name+' 항목이 없습니다')
             value=obj[key]
-            # Geometry collections are project-owned: additions/removals are permitted.
+            # Allow project-owned geometry parts to be added or removed
             if is_geometry_path(tuple(name.split('.'))):
                 from cfd_studio.form_wizard import make_schema
                 if field['type']=='object':

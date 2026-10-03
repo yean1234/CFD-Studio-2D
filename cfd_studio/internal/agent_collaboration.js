@@ -1,7 +1,8 @@
-/* Shared page-local coordination primitives. No solver or filesystem writes. */
+/* Compare Config drafts and coordinate agent ownership within one browser page */
 (function(root){
 'use strict';
 const copy=x=>structuredClone(x);
+// Count all changes; retain only the requested number of display rows
 function diff(before,after,{limit=200}={}){
  if(!Number.isInteger(limit)||limit<1||limit>2000)throw Error('INVALID_LIMIT');
  const rows=[];let total=0;
@@ -17,6 +18,7 @@ function diff(before,after,{limit=200}={}){
  };
  visit(before,after,[]);return {total,rows,truncated:total>rows.length};
 }
+// Lease times use milliseconds; ownership is advisory and resets on page reload
 function coordinator({now=Date.now,uuid=()=>root.crypto.randomUUID(),ttl=120000}={}){
  let owner=null,note=null,engaged=false;
  const expire=()=>{if(owner&&now()>=owner.expires){owner=null;}};

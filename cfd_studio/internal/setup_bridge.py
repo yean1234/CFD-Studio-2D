@@ -31,8 +31,7 @@ def main():
     if probe.returncode:
         raise RuntimeError('Install and initialize WSL2 Ubuntu first: wsl --install -d Ubuntu')
     script = setup_script(HERE.parent, str(cfg.get('wsl_case', '~/cfd_studio_case')))
-    # Keep stdin attached to the terminal for sudo; pass only script bytes as argv
-    # using base64 so non-ASCII Windows paths never enter bash quoting directly.
+    # Keep terminal stdin for sudo; encode script bytes to preserve Unicode paths
     import base64
     encoded = base64.b64encode(script.encode('utf-8')).decode('ascii')
     command = 'eval "$(printf %s ' + shlex.quote(encoded) + ' | base64 -d)"'

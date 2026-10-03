@@ -25,3 +25,11 @@ When the user requests “문서 업데이트” (update documentation), treat t
 ## Product purpose
 
 CFD Studio is an OpenFOAM CFD interface designed to reduce the effort and context cost of AI-agent operation while letting people follow and review the same visible workflow. Avoid unsupported claims about token savings, universal solver support or physical validation.
+
+## Code conventions
+
+- Follow [docs/code-conventions.md](docs/code-conventions.md) for naming, module boundaries, data contracts, error handling and verification
+- Write concise English source comments explaining intent, units, coordinate transforms or non-obvious constraints
+- Keep interface text in the Korean/English/Japanese translation system
+- Preserve public JSON keys and execution behavior during comment-only cleanup
+- Do not reformat unrelated legacy code or edit third-party comments and license notices

@@ -22,7 +22,7 @@ for module_root in (os.path.join(HERE, "internal"), HERE, os.path.dirname(HERE))
     if module_root not in sys.path:
         sys.path.insert(0, module_root)
 
-# ── 환경 설정 (studio_config.json) — 어떤 PC에서도 값만 바꾸면 동작 ──
+# Runtime settings loaded from studio_config.json
 _SDEF = {"wsl_case": "~/cfd_studio_case",     # WSL 안 케이스 폴더
          "openfoam_bashrc": "auto",            # auto = /usr/lib/openfoam/openfoam*/etc/bashrc 자동 탐색
          "mpi_np": "auto",                     # auto = 논리 CPU의 cpu_pct% (총 사용률 목표)
@@ -482,7 +482,7 @@ def _normalize_silo_config(value):
                       # 기존 프로젝트·진행률 코드와의 하위 호환 키
                       "end_time_s": int(end), "write_interval_s": int(write),
                       "viz_interval_s": int(write),
-                      # 정상상태 simpleFoam의 deltaT=1은 초가 아니라 반복 번호다.
+                      # For steady simpleFoam, deltaT=1 advances iterations rather than seconds
                       "iteration_step": 1,
                       "playback_duration_s": playback_duration,
                       "stop_mode": stop_mode,
@@ -571,8 +571,7 @@ def _seed_saved_configs():
     try:
         os.makedirs(CFGDIR, exist_ok=True)
         initialized = os.path.join(CFGDIR, ".initialized")
-        # 최초 1회만 기본 목록을 만든다. 이후 사용자가 설정을 모두 지워도
-        # 다음 실행에서 자동으로 되살아나지 않아야 한다.
+        # Seed once; preserve an intentionally empty user catalog on later starts
         if os.path.exists(initialized):
             return
         if any(n.lower().endswith(".json") for n in os.listdir(CFGDIR)):
@@ -1459,7 +1458,7 @@ def _archive_current_progress_script(next_rid, previous_rid=None):
         'if [ -e "$R/processor0" ] || [ -e "$R/log.icoReactingMultiphaseInterFoam" ]; then '
         'R="ProjectRuns/${OLD}_$(date +%Y%m%d_%H%M%S)"; fi; '
         'mkdir -p "$R/system"; cp -a system/. "$R/system/" 2>/dev/null || true; '
-        # 물성·격자·초기장을 공용 링크로 두면 다음 프로젝트가 과거 재개 상태를 바꾼다.
+        # Copy material, mesh and initial fields so later Cases cannot alter resume inputs
         'for d in constant 0 0.orig; do if [ -e "$d" ]; then rm -rf "$R/$d"; cp -a "$d" "$R/$d" || exit 31; fi; done; '
         'for f in log.* processor* postProcessing VTK .cfd_studio_solver.pid .cfd_studio_allrun.pid '
         '.cfd_studio_supervisor.pid .cfd_studio_solver_exit.json; do '
@@ -2107,8 +2106,7 @@ def wsl(cmd, timeout=25):
         argv = _wsl_argv("bash", "-ls")
         r = subprocess.run(argv, input=cmd.encode(), capture_output=True, timeout=timeout,
                            creationflags=0x08000000 if os.name == "nt" else 0)
-        # 종료코드와 stderr 를 반영한다 — 예전에는 wsl.exe 가 존재하기만 하면 ok=True 라서
-        # 배포판이 망가져도 화면에 '연결됨'(초록불)이 떴다 (2026-08-15 감사)
+        # Require a successful WSL probe before reporting the distribution as connected
         out = r.stdout.decode("utf-8", "replace")
         if r.returncode != 0:
             return False, out + "\n[wsl stderr] " + r.stderr.decode("utf-8", "replace")[:400]

@@ -1,3 +1,4 @@
+// Render saved warehouse frames in the standalone result page
 import * as THREE from '/studies/three.module.js';
 
 const $ = id => document.getElementById(id);
@@ -71,6 +72,7 @@ function showFrame(data) {
   for (let i = 0; i < indices.length; i++) {
     const sourceIndex = indices[i];
     const xyz = data.cell_centres_m[sourceIndex];
+    // Convert solver XYZ (Z-up, meters) to centered display XYZ (Y-up)
     positions[3*i] = xyz[0] - meta.geometry.length_m/2;
     positions[3*i+1] = xyz[2] - (meta.geometry.eaves_m+meta.geometry.roof_rise_m)/2;
     positions[3*i+2] = xyz[1] - meta.geometry.width_m/2;

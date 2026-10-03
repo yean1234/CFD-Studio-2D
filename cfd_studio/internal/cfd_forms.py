@@ -10,7 +10,7 @@ BUILTINS = tuple((item['id'], item['name'], item['template'], item['solvers']) f
 
 
 
-# Defaults belong to the connected input adapter, not to UI branches.
+# Obtain defaults from the registered input adapter
 FORM_OUTPUTS = {
     'immersion': {'default_output_fields': ['bubble', 'phase', 'flow', 'therm'],
                   'output_fields': ['bubble', 'phase', 'flow', 'therm', 'pressure', 'turbulence']},
@@ -110,12 +110,10 @@ class CFDForms:
         models = set()
         for key in project.get('runs', []):
             record = (records or {}).get(key)
-            # Unavailable historical paths are retained in the catalog, but do not
-            # describe the currently accessible analysis model.
+            # Missing records cannot identify a runnable Template
             if record is None:
                 continue
-            # Archived normalized-tracer results have no runnable Template. They
-            # can accompany an identified model without assigning one themselves.
+            # Archived tracer results do not determine the project Template
             if record.get('kind') == 'legacy' and record.get('model') == 'gas_transport':
                 continue
             model = 'warehouse' if record.get('kind') == 'warehouse' else record.get('model')

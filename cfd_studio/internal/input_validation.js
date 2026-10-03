@@ -1,4 +1,4 @@
-/* Shared, non-destructive input feedback. Values are never silently coerced. */
+/* Validate inputs without silently changing their type or value */
 (() => {
  const numeric=/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
  function acceptsEdit(text,type){

@@ -1,4 +1,4 @@
-"""공통 수치 입력 검사와 새 프리셋 보관. 솔버 실행이나 물성 추천은 하지 않는다."""
+"""Validate numeric inputs and store independent, named Config presets."""
 import json
 import math
 import os
@@ -25,7 +25,7 @@ def finite_number(value, label, *, integer=False):
 
 
 def validate_numerics(config):
-    """저장 전 기본 정의역을 확인하며 사용자가 지정한 값은 변경하지 않는다."""
+    """Check numeric bounds without changing supplied values."""
     run, mesh = config.get('run'), config.get('mesh')
     if not isinstance(run, dict) or not isinstance(mesh, dict):
         raise ValueError('계산·격자 설정을 확인해 주세요')
@@ -58,7 +58,7 @@ def validate_numerics(config):
 
 
 def save_new_preset(folder, name, config):
-    """동일 이름을 덮어쓰지 않는다. JSON 직렬화 실패 시 파일도 만들지 않는다."""
+    """Serialize and publish a new preset without overwriting an existing name."""
     if (not isinstance(name, str) or not name or name != name.strip().rstrip('.')
             or re.search(r'[\\/:*?"<>|\x00-\x1f]', name)
             or re.fullmatch(r'(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?', name, re.I)):
@@ -68,7 +68,7 @@ def save_new_preset(folder, name, config):
     with _SAVE_LOCK:
         folder.mkdir(parents=True, exist_ok=True)
         target = folder/(name+'.json')
-        # Linux에서 저장해도 Windows로 옮겼을 때 파일명이 충돌하지 않게 한다.
+        # Reject case-only duplicates for Windows-compatible filenames
         if any(p.name.casefold() == target.name.casefold() for p in folder.iterdir()):
             raise FileExistsError('같은 이름의 설정이 있습니다. 새 이름을 입력해 주세요')
         temporary = folder/('.preset-'+uuid.uuid4().hex+'.tmp')

@@ -1,5 +1,5 @@
 const WPresentation=typeof module!=='undefined'?require('./viewer_presentation.js'):globalThis.CFDPresentation;
-// Warehouse data adapter for the original Studio canvas, controls and export UI.
+// Adapt warehouse fields to the shared Studio canvas, controls and exports
 let WH=null,WHGEN=0,WHREQUESTS=new Set(),WHBASE=null,WHGPU=null;
 const WHSAVED=new Map(),WHLAYERS=['lyBub','lyPhase','lySlice','lyTvol','lyGeo','lyCoil','lyTank','lyBound','lyProbe','lyInfo','gcT','gcV','gcB','gcL'];
 function warehouseActive(){return VIZCFG?._해석유형==='warehouse';}
@@ -71,7 +71,7 @@ function warehouseDrawCloud(M,a,b,u,field){if(!warehouseValues(a,field)||!wareho
  const geo=WH.meta.geometry;const size=Math.cbrt(geo.length_m*geo.width_m*geo.eaves_m/WH.count)*2300;gl.uniform1f(gl.getUniformLocation(p,'uSize'),size);gl.uniform1f(gl.getUniformLocation(p,'uSlice'),LY('lyBound')?1:0);gl.uniform1f(gl.getUniformLocation(p,'uMid'),geo.width_m*500);gl.uniform1f(gl.getUniformLocation(p,'uTemp'),field==='temperature'?1:0);
  for(const [name,buffer,n] of [['aP',g.pos,3],['aA',g.a,1],['aB',g.b,1]]){const loc=gl.getAttribLocation(p,name);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,0,0);}gl.drawArrays(gl.POINTS,0,WH.count);
  for(const name of ['aP','aA','aB'])gl.disableVertexAttribArray(gl.getAttribLocation(p,name));}
-// Select existing cell centres in spatial bins; never invent finer CFD values.
+// Sample existing cell centers; display density does not refine the CFD mesh
 function warehouseFlowSamples(points,budget,mid=null){
  const lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];
  let nearest=Infinity;for(const p of points){for(let d=0;d<3;d++){lo[d]=Math.min(lo[d],p[d]);hi[d]=Math.max(hi[d],p[d]);}if(mid!==null)nearest=Math.min(nearest,Math.abs(p[1]-mid));}

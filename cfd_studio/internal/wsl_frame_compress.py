@@ -56,10 +56,7 @@ def prepare_grid(c_path):
     z0, z1 = min(zs), max(zs)
     nx = max(2, round((x1 - x0) / 0.01))
     ny = max(2, round((y1 - y0) / 0.01))
-    # A few legacy silo meshes have fewer physical z layers than a 10 mm
-    # display grid. Oversampling those layers creates periodic, completely
-    # empty slabs that look like missing CFD data. Never make the display
-    # grid finer than the source mesh in the axial direction.
+    # Limit axial display bins to source layers to avoid artificial empty slabs
     z_layers = sorted({round(value, 10) for value in zs})
     nominal_nz = max(2, round((z1 - z0) / 0.01))
     use_source_layers = len(z_layers) <= nominal_nz

@@ -1,4 +1,4 @@
-/* Shared execution settings editor and immutable snapshot inspector. */
+/* Edit Case inputs and inspect read-only execution snapshots */
 (() => {
   const names = {
     numerics:'계산 시간',run:'계산·출력',geometry_spec:'공간 형상',geometry:'공간 형상',tank:'수조',layers:'층 구성·초기 온도',board:'보드',heater:'발열',coil:'냉각 코일',
