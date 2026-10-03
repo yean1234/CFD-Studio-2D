@@ -3,6 +3,7 @@ import ast
 import io
 import json
 import os
+import socket
 from pathlib import Path
 import tempfile
 import unittest
@@ -25,14 +26,20 @@ class StudioLauncherTests(unittest.TestCase):
                 with self.subTest(port=bad), self.assertRaises(ValueError):
                     configured_port(folder, {})
 
-    def test_busy_and_unreachable_ports_never_start(self):
-        connection = Mock()
-        connection.return_value = io.BytesIO()
-        self.assertEqual(startup_action(8712, connection, lambda _: True), 'reuse')
-        connection.return_value = io.BytesIO()
-        self.assertEqual(startup_action(8712, connection, lambda _: False), 'blocked')
-        for failure, expected in ((ConnectionRefusedError(), 'start'), (TimeoutError(), 'blocked')):
-            self.assertEqual(startup_action(8712, Mock(side_effect=failure)), expected)
+    def test_busy_and_unavailable_ports_never_start(self):
+        factory = Mock(side_effect=OSError('unavailable'))
+        self.assertEqual(startup_action(8712, factory, lambda _: True), 'reuse')
+        self.assertEqual(startup_action(8712, factory, lambda _: False), 'blocked')
+
+    def test_real_free_and_busy_ports_without_connection_timeout(self):
+        with socket.socket() as occupied:
+            occupied.bind(('127.0.0.1', 0))
+            occupied.listen()
+            port = occupied.getsockname()[1]
+            self.assertEqual(startup_action(port, probe=lambda _: False), 'blocked')
+        probe = Mock(side_effect=AssertionError('Free ports need no HTTP request'))
+        self.assertEqual(startup_action(port, probe=probe), 'start')
+        probe.assert_not_called()
 
     def test_reuse_opens_existing_server_without_spawning(self):
         with tempfile.TemporaryDirectory() as folder:

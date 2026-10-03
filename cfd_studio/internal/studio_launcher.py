@@ -33,15 +33,16 @@ def existing_studio(port, opener=urllib.request.urlopen):
         return False
 
 
-def startup_action(port, connector=socket.create_connection, probe=existing_studio):
+def startup_action(port, socket_factory=socket.socket, probe=existing_studio):
+    # Windows may time out before reporting connection refusal on an unused port
     try:
-        with connector(('127.0.0.1', port), timeout=1):
-            pass
-    except ConnectionRefusedError:
+        with socket_factory(socket.AF_INET, socket.SOCK_STREAM) as candidate:
+            if os.name == 'nt' and hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
+                candidate.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            candidate.bind(('127.0.0.1', port))
         return 'start'
     except OSError:
-        return 'blocked'
-    return 'reuse' if probe(port) else 'blocked'
+        return 'reuse' if probe(port) else 'blocked'
 
 
 def launch(studio, *, action=startup_action, browser=webbrowser.open, runner=subprocess.call):

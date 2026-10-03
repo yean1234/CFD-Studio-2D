@@ -132,3 +132,14 @@ git diff --check
 ```sh
 python3 -m unittest tests.test_studio_launcher tests.test_agent_diagnostics tests.test_silo_contract tests.test_silo_mesh_gate -q
 ```
+
+## Windows 시작 검사 수정
+
+- 시작 검사의 1초 TCP 연결 제한이 빈 포트에서도 TimeoutError를 반환하는 현상 재현
+- 연결 거부 응답 지연을 포트 사용 불가로 잘못 분류한 시작 프로그램 회귀 오류
+- 포트 사용 가능 여부를 로컬 소켓 바인딩으로 확인하도록 수정 · Windows는 배타적 주소 사용 옵션 적용
+- 포트를 열 수 없는 경우에만 기존 Studio 식별 · 실행 직전의 경쟁은 서버의 최종 바인딩으로 처리
+- Windows와 WSL/Linux 각각 시작 경로·진단 검사 13개 통과 · 실제 임시 소켓의 빈 포트와 점유 포트 포함
+- 실제 Studio 서버 시작 및 에이전트 스크립트 v1.3 HTTP 정상 응답 확인 · 사용자가 화면 표시 확인
+- 수정된 검사에서 실행 중 서버를 reuse로 식별 · 실행 중 화면과 서버 유지
+- 외부 화면 조작 도구의 작업 경로 오류는 별도 미해결 · CFD 파일럿 미실행
