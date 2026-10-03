@@ -324,3 +324,5 @@ const current = CFDAgent.state();
 ```bat
 cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 ```
+
+- Launching again preserves an existing Studio server and opens its address · A conflicting service returns APP-A002 · No automatic port switching or process termination

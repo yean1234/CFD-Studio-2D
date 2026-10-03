@@ -3743,7 +3743,7 @@ class H(BaseHTTPRequestHandler):
             rid = _project_key((q.get("rid") or [""])[0]) or _active_rid()
             self._json({"ok": True, "settings": _settings_public(refresh_gpu=refresh, rid=rid)})
         elif u.path == "/api/info":
-            # app 키 = CFD Studio 식별자. 실행.bat·_kill_previous 가 포트 소유자 확인에 씀
+            # Public application identity for clients
             q = parse_qs(u.query or "")
             rid = _project_key((q.get("rid") or [""])[0]) or _active_rid()
             pd = proj_dir(rid)
@@ -9315,49 +9315,9 @@ def autosync_loop():
             period = min(300.0, period * 1.5)    # 새 스냅샷 없음 — 한동안 더 길게
         STATE["autosync_period"] = round(max(5.0, min(300.0, period)))
 
-def _kill_previous():
-    """포트를 잡고 있는 이전 CFD Studio 프로세스 종료 (업데이트 후 옛 화면이 계속 뜨는 문제 방지)"""
-    try:
-        out = subprocess.run(["netstat", "-ano"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10, creationflags=0x08000000 if os.name == "nt" else 0).stdout
-    except Exception:
-        return
-    me = str(os.getpid())
-    for line in out.splitlines():
-        u = line.upper()
-        if f":{PORT}" in line and "LISTEN" in u:
-            pid = line.split()[-1]
-            if pid.isdigit() and pid != me:
-                print(f"이전 CFD Studio(PID {pid}) 자동 종료…")
-                mine = False                           # CFD Studio임이 확인된 PID만 종료한다.
-                try:                                       # 남의 프로세스를 무조건 taskkill 하던
-                    import urllib.request as _u            # 동작은 다른 랩 PC에 넘길 수 없다
-                    with _u.urlopen(f"http://127.0.0.1:{PORT}/api/info", timeout=3) as _r:
-                        mine = b'"cfd-studio"' in _r.read(4000)
-                except Exception:
-                    old_pid, _ = _studio_pid_record()
-                    mine = old_pid == int(pid)
-                if mine:
-                    subprocess.run(["taskkill", "/PID", pid, "/F"], capture_output=True)
-                else:
-                    print(f"[CFD Studio] 포트 {PORT} 를 다른 프로그램이 쓰고 있습니다 (PID {pid}) — "
-                          f"studio_config.json 의 port 를 바꾸세요.")
-    time.sleep(1.2)
-
 def _claim_studio_pid():
-    """이전 Studio가 포트를 놓고 스레드만 남은 경우도 기록 PID로 종료한다."""
+    """Record the bound server without terminating stale recorded processes."""
     me, started = os.getpid(), PROCESS_STARTED
-    old, old_started = _studio_pid_record()
-    if old and old != me and old_started and POWERSHELL_EXE:
-        try:
-            ps = (f"$p=Get-Process -Id {old} -ErrorAction SilentlyContinue; if($p){{"
-                  "[Console]::Write(($p.StartTime.ToUniversalTime()-[datetime]'1970-01-01').TotalSeconds)}}")
-            r = subprocess.run([POWERSHELL_EXE, "-NoProfile", "-Command", ps],
-                               capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=8, creationflags=0x08000000 if os.name == "nt" else 0)
-            actual = float((r.stdout or "0").strip() or 0)
-            if abs(actual - old_started) < 30:
-                subprocess.run(["taskkill", "/PID", str(old), "/F"], capture_output=True, creationflags=0x08000000 if os.name == "nt" else 0)
-        except Exception:
-            pass
     tmp = STUDIO_PIDF + ".tmp"
     with open(tmp, "w", encoding="ascii") as f:
         json.dump({"pid": me, "started": started}, f)
@@ -9572,6 +9532,17 @@ class StudioHTTPServer(ThreadingHTTPServer):
 def main():
     try: sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception: pass
+    # Bind before startup migrations; a duplicate launch must not touch projects
+    try:
+        srv = StudioHTTPServer(("127.0.0.1", PORT), H)
+    except OSError as exc:
+        from studio_launcher import existing_studio
+        if existing_studio(PORT):
+            print(f"[CFD Studio] Existing server preserved: http://127.0.0.1:{PORT}")
+            webbrowser.open(f"http://127.0.0.1:{PORT}")
+        else:
+            print(f"[APP-A002] Port {PORT} is unavailable: {exc}")
+        return
     _janitor()
     _merge_conditions()
     _repair_root_markers()
@@ -9579,17 +9550,6 @@ def main():
     _migrate_frames()
     _repair_identity()
     _seed_saved_configs()
-    try:
-        srv = StudioHTTPServer(("127.0.0.1", PORT), H)
-    except OSError:
-        _kill_previous()
-        try:
-            srv = StudioHTTPServer(("127.0.0.1", PORT), H)
-        except OSError:
-            print(f"[CFD Studio] 포트 {PORT} 를 열 수 없습니다 — studio_config.json 의 port 를 바꾸고 다시 실행하세요.")
-            try: input("Enter 를 누르면 종료합니다 ")
-            except Exception: pass
-            return
     _claim_studio_pid()
     from execution_adapters import install as install_execution_adapters
     install_execution_adapters(EXECUTION_WORKSPACE, globals())

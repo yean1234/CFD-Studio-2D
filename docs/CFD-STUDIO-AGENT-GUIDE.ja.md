@@ -324,3 +324,5 @@ const current = CFDAgent.state();
 ```bat
 cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 ```
+
+- 再起動操作では既存のStudioサーバーを保持してそのアドレスを開く · 別サービスのポート使用時はAPP-A002 · ポートの自動変更やプロセスの強制終了なし

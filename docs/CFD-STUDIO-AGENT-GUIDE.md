@@ -320,3 +320,5 @@ const current = CFDAgent.state();
 ```bat
 cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 ```
+
+- 실행 파일 재실행: 기존 Studio 서버를 유지하고 해당 주소 열기 · 다른 서비스의 포트 점유 시 APP-A002 · 포트 자동 변경 및 프로세스 강제 종료 없음
