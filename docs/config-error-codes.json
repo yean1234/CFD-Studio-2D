@@ -294,6 +294,90 @@
         "ja": "コードと詳細を保存し、自動で再実行しないでください"
       },
       "retry": "review"
+    },
+    "CFG-G003": {
+      "code": "CFG-G003",
+      "message": {
+        "ko": "사일로 설계 구분 또는 값이 올바르지 않습니다",
+        "en": "Invalid silo design or original/optimized scheme mix",
+        "ja": "サイロ設計値または原案・最適化案の区分が不正です"
+      },
+      "action": {
+        "ko": "원안은 A=10·B=7·C=0·D=0으로 지정하세요",
+        "en": "Use A=10, B=7, C=0, D=0 for the original",
+        "ja": "原案はA=10・B=7・C=0・D=0を指定してください"
+      },
+      "retry": "review"
+    },
+    "CFG-G004": {
+      "code": "CFG-G004",
+      "message": {
+        "ko": "사일로 실행 형상이 연결되지 않았습니다",
+        "en": "Silo execution geometry is not connected",
+        "ja": "サイロの実行形状が接続されていません"
+      },
+      "action": {
+        "ko": "원문 덕트 형상은 미지원입니다 · 등가 모델은 가정을 검토한 뒤 선택하세요",
+        "en": "Paper duct geometry is unsupported; review assumptions before selecting the surrogate",
+        "ja": "原論文のダクト形状は未対応です · 等価モデルの仮定を確認してください"
+      },
+      "retry": "review"
+    },
+    "CFG-G005": {
+      "code": "CFG-G005",
+      "message": {
+        "ko": "사일로 재현 가정이 미확정입니다",
+        "en": "Silo reproduction assumptions are unresolved",
+        "ja": "サイロ再現の仮定が未確定です"
+      },
+      "action": {
+        "ko": "형상·입구·유량 분배·포트 위치와 근거를 명시하고 검토하세요",
+        "en": "Specify and review geometry, inlet, flow split, port locations and rationale",
+        "ja": "形状・入口・流量配分・開口位置・根拠を明示して確認してください"
+      },
+      "retry": "review"
+    },
+    "APP-A001": {
+      "code": "APP-A001",
+      "message": {
+        "ko": "에이전트 도구의 작업 경로 연결에 실패했습니다",
+        "en": "Agent host rejected the workspace path",
+        "ja": "エージェント側の作業パス接続に失敗しました"
+      },
+      "action": {
+        "ko": "Windows 로컬 프로젝트에서 기존 탭에 다시 연결하세요 · 계산 재시작 불필요",
+        "en": "Reconnect the existing tab from the Windows local workspace; do not restart a calculation",
+        "ja": "Windowsのローカルプロジェクトから既存タブへ再接続してください · 計算の再起動は不要です"
+      },
+      "retry": "review"
+    },
+    "APP-A002": {
+      "code": "APP-A002",
+      "message": {
+        "ko": "에이전트 연결 설정 또는 스크립트를 확인하세요",
+        "en": "Check agent connection settings or scripts",
+        "ja": "エージェント接続設定またはスクリプトを確認してください"
+      },
+      "action": {
+        "ko": "Studio 포트와 에이전트 스크립트 로드를 확인하세요",
+        "en": "Check the Studio port and agent script loading",
+        "ja": "Studioのポートとエージェントスクリプトを確認してください"
+      },
+      "retry": "review"
+    },
+    "CFG-G006": {
+      "code": "CFG-G006",
+      "message": {
+        "ko": "격자 품질 검사를 통과하지 못했습니다",
+        "en": "Mesh quality check did not pass",
+        "ja": "メッシュ品質検査に合格していません"
+      },
+      "action": {
+        "ko": "log.checkMesh를 확인하고 격자를 수정하세요",
+        "en": "Inspect log.checkMesh and correct the mesh",
+        "ja": "log.checkMeshを確認してメッシュを修正してください"
+      },
+      "retry": "review"
     }
   }
 }

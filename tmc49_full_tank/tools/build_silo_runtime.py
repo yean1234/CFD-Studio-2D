@@ -5,6 +5,11 @@ import math
 import os
 import shutil
 
+if __package__:
+    from .silo_contract import original_design, validate_runtime
+else:
+    from silo_contract import original_design, validate_runtime
+
 
 def header(cls, location, obj):
     return f"""FoamFile
@@ -33,33 +38,26 @@ def boundary_text(inlet, outlet, wall, extra_inlets=()):
 
 def design_geometry(cfg, plan):
     """Return the explicit, documented surrogate geometry for design comparison."""
-    silo = cfg.get("silo") or {}
+    assumptions = validate_runtime(cfg)
+    silo = cfg["silo"]
     model = str(silo.get("geometry_model") or "").strip()
-    if not model:
-        return None
     if model != "equivalent_boundary_ports_v1":
         raise ValueError("지원하지 않는 저장고 형상 모델입니다")
 
-    design = silo.get("design") or {}
-    assumptions = silo.get("geometry_assumptions") or {}
-    kind = str(silo.get("kind") or "custom").strip().lower()
+    kind = silo["kind"]
+    design = original_design(silo) if kind == "original" else silo["design"]
     A = float(design.get("A", 0)) / 1000.0
     B = int(design.get("B", 0))
     C = float(design.get("C", 0) or 0) / 1000.0
     D = int(design.get("D", 0) or 0)
-    ports_per_layer = int(assumptions.get("ports_per_layer", 4))
+    ports_per_layer = int(assumptions["ports_per_layer"])
     if A <= 0 or B < 1 or ports_per_layer < 1:
         raise ValueError("등가 형상에는 A, B, 층당 포트 수가 필요합니다")
 
     grain = plan["grain"]
-    if kind == "original":
-        z_min = float(assumptions.get("layer_z_min_m", 0.25 * grain))
-        z_max = float(assumptions.get("layer_z_max_m", 0.75 * grain))
-        bottom_enabled = False
-    else:
-        z_min = float(assumptions.get("layer_z_min_m", 0.05 * grain))
-        z_max = float(assumptions.get("layer_z_max_m", 0.95 * grain))
-        bottom_enabled = bool(assumptions.get("bottom_outlets_enabled", C > 0 and D > 0))
+    z_min = float(assumptions["layer_z_min_m"])
+    z_max = float(assumptions["layer_z_max_m"])
+    bottom_enabled = assumptions["bottom_outlets_enabled"]
     if not (0 < z_min <= z_max < grain):
         raise ValueError("순환 포트 높이 범위는 곡물층 내부여야 합니다")
     if bottom_enabled and (C <= 0 or D < 1):
@@ -76,8 +74,8 @@ def design_geometry(cfg, plan):
             angle = 2.0 * math.pi * i / ports_per_layer
             side_centres.append((radius * math.cos(angle), radius * math.sin(angle), z))
 
-    bottom_ring_radius = float(assumptions.get("bottom_ring_radius_m", 0.34))
-    if not (0 < bottom_ring_radius < radius):
+    bottom_ring_radius = float(assumptions["bottom_ring_radius_m"]) if bottom_enabled else 0.0
+    if bottom_enabled and not (0 < bottom_ring_radius < radius):
         raise ValueError("하부 포트 링 반경은 저장고 반경보다 작아야 합니다")
     bottom_centres = []
     if bottom_enabled:
@@ -510,6 +508,7 @@ internalField uniform (0 0 0);
 
 
 def build(root, cfg, check=False):
+    validate_runtime(cfg)
     om = cfg.get("openfoam_mapping") or {}
     if om.get("solver") not in ("simpleFoam", "pimpleFoam"):
         raise ValueError("저장고 솔버는 simpleFoam 또는 pimpleFoam이어야 합니다")
@@ -542,7 +541,9 @@ def build(root, cfg, check=False):
                     "equivalent_spacing_mm", "estimated_min_spacing_mm",
                     "estimated_max_spacing_mm", "estimated_max_aspect_ratio")},
                 "spatial_discretization": "bounded second-order",
-                "output_fields": cfg["run"].get("output_fields") or []}
+                "output_fields": cfg["run"].get("output_fields") or [],
+                "reproduction_status": "reviewed_surrogate_not_paper_geometry",
+                "geometry_assumptions": dict(cfg["silo"]["geometry_assumptions"])}
     if geometry:
         manifest["geometry_model"] = {
             key: geometry[key] for key in (

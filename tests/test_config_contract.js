@@ -70,3 +70,9 @@ test('renaming an optional property retains its input form without its catalog l
  const value=editor.fromConfig(config).fields[0].fields.find(f=>f.key==='value');assert.equal(value.widget,'vector3');assert.deepEqual(value.value,[null,null,null]);
  const nullable=editor.fromConfig({custom:{name:'Switch',type:'boolean',unit:'',value:null}}).fields[0].fields.find(f=>f.key==='value');assert.equal(nullable.type,'boolean');
 });
+
+test('backend silo and agent connection codes retain their localized identity',()=>{
+ for(const code of ['CFG-G003','CFG-G004','CFG-G005','CFG-G006','APP-A001','APP-A002']){
+  for(const lang of ['ko','en','ja'])assert.equal(contract.normalize(Error('['+code+'] details'),lang).code,code);
+ }
+});

@@ -309,3 +309,14 @@ const current = CFDAgent.state();
 - 브라우저 연결, 파일 업로드, 네이티브 폴더 선택, 운영체제 권한은 에이전트 도구와 브라우저의 지원 범위 적용
 
 - `CFDAgent`가 없으면 미저장 편집을 보존한 뒤 새로고침 · Studio 재시작은 대기 중에만 진행하고 실행 중인 솔버나 사용자 브라우저를 종료하지 않음
+
+## 연결 진단
+
+- 연결 실패 시 `agent_diagnostics.py`로 Studio HTTP와 외부 에이전트 도구 오류를 구분
+- HTTP 성공은 사용자 탭 연결 완료가 아님 · 브라우저·계산을 재시작하지 않음
+- `APP-A001`: 외부 도구의 작업 경로 오류 · `APP-A002`: 포트/스크립트 오류 · `APP-N001`: HTTP 연결 실패
+- [진단 명령 및 사일로 실행 제한](silo-agent-debug-20261003.md)
+
+```bat
+cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
+```

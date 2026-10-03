@@ -313,3 +313,14 @@ const current = CFDAgent.state();
 - JavaScript実行機能がない場合は、画面操作ツールで同じボタンを操作
 - ブラウザー接続、ファイル送信、OSのフォルダー選択、権限は使用するブラウザーとエージェントツールの対応範囲に従う
 - `CFDAgent`が見つからない場合は未保存の編集を保全してから再読み込み · Studio再起動は待機中のみ実施し、実行中のソルバーやユーザーのブラウザーを終了しない
+
+## 接続診断
+
+- `agent_diagnostics.py`でStudio HTTPとエージェントホストの作業パスエラーを区別
+- HTTP成功はユーザータブへの接続完了を意味しない · ブラウザーや計算を再起動しない
+- `APP-A001`: ホストの作業パスエラー · `APP-A002`: ポート/スクリプト · `APP-N001`: HTTP接続失敗
+- [診断コマンドとサイロ実行の制限](silo-agent-debug-20261003.md)
+
+```bat
+cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
+```

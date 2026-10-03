@@ -313,3 +313,14 @@ const current = CFDAgent.state();
 - If JavaScript evaluation is unavailable, an agent can use a screen interaction tool to operate the same buttons
 - Browser connection, file uploads, native folder selection and operating system permissions depend on the browser and agent tool
 - If `CFDAgent` is unavailable, preserve unsaved edits before reloading · Restart Studio only when idle, without stopping a running solver or closing the user's browser
+
+## Connection diagnostics
+
+- Use `agent_diagnostics.py` to separate Studio HTTP failures from agent-host workspace failures
+- HTTP success does not prove attachment to the user tab; do not restart the browser or calculation
+- `APP-A001`: host workspace URI failure · `APP-A002`: port/script issue · `APP-N001`: HTTP failure
+- [Commands and silo execution limits](silo-agent-debug-20261003.md)
+
+```bat
+cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
+```

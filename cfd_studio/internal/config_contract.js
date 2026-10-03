@@ -3,6 +3,13 @@
 'use strict';
 const version=1,types=['string','number','integer','boolean','object','array','null'];
 const rows=[
+ ["CFG-G006", "격자 품질 검사를 통과하지 못했습니다", "Mesh quality check did not pass", "メッシュ品質検査に合格していません", "log.checkMesh를 확인하고 격자를 수정하세요", "Inspect log.checkMesh and correct the mesh", "log.checkMeshを確認してメッシュを修正してください"],
+ ["CFG-G003", "사일로 설계 구분 또는 값이 올바르지 않습니다", "Invalid silo design or original/optimized scheme mix", "サイロ設計値または原案・最適化案の区分が不正です", "원안은 A=10·B=7·C=0·D=0으로 지정하세요", "Use A=10, B=7, C=0, D=0 for the original", "原案はA=10・B=7・C=0・D=0を指定してください"],
+ ["CFG-G004", "사일로 실행 형상이 연결되지 않았습니다", "Silo execution geometry is not connected", "サイロの実行形状が接続されていません", "원문 덕트 형상은 미지원입니다 · 등가 모델은 가정을 검토한 뒤 선택하세요", "Paper duct geometry is unsupported; review assumptions before selecting the surrogate", "原論文のダクト形状は未対応です · 等価モデルの仮定を確認してください"],
+ ["CFG-G005", "사일로 재현 가정이 미확정입니다", "Silo reproduction assumptions are unresolved", "サイロ再現の仮定が未確定です", "형상·입구·유량 분배·포트 위치와 근거를 명시하고 검토하세요", "Specify and review geometry, inlet, flow split, port locations and rationale", "形状・入口・流量配分・開口位置・根拠を明示して確認してください"],
+ ["APP-A001", "에이전트 도구의 작업 경로 연결에 실패했습니다", "Agent host rejected the workspace path", "エージェント側の作業パス接続に失敗しました", "Windows 로컬 프로젝트에서 기존 탭에 다시 연결하세요 · 계산 재시작 불필요", "Reconnect the existing tab from the Windows local workspace; do not restart a calculation", "Windowsのローカルプロジェクトから既存タブへ再接続してください · 計算の再起動は不要です"],
+ ["APP-A002", "에이전트 연결 설정 또는 스크립트를 확인하세요", "Check agent connection settings or scripts", "エージェント接続設定またはスクリプトを確認してください", "Studio 포트와 에이전트 스크립트 로드를 확인하세요", "Check the Studio port and agent script loading", "Studioのポートとエージェントスクリプトを確認してください"],
+
  ['CFG-J001','JSON 문법이 올바르지 않습니다','Invalid JSON syntax','JSON構文が正しくありません','쉼표·따옴표·괄호를 확인하세요','Check commas, quotes and brackets','カンマ・引用符・括弧を確認してください'],
  ['CFG-J002','Config는 JSON 객체여야 합니다','Config must be a JSON object','ConfigはJSONオブジェクトで指定してください','Template에서 출력한 객체 형식을 사용하세요','Use the object exported by the Template','Templateから出力したオブジェクトを使用してください'],
  ['CFG-J003','입력 양식의 정의가 올바르지 않습니다','Invalid input schema','入力書式の定義が正しくありません','version 1과 fields의 key·type·value를 확인하세요','Check version 1 and field key, type and value','version 1とfieldsのkey・type・valueを確認してください'],
@@ -41,7 +48,7 @@ const patterns=[
 ];
 // Explicit codes take precedence; text matching supports older error messages
 function normalize(error,language='ko'){
- const detail=String(error?.message??error??'').slice(0,700),embedded=detail.match(/\[(CFG-[JUG]\d{3}|APP-[NISX]\d{3})\]/)?.[1];
+ const detail=String(error?.message??error??'').slice(0,700),embedded=detail.match(/\[(CFG-[JUG]\d{3}|APP-[A-Z]\d{3})\]/)?.[1];
  const code=catalog[error?.code]?error.code:catalog[embedded]?embedded:error instanceof SyntaxError?'CFG-J001':patterns.find(([,p])=>p.test(detail))?.[0]||'APP-X001';
  const lang=['ko','en','ja'].includes(language)?language:'en',entry=catalog[code];
  return {code,message:entry.message[lang],action:entry.action[lang],path:Array.isArray(error?.path)?error.path:[],detail,retry:entry.retry};

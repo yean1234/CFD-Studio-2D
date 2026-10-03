@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 import os
+import re
 from pathlib import Path
 import subprocess
 import threading
@@ -116,6 +117,9 @@ class RunManagement:
                 failures.append(f'음의 농도: {minimum:.6g} kg/m³ (하한 -1e-14)')
             result.update(category='result_check', reason='계산 후 결과 검사 미달: '+('; '.join(failures) or '저장된 검사 기록에서 실행·보존 검사를 통과하지 못했습니다.'),
                           action='검사 기록을 확인하세요. 같은 Config로 다시 계산하면 동일한 검사 미달이 반복될 수 있습니다.')
+        if re.search(r'\[CFG-G00[3-6]\]', result['reason']):
+            result.update(category='config', action='Config와 격자 검사 로그를 확인하고 새 Case에서 수정하세요.')
+            return result
         lines = log.splitlines()
         for i, line in enumerate(lines):
             if 'trapping enabled' in line.lower():
@@ -235,6 +239,9 @@ class RunManagement:
                     c = q['cases'].get(key)
                     if not c or c['status'] != 'draft' or c.get('attempts'):
                         raise ValueError('시작하지 않은 실행만 대기열에 추가할 수 있습니다')
+                    if c['kind'] == 'grain_silo':
+                        from tmc49_full_tank.tools.silo_contract import validate_runtime
+                        validate_runtime(c['config'])
                 for key in ids:
                     q['cases'][key]['status'] = 'queued'
                     q['order'].append(key)
@@ -262,6 +269,9 @@ class RunManagement:
                 c = q['cases'].get(case_id)
                 if not c or c['status'] not in ('failed', 'stopped'):
                     raise ValueError('실패하거나 중단된 Case만 복구할 수 있습니다')
+                if action == 'retry' and c['kind'] == 'grain_silo':
+                    from tmc49_full_tank.tools.silo_contract import validate_runtime
+                    validate_runtime(c['config'])
                 recovery = self.detail(case_id)['recovery']
                 if not recovery.get('resume' if action == 'continue_case' else 'retry'):
                     raise ValueError(recovery.get('resume_reason') or recovery['reason'])

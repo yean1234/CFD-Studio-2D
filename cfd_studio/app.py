@@ -450,6 +450,10 @@ def _normalize_silo_config(value):
     if not 1000 <= target_cells <= 100000000:
         return False, None, "목표 격자 수는 1,000~100,000,000 범위여야 합니다"
     out.setdefault("mesh", {})["target_cells"] = target_cells
+    if "require_external_mesh" in mesh_in:
+        if not isinstance(mesh_in["require_external_mesh"], bool):
+            return False, None, "[CFG-G004] require_external_mesh must be boolean"
+        out["mesh"]["require_external_mesh"] = mesh_in["require_external_mesh"]
 
     run_in = value.get("run") or {}
     stop_mode = str(run_in.get("stop_mode", "fixed")).strip().lower()
@@ -499,44 +503,38 @@ def _normalize_silo_config(value):
     if not isinstance(design, dict):
         return False, None, "덕트 설계 설정을 확인해 주세요"
     domains = out.get("design_domains") or {}
-    values = {}
-    for short, key, default in (("A", "A_mm", 20), ("B", "B_layers", 12),
-                                ("C", "C_mm", 5), ("D", "D_count", 6)):
-        try: number = finite_number(design.get(short, default), short, integer=True)
-        except (TypeError, ValueError): return False, None, "A/B/C/D 설정을 확인해 주세요"
-        if number not in set(domains.get(key) or []):
-            return False, None, f"{short} 설정이 허용 범위에 없습니다"
-        values[short] = number
     kind = str(silo.get("kind") or "custom").strip().lower()
     if kind not in ("custom", "original", "optimized"):
         return False, None, "저장고 설계 구분을 확인해 주세요"
-    normalized_silo = {"kind": kind, "design": values}
+    if kind == "original":
+        from tmc49_full_tank.tools.silo_contract import original_design
+        try:
+            values = original_design(silo)
+        except ValueError as exc:
+            return False, None, str(exc)
+    else:
+        values = {}
+        for short, key, default in (("A", "A_mm", 20), ("B", "B_layers", 12),
+                                    ("C", "C_mm", 5), ("D", "D_count", 6)):
+            try: number = finite_number(design.get(short, default), short, integer=True)
+            except (TypeError, ValueError): return False, None, "A/B/C/D 설정을 확인해 주세요"
+            if number not in set(domains.get(key) or []):
+                return False, None, f"{short} 설정이 허용 범위에 없습니다"
+            values[short] = number
+    normalized_silo = {**json.loads(json.dumps(silo)), "kind": kind, "design": values}
     geometry_model = str(silo.get("geometry_model") or "").strip()
     if geometry_model:
         if geometry_model != "equivalent_boundary_ports_v1":
-            return False, None, "선택할 수 없는 저장고 형상 모델입니다"
+            return False, None, "[CFG-G004] Unsupported silo geometry model"
         assumptions_in = silo.get("geometry_assumptions", {})
         if not isinstance(assumptions_in, dict):
-            return False, None, "저장고 등가 형상 설정을 확인해 주세요"
-        try:
-            ports_per_layer = finite_number(assumptions_in.get("ports_per_layer", 4), "층별 개수", integer=True)
-            z_min = finite_number(assumptions_in.get("layer_z_min_m", 0.25 if kind == "original" else 0.05), "최소 높이")
-            z_max = finite_number(assumptions_in.get("layer_z_max_m", 0.75 if kind == "original" else 0.95), "최대 높이")
-            ring_radius = finite_number(assumptions_in.get("bottom_ring_radius_m", 0.34), "하부 반경")
-        except (TypeError, ValueError):
-            return False, None, "저장고 등가 형상 값을 확인해 주세요"
-        if not (1 <= ports_per_layer <= 64 and 0 < z_min <= z_max < pub["grain_height_m"]
-                and 0 < ring_radius < pub["storage_diameter_m"] / 2.0):
-            return False, None, "저장고 등가 형상 범위를 확인해 주세요"
+            return False, None, "[CFG-G005] geometry_assumptions must be an object"
         normalized_silo["geometry_model"] = geometry_model
-        normalized_silo["geometry_assumptions"] = {
-            "ports_per_layer": ports_per_layer,
-            "layer_z_min_m": z_min,
-            "layer_z_max_m": z_max,
-            "bottom_outlets_enabled": bool(assumptions_in.get("bottom_outlets_enabled", kind != "original")),
-            "bottom_ring_radius_m": ring_radius,
-            "source": str(assumptions_in.get("source") or "")[:500],
-        }
+        # Preserve incomplete drafts; runtime preflight requires explicit reviewed choices
+        normalized_silo["geometry_assumptions"] = json.loads(json.dumps(assumptions_in))
+    for key in ("assumptions", "study", "_studio"):
+        if key in value:
+            out[key] = json.loads(json.dumps(value[key]))
     out["silo"] = normalized_silo
     out["_해석유형"] = "grain_silo"
     out["schema_version"] = 3
@@ -3856,6 +3854,14 @@ class H(BaseHTTPRequestHandler):
             if not ok_silo:
                 self._json({"ok": False, "msg": msg_silo}, 400); return
             body["config"] = incoming_cfg
+        # Validate new silo geometry before hardware preparation or active-case writes
+        if mode == "fresh" and isinstance(incoming_cfg, dict) and incoming_cfg.get("_해석유형") == "grain_silo":
+            from tmc49_full_tank.tools.silo_contract import validate_runtime
+            try:
+                validate_runtime(incoming_cfg)
+            except ValueError as exc:
+                self._json({"ok": False, "msg": str(exc)}, 400)
+                return
         run_mode = _solver_mode()
         if mode in ("resume", "resume_archived"):
             check_rid = (_project_key(body.get("selected_rid")) if mode == "resume_archived" else _active_rid())

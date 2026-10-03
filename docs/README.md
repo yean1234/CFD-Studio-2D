@@ -28,6 +28,8 @@
 - [개발 규칙](code-conventions.md)
 - [외부 구성요소](../THIRD_PARTY_NOTICES.md)
 
+- [사일로 실행·에이전트 연결 점검](silo-agent-debug-20261003.md)
+
 ## 이전 검토 기록
 
 - 파일명에 날짜가 있는 검토·실행 보고서는 해당 날짜의 코드와 결과에 대한 기록

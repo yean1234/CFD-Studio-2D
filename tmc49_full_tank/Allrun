@@ -23,16 +23,18 @@ NP=${NP:-$(( $(nproc) * 6 / 10 ))}
 [ "$NP" -lt 1 ] && NP=1
 # CFD Studio가 전달한 NP는 이미 논리 CPU의 최대 80%로 제한된다.
 # 여기서 물리 코어 수로 다시 줄이면 32스레드 PC의 목표 사용량에 도달하지 못하므로 재제한하지 않는다.
-foamDictionary -entry numberOfSubdomains -set "$NP" system/decomposeParDict > /dev/null
+foamDictionary -entry numberOfSubdomains -set "$NP" system/decomposeParDict > /dev/null || exit $?
 echo "병렬 코어: $NP"
 
-runApplication blockMesh
-[ "$ANALYSIS" != grain_silo ] || runApplication topoSet
-[ "$ANALYSIS" != grain_silo ] || [ ! -f system/createPatchDict ] || runApplication createPatch -overwrite
-cp -r 0.orig 0
-runApplication checkMesh
-[ "$ANALYSIS" = grain_silo ] || runApplication setFields
-runApplication decomposePar
+runApplication -overwrite blockMesh || exit $?
+[ "$ANALYSIS" != grain_silo ] || runApplication -overwrite topoSet || exit $?
+[ "$ANALYSIS" != grain_silo ] || [ ! -f system/createPatchDict ] || runApplication -overwrite createPatch -overwrite || exit $?
+cp -r 0.orig 0 || exit $?
+runApplication -overwrite checkMesh || exit $?
+# Some OpenFOAM checks report failure in the log despite a zero exit status
+grep -q "Mesh OK\." log.checkMesh || { echo "[CFG-G006] Mesh quality check did not pass"; exit 1; }
+[ "$ANALYSIS" = grain_silo ] || runApplication -overwrite setFields || exit $?
+runApplication -overwrite decomposePar || exit $?
 runParallel $(getApplication)
 SOLVER_RC=$?
 if [ "$SOLVER_RC" -ne 0 ]; then
