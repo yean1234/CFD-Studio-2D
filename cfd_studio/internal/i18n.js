@@ -3,6 +3,7 @@
 'use strict';
 const supported=['ko','en','ja'],key='cfd-studio-language';
 const messages=Object.create(null);
+add("외부 에이전트 조작 중","External agent operating","外部エージェント操作中");
 add("자료 확인","Reviewing inputs","資料確認");
 add("초안 작성","Preparing draft","下書き作成");
 add("코드 수정","Editing code","コード修正");

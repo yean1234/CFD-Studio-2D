@@ -25,7 +25,7 @@ test('visible tabs acknowledge the exact rendered revision',async()=>{
 test('older response cannot clear a user pause',async()=>{
  const responses=[snapshot(1),{...snapshot(3),paused:true},snapshot(2)];
  const bridge=client({fetch:async()=>reply(responses.shift()),tab:'tab',visible:()=>false});
- await bridge.refresh();await bridge.pause(true);await bridge.refresh();
+ await bridge.refresh();await bridge.stop();await bridge.refresh();
  assert.equal(bridge.snapshot().paused,true);assert.equal(bridge.snapshot().state.revision,3);
 });
 test('loss of connection preserves the last task with disconnected status',async()=>{
@@ -39,4 +39,18 @@ test('server restart permits revision reset without keeping the previous task',a
  const responses=[snapshot(15),{server:'new',revision:0,task:null,paused:false}];
  const bridge=client({fetch:async()=>reply(responses.shift()),tab:'tab',visible:()=>false});
  await bridge.refresh();await bridge.refresh();assert.equal(bridge.snapshot().shown,false);
+});
+
+test('stop and terminal states hide controls without clearing pause',()=>{
+ const value=snapshot();
+ assert.equal(presentation({...value,paused:true}).shown,false);
+ for(const stage of ['completed','failed'])assert.equal(presentation({...value,task:{...value.task,stage,status:stage}}).shown,false);
+ assert.equal(presentation({...value,paused:true}).paused,true);
+});
+test('activation keeps ownership token private and finish uses that owner',async()=>{
+ const calls=[];
+ const bridge=client({fetch:async(url,options)=>{calls.push(JSON.parse(options.body));return reply({...snapshot(),token:'owner'});},tab:'tab'});
+ await bridge.activate({task:'Review'});
+ assert.equal(bridge.snapshot().state.token,undefined);
+ await bridge.finish();assert.equal(calls[1].token,'owner');
 });

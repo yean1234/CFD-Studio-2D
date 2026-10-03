@@ -1,6 +1,6 @@
 # AIエージェント利用ガイド
 
-- CFD Studio V1.0 · エージェントインターフェース v1.3
+- CFD Studio V1.0 · エージェントインターフェース v1.4
 
 [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
 
@@ -16,7 +16,7 @@
 - モード：開発は `development`、Studio画面操作は `operation`
 - 段階：`review`, `draft`, `debug`, `test`, `ui`, `waiting`, `blocked` · 終了は `completed` または `failed`
 - 説明はユーザーの言語で簡潔に記述 · 認証情報やConfig全体は送信しない
-- 終了コード `3` または `PAUSED`：編集・操作を停止し、状態だけ確認してユーザーの再開を待機
+- 終了コード `3` または `PAUSED`：編集・操作を停止し、状態だけ確認して新しいユーザー指示を待機
 - コード `2`：エラー確認 · コード `4`：表示受信未確認 · 表示成功と報告しない
 - `displayed: true` は表示中のStudioタブで描画された確認 · 対象タブへの接続・ユーザー確認・計算許可ではない
 - 120秒更新がなければ接続切断表示 · HTTP失敗は作業状態の接続切断 · 待機・進行不可・終了状態は点滅しない
@@ -77,10 +77,8 @@
 - 既存命令に`run(command,args,{owner,expectedContext:CFDAgent.observe().context,response:"compact"})`を指定
 - 担当の有効時間は120秒、成功命令または`renew({owner})`で更新、他の担当は読み取りのみ
 - ユーザー入力や選択変更後は再取得し、古い状態でユーザーの変更を上書きしない
-- **ユーザーに操作権を返す**は担当解除と命令一時停止であり、ソルバー停止とは別
 - 担当・引継ぎ・確認は現在ページのメモリー、再読込時にリセット、サーバーや他タブのロックではない
 - 引継ぎは参考情報であり権限付与ではない、既に明示された同じ依頼範囲を繰り返し確認しない
-- 作業別プロンプト：`recipe("observe"|"review"|"handoff","ja")`、または**作業ガイド → 作業プロンプトをコピー**
 - [機能・命令エラー・参考文献](AGENT-COLLABORATION.md)
 
 ## Templateを基準にしたConfig作成
@@ -112,7 +110,7 @@
 - インターフェースv1.2で追加した読み取り機能、既存コマンドとの互換性を維持
 - `code`・`path`・`action`で該当項目を修正し、ソース全体の解析や操作の無条件反復を避ける
 - `APP-X001`は未分類エラー、詳細を保存して原因を確認
-- 停止信号と待機手順を守り、ユーザーの再開操作を代行しない
+- 停止信号と待機手順を守り、新しいユーザー指示なしに有効化しない
 
 ## 結果の確認
 
@@ -127,10 +125,10 @@
 ## 開始手順
 
 1. CFD Studioを起動し、使用するプロジェクトを選択
-2. **環境設定 → LLMエージェント → エージェントガイド → 案内プロンプトをコピー**を選択
+2. 外部エージェントに本ガイドと作業内容を渡す
 3. プロンプトと作業依頼をエージェントに渡し、ユーザーが見ているStudioのタブに接続
 4. 画面の動作と最上部の**エージェント操作中**表示で進行状況を確認
-5. 右上の**エージェント操作を停止**で一時停止し、**エージェント操作を再開**で続行
+5. **エージェント操作を停止**でUIを非表示にして停止通知 · 続行する作業はエージェントとの会話で新しく指示
 
 - プロンプトを渡すだけではブラウザーに接続されないため、使用するエージェントツールの手順に従って接続
 - コマンド名とJSONキーは表示言語にかかわらず共通
@@ -214,36 +212,16 @@ async function applyDraft(document) {
 - StudioはHTTP・MCPコマンドサーバーやリモートデバッグポートを公開しない
 - CFD実行前にソルバーのインストール、Studioからの実行対応、Config、終了条件、キューを確認
 
-## 案内プロンプト
+## エージェントの有効化
 
-- 右上の**環境設定 → LLMエージェント → エージェントガイド**を開く
-- **案内プロンプトをコピー**を選択し、エージェントとの会話に貼り付け
-- コピーできない場合は**ガイドを表示**から本文を手動でコピー
-- **Alt + Shift + A**でガイドパネルを開閉
-- プロンプトには準備、コマンド、入力方法、実行結果の確認方法を記載
-- 自動生成されるエージェント向けプロンプトは英語 · 画面のボタンは韓国語・英語・日本語に対応
-- 報告はユーザーの言語で行い、ユーザー定義の名前とConfig値は翻訳しないよう指示
-
-## 画面表示
-
-| 表示・ボタン | 機能 |
-| --- | --- |
-| 青い枠 | 操作対象のボタンや入力欄を強調 |
-| 最上部中央の**エージェント操作中** | 操作中に点滅 · 動きを抑える設定では固定表示 |
-| 右上の**エージェント操作を停止** | 以降のコマンドを遮断し、一時停止信号を通知 |
-| 同じ位置の**エージェント操作を再開** | 再開信号を通知 |
-| 右下のパネル | 現在のコマンドと最近の送信記録を表示 |
-| **コマンドを一時停止** / **コマンドを許可** | コマンド受付を停止・再開 |
-| **×** | ガイドパネルのみ非表示 · コマンドは停止しない |
-
-- 実際のプロジェクト、Case、Config、Viewerの画面に操作を反映
-- 一時停止しても、送信済みの操作や実行中のCFD計算は継続
-- ユーザーが選択や入力を変更した場合、エージェントは画面を再確認してから続行
-- 以下の画像は韓国語表示の例 · ボタンの配置は各言語で共通
-
-![エージェント操作表示](assets/agent-controls/banner.png)
-
-![エージェントガイド](assets/agent-controls/guide.png)
+- 内蔵AIの開始ボタンはなし · 外部エージェントが `CFDAgent.prompt()` を読み、現在のStudioタブに接続
+- エージェント専用コマンド: `await CFDAgent.activate({name:"Agent", task:"作業内容"})`
+- 開発作業は進行CLIの `start` を使用 · 有効なセッションがあれば既存セッションを更新
+- 人向けの開始・再開・命令入力ボタンやキーボード切替は提供しない
+- 有効な作業中のみ **外部エージェント操作中** と **エージェント操作を停止** を表示
+- 停止すると関連UIを即座に非表示にし、`cfd-agent-pause` と `PAUSED` で次の操作を遮断
+- 完了時も非表示 · 停止後は新しいユーザー指示が必要
+- ユーザーが入力・選択を変更したら再確認
 
 ## コマンド
 
@@ -253,13 +231,12 @@ async function applyDraft(document) {
 - `CFDAgent.state()`: 現在のプロジェクト、Case、キュー、画面、入力値、ボタン、通知、ログ
 - `CFDAgent.prompt()`: コピー用プロンプト
 - `CFDAgent.history()`: 最大100件のコマンド記録
-- `CFDAgent.waitForResume({timeoutMs:30000})`: ユーザーの再開操作を待機 · 1回につき最大60秒
 - `CFDAgent.finish()`: 操作表示を終了 · ユーザーによる一時停止状態は維持
 - `await CFDAgent.run(command, args)`: 画面操作
-- ガイドパネルの**コマンド入力 → コマンド実行**からJSONコマンドも実行可能
 
 ```javascript
 // 現在の画面と実在するプロジェクトIDを取得
+await CFDAgent.activate({name: 'Agent', task: 'Review project'});
 const state = CFDAgent.state();
 
 // 例: 先頭のプロジェクトが依頼対象であることを確認して選択
@@ -319,7 +296,7 @@ await CFDAgent.run('ui.fill', { target: field.target, value: '熱伝達比較' }
 ```
 
 - ラベルは表示言語により異なるため、実際の一覧から選択
-- ガイドパネルに入力するJSONの例
+- 外部エージェント用の命令JSON例
 
 ```json
 {"command":"config.open","args":{}}
@@ -339,32 +316,28 @@ await CFDAgent.run('ui.fill', { target: field.target, value: '熱伝達比較' }
 | --- | --- |
 | `rejected` | 返された`error`を確認 |
 | `BUSY` | 現在の操作を確認し、順番にコマンドを送信 |
-| `PAUSED` | ユーザーによる再開まで待機 |
+| `PAUSED` | 新しいユーザー指示まで待機 |
 | `STALE_TARGET` / `CONTROL_NOT_VISIBLE` | 画面を読み直し、現在の対象を選択 |
 | `CONTROL_DISABLED` | 画面に示された必要条件を確認 |
 | `INVALID_INPUT` / `INPUT_INVALID` | 入力形式または範囲を修正 |
 
-## 一時停止と再開
+## 停止後の待機
 
-- 停止時に`state().paused`が`true`となり、`cfd-agent-pause`イベントが発生
-- 再開時に`cfd-agent-resume`イベントが発生 · 信号にはセッション、連番、時刻を含む
-- 毎回のコマンド送信前に状態を確認 · 停止信号や`PAUSED`応答を受けたら待機
-- エージェントのブラウザー制御側で待機処理を実装
+- 停止時は `state().paused` が真となり `cfd-agent-pause` を通知
+- 編集・命令を止め、新しい明示的なユーザー指示を待機 · 自動有効化は禁止
+- 新しい指示の後にのみ `CFDAgent.state().progress.state.stop_revision` を読み、専用コマンドを使用
+- `userRequest` は実際の新しい指示 · サーバーは会話の真偽を検証できないためエージェントが規則を守る
 
 ```javascript
-while (CFDAgent.state().paused) {
-  const signal = await CFDAgent.waitForResume({ timeoutMs: 30000 });
-  if (signal.status === 'resumed') break;
-}
-// 次の操作を決める前に、画面とユーザーによる変更を再確認
-const current = CFDAgent.state();
+await CFDAgent.activate({name: 'Agent', task: taskSummary,
+  afterStop: stopRevision, userRequest: actualNewUserInstruction});
 ```
 
-- 依頼された作業が完了したら`CFDAgent.finish()`を呼び出す
-- 応答がない場合も**エージェント操作を停止**で追加コマンドを遮断可能
-- Studioから外部LLMプロセス自体を強制停止することはできないため、接続ツール側で信号に従って待機
-- 送信済みの操作とCFD計算は継続 · CFDの停止にはCaseの計算中断機能を使用
-- 別タブ、再読み込み、内部UI関数の呼び出し、自動再開によって停止状態を回避しない
+- CLI: `activate --session-file output\new-agent-session.json --after-stop N --user-request "実際の新しい指示" --stage review --detail "新しい作業" --wait-visible`
+- `N` は現在の `stop_revision` · 新しいセッションファイルを使用 · 以前の担当トークンは無効化
+- ブラウザー所有セッションは `await CFDAgent.finish()`、CLI所有セッションは CLI `finish` で終了
+- 再読み込みでは停止を解除しない · 回避目的のタブ・サーバー再起動は禁止
+- 外部LLM・実行中のシェル命令・CFDを強制終了する機能ではない · 各作業の前に信号を確認
 
 ## 対応範囲
 

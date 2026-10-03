@@ -9,7 +9,7 @@ const labels = {
 function presentation(state, available=true){
   const task=state?.task;
   return {
-    shown:!!task || !!state?.paused,
+    shown:!!task && !state?.paused && !['completed','failed'].includes(task.stage),
     paused:!!state?.paused,
     title:!available && task ? '작업 상태 연결 끊김' : state?.paused ? labels.paused : labels[task?.status] || '',
     mode:task?.mode==='development' ? '개발 작업' : 'Studio 작업',
@@ -18,13 +18,14 @@ function presentation(state, available=true){
   };
 }
 function client({fetch,notify=()=>{},tab,visible=()=>true}){
-  let state=null,available=false,pending=null;
+  let state=null,available=false,pending=null,owner=null;
   async function request(body){
     const response=await fetch('/api/agent/activity',{
       cache:'no-store',signal:AbortSignal.timeout(3000),
       ...(body ? {method:'POST',headers:{'Content-Type':'application/json','X-CFD-Activity':'1'},body:JSON.stringify(body)} : {})
     });
     const value=await response.json();
+    if(value.token){owner=value.token;delete value.token;}
     const next=response.ok ? value : value.state;
     if(next && typeof next.revision==='number' &&
        (!state || next.server!==state.server || next.revision>=state.revision))state=next;
@@ -48,12 +49,24 @@ function client({fetch,notify=()=>{},tab,visible=()=>true}){
     return pending;
   }
   function snapshot(){return {state,available,...presentation(state,available)};}
-  async function pause(value){
-    try{await request({action:value ? 'pause' : 'resume'});}
+  async function stop(){
+    // Hide locally before waiting for the server; a failed delivery never resumes actions
+    state={...(state||{}),paused:true};
+    notify();
+    try{await request({action:'pause'});}
     catch(error){available=false;notify();throw error;}
     return snapshot();
   }
-  return {refresh,pause,snapshot};
+  async function activate({name='AI agent',task,afterStop,userRequest}={}){
+    await request({action:'activate',name,mode:'operation',stage:'ui',detail:task,
+      after_stop:afterStop,user_request:userRequest});
+    return snapshot();
+  }
+  async function finish(){
+    if(owner)await request({action:'finish',token:owner,stage:'completed',detail:'Agent session finished'});
+    return snapshot();
+  }
+  return {refresh,stop,activate,finish,snapshot};
 }
 if(typeof module!=='undefined')module.exports={client,presentation,labels};
 if(!root.document)return;

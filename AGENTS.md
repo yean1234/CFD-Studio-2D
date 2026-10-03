@@ -9,7 +9,7 @@
 ## Agent progress
 
 - Report development and operation stages with `cfd_studio/internal/agent_progress.py` as described in `docs/CFD-STUDIO-AGENT-GUIDE.md`
-- Check pause before each bounded action; do not continue edits or commands after `PAUSED` until the user resumes
+- Check pause before each bounded action; do not continue edits or commands after `PAUSED` until a new explicit user instruction arrives; then use the documented agent-only activate command with the current stop revision
 - Use `--wait-visible` before claiming a stage appeared in Studio; file changes alone do not update the interface
 - If the progress endpoint or current tab is unavailable, report that limitation in chat; do not claim attachment or restart a live Studio blindly
 - Progress reports never replace visible Config review or authorize CFD execution

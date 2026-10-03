@@ -1,6 +1,6 @@
 # AI 에이전트 사용법
 
-- CFD Studio V1.0 · 에이전트 인터페이스 v1.3
+- CFD Studio V1.0 · 에이전트 인터페이스 v1.4
 
 [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
 
@@ -21,7 +21,7 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_progress.py fini
 ```
 
 - `output` 폴더가 없으면 먼저 생성 · 기존 세션 파일을 덮어쓰지 않음
-- 종료 코드 `3` 또는 `PAUSED`: 다음 파일 수정·명령을 중단하고 상태만 조회 · 사용자의 재개 대기
+- 종료 코드 `3` 또는 `PAUSED`: 다음 파일 수정·명령을 중단하고 상태만 조회 · 사용자의 새 지시 대기
 - 종료 코드 `2`: 오류 확인 · 코드 `4`: 화면 표시 수신 미확인 · 성공으로 보고하지 않음
 - `displayed: true`: 보이는 Studio 탭이 해당 상태를 렌더링했다는 수신 확인 · 사용자 검토·특정 탭 연결·계산 승인은 아님
 - 120초간 갱신이 없으면 **에이전트 연결 끊김** · 서버 통신 실패는 **작업 상태 연결 끊김** · 완료·대기·차단은 점멸하지 않음
@@ -82,10 +82,8 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_progress.py fini
 - `run(command,args,{owner,expectedContext:CFDAgent.observe().context,response:"compact"})`: 기존 명령을 간결한 응답으로 사용
 - 담당 유효 시간 120초 · 성공한 명령 또는 `renew({owner})`로 갱신 · 다른 담당이 있으면 읽기만 수행
 - 사용자가 입력이나 선택 대상을 바꾸면 오래된 context의 작업을 재조회 · 변경된 내용을 덮어쓰지 않음
-- **사용자에게 조작권 반환**은 담당 해제와 일시정지 · 현재 계산 중단과 별개
 - 담당·인계·검토는 현재 페이지의 메모리 · 재시작 후 재확인 · 서버·다른 탭까지 잠그지 않음
 - 인계는 참고 메모이며 권한 부여가 아님 · 이미 명확히 승인된 동일 작업을 반복 확인하지 않음
-- 작업별 프롬프트: `recipe("observe"|"review"|"handoff","ko")` · 화면의 **작업 안내 → 작업 프롬프트 복사**에서도 제공
 - [기능·명령·협업 오류·참고 문헌](AGENT-COLLABORATION.md)
 
 ## Template 기반 Config 작성
@@ -117,7 +115,7 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_progress.py fini
 - 인터페이스 v1.3의 추가 읽기 기능 · 기존 명령과 호환
 - 오류의 `code`·`path`·`action`으로 해당 입력만 수정 · 전체 소스 분석이나 같은 명령 반복부터 시작하지 않음
 - `APP-X001`: 분류되지 않은 오류 · 상세 내용을 보존하고 원인 확인
-- 일시정지 시 기존 대기 절차 유지 · 재개 버튼을 대신 누르거나 우회하지 않음
+- 일시정지 시 기존 대기 절차 유지 · 새 사용자 지시 없이 재활성화하지 않음
 
 ## 결과 확인
 
@@ -132,10 +130,10 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_progress.py fini
 ## 시작 순서
 
 1. CFD Studio를 실행하고 사용할 프로젝트 선택
-2. **환경 설정 → LLM 에이전트 → 에이전트 안내 → 안내 프롬프트 복사** 선택
+2. 외부 에이전트에게 이 지침서와 작업 내용 전달
 3. 사용하는 에이전트에 프롬프트와 작업 요청 전달 · 사용자가 보고 있는 Studio 탭에 연결
 4. 상단 **에이전트 조작 중** 표시와 화면에서 진행 상황 확인
-5. 멈추려면 오른쪽 상단 **에이전트 조작 중단** 선택 · 계속하려면 **에이전트 조작 재개** 선택
+5. **에이전트 조작 중단**을 누르면 관련 UI 숨김과 중단 신호 전송 · 계속할 작업은 에이전트 대화에서 새로 지시
 
 - 프롬프트 전달만으로 브라우저 연결이 완료되지는 않음 · 연결 방법은 사용하는 에이전트 도구에 따름
 - 명령 이름과 JSON 키는 화면 언어와 관계없이 동일
@@ -219,32 +217,16 @@ async function applyDraft(document) {
 - Studio는 외부 HTTP·MCP 명령 서버나 원격 디버깅 포트를 열지 않음
 - 계산 전 솔버 설치 상태와 실행 연결, Config·종료 조건·대기열 확인
 
-## 안내 프롬프트
+## 에이전트 활성화
 
-- 오른쪽 상단 **환경 설정 → LLM 에이전트 → 에이전트 안내**
-- **안내 프롬프트 복사**를 눌러 에이전트 대화에 전달
-- 복사가 제한된 브라우저에서는 **안내 보기**의 내용을 직접 복사
-- 단축키 **Alt + Shift + A**: 에이전트 안내 펼치기·접기
-- 안내에는 사전 준비, 명령 목록, 입력 방법, 실행·검증 상태 판독 기준 포함
-- 안내 프롬프트는 에이전트용 영문 · 화면 버튼은 한국어·영어·일본어 지원
-
-## 화면 표시
-
-- 명령 대상 버튼·입력창을 파란 테두리로 강조
-- 실제 프로젝트·Case 선택과 Config·Viewer 화면에 동작 반영
-- 최상단 가운데 **에이전트 조작 중** 표시 · 천천히 깜박이며, 움직임 최소화 설정에서는 고정 표시
-- 최상단 오른쪽 **에이전트 조작 중단**: 이후 명령 차단, 에이전트에 일시정지 신호 전달
-- 일시정지 후 같은 위치의 **에이전트 조작 재개**로 재개 신호 전달
-- 오른쪽 아래에 현재 명령과 최근 전달 기록 표시
-- **명령 일시정지**: 이후 에이전트 명령 차단
-- **명령 허용**: 명령 수신 재개
-- 일시정지는 이미 전달한 동작이나 진행 중인 CFD 계산을 중단하지 않음
-- **×**: 안내 패널만 숨김 · 에이전트 명령 차단은 **명령 일시정지** 사용
-- 사용자가 동시에 선택·입력을 변경한 경우 에이전트는 현재 화면을 다시 확인한 뒤 진행
-
-![에이전트 조작 표시](assets/agent-controls/banner.png)
-
-![에이전트 안내](assets/agent-controls/guide.png)
+- 내장 AI 실행 버튼 없음 · 외부 에이전트가 `CFDAgent.prompt()`를 읽고 현재 Studio 탭에 연결
+- 에이전트 전용 명령: `await CFDAgent.activate({name:"Agent", task:"작업 내용"})`
+- 개발 작업은 진행 CLI의 `start` 사용 · 활성 세션이 있으면 기존 세션으로 갱신
+- 사람에게 시작·재개·명령 실행 버튼이나 키보드 단축키를 제공하지 않음
+- 작업 중에만 상단 **외부 에이전트 조작 중**과 **에이전트 조작 중단** 표시
+- 중단 버튼을 누르면 관련 UI 즉시 숨김 · `cfd-agent-pause` 신호와 `PAUSED` 응답으로 다음 작업 차단
+- 완료 시에도 관련 UI 숨김 · 재시작하려면 새로운 사용자 지시 필요
+- 준비·진행·검토는 같은 화면에서 확인 · 사용자 입력과 선택이 바뀌면 다시 관측
 
 ## 명령
 
@@ -254,13 +236,12 @@ async function applyDraft(document) {
 - `CFDAgent.state()`: 현재 프로젝트·Case·대기열·화면·입력값·버튼·알림·로그
 - `CFDAgent.prompt()`: 복사용 안내 프롬프트
 - `CFDAgent.history()`: 최근 명령 기록 최대 100개
-- `CFDAgent.waitForResume({timeoutMs:30000})`: 사용자 재개 신호 대기 · 최대 60초씩 대기 가능
 - `CFDAgent.finish()`: 작업 종료 표시 · 사용자의 일시정지 상태는 유지
 - `await CFDAgent.run(명령, 인자)`: 화면 조작
-- 안내 패널의 **명령 입력 → 명령 실행**에서도 JSON 명령 실행 가능
 
 ```javascript
 // 현재 화면과 프로젝트·Case 식별자 확인
+await CFDAgent.activate({name: 'Agent', task: 'Review project'});
 const state = CFDAgent.state();
 
 // 첫 프로젝트가 요청 대상인지 확인한 뒤 실제 식별자로 선택
@@ -322,7 +303,7 @@ await CFDAgent.run('ui.fill', { target: field.target, value: '열전달 비교' 
 ```
 
 - 입력창 라벨은 표시 언어에 따라 다르므로 실제 목록에서 선택
-- 안내 패널에서 실행하는 JSON 예시
+- 외부 에이전트가 사용하는 명령 JSON 예시
 
 ```json
 {"command":"config.open","args":{}}
@@ -336,7 +317,7 @@ await CFDAgent.run('ui.fill', { target: field.target, value: '열전달 비교' 
 - 알림에 실패 사유가 있으면 입력이나 연결 상태 확인 후 진행
 - `status: "rejected"`: 전달 거부 · `error` 확인
 - `BUSY`: 다른 명령 전달 중 · 현재 동작을 확인하고 순차 진행
-- `PAUSED`: 사용자가 명령 일시정지 선택
+- `PAUSED`: 사용자가 에이전트 조작 중단 선택
 - `STALE_TARGET` / `CONTROL_NOT_VISIBLE`: 화면을 다시 읽고 현재 항목 선택
 - `CONTROL_DISABLED`: 현재 조건에서 비활성 · 화면의 필요 조건 확인
 - `INVALID_INPUT` / `INPUT_INVALID`: 입력 형식·범위 수정
@@ -344,27 +325,23 @@ await CFDAgent.run('ui.fill', { target: field.target, value: '열전달 비교' 
 - 대기열 시작은 다른 프로젝트의 Case에도 적용될 수 있으므로 전체 순서 확인
 - 시각화율·수치 검사·계산 완료·실험 검증을 구분해서 보고
 
-## 일시정지 신호
+## 중단 후 대기
 
-- 중단 시 `state().paused`가 `true`로 변경되고 `cfd-agent-pause` 이벤트 발생
-- 재개 시 `cfd-agent-resume` 이벤트 발생 · 신호에 세션·순번·발생 시각 포함
-- 에이전트는 매 명령 전 상태를 확인하고 일시정지 신호나 `PAUSED` 응답을 받으면 대기
-- 아래 예시는 에이전트 연결 도구에서 사용하는 대기 처리
+- 중단 시 `state().paused`가 참이 되고 `cfd-agent-pause` 이벤트 발생
+- 에이전트는 다음 편집·명령을 멈추고 새로운 사용자 지시를 기다림 · 자동 재활성화 금지
+- 새 지시를 받은 뒤에만 `CFDAgent.state().progress.state.stop_revision`을 읽고 아래 전용 명령 사용
+- `userRequest`에는 실제 새 지시를 전달 · 서버는 대화의 진위를 검증하지 않으므로 에이전트가 이 규칙을 준수해야 함
 
 ```javascript
-while (CFDAgent.state().paused) {
-  const signal = await CFDAgent.waitForResume({ timeoutMs: 30000 });
-  if (signal.status === 'resumed') break;
-}
-// 현재 화면과 사용자 변경을 다시 확인한 뒤 다음 명령 결정
-const current = CFDAgent.state();
+await CFDAgent.activate({name: 'Agent', task: taskSummary,
+  afterStop: stopRevision, userRequest: actualNewUserInstruction});
 ```
 
-- 작업을 마치면 `CFDAgent.finish()` 호출 · 상단 조작 표시 해제
-- 에이전트가 응답하지 않으면 사용자가 **에이전트 조작 중단**으로 추가 명령 차단 가능
-- Studio가 외부 LLM 프로세스 자체를 강제 정지하지는 않음 · 연결 도구가 신호를 따라 대기하도록 안내 프롬프트 적용
-- 이미 전달한 화면 동작과 CFD 계산은 유지 · 계산 중단은 기존 Case의 **실행 중단** 기능 사용
-- 일시정지를 우회하기 위한 새 탭 연결·새로고침·직접 UI 호출·자동 재개 금지
+- CLI: `activate --session-file output\new-agent-session.json --after-stop N --user-request "실제 새 지시" --stage review --detail "새 작업" --wait-visible`
+- `N`은 현재 `stop_revision` · 기존 파일을 덮어쓰지 않고 새 세션 파일 사용 · 이전 담당 토큰 무효화
+- 브라우저 소유 세션은 `await CFDAgent.finish()`, CLI 소유 세션은 CLI `finish`로 종료
+- 페이지 새로고침은 중단을 해제하지 않음 · 우회 목적의 탭·서버 재시작 금지
+- 이미 진행 중인 셸 명령·CFD와 외부 LLM 프로세스의 강제 종료 기능은 아님 · 에이전트가 단계 사이에 신호 확인
 
 ## 범위
 

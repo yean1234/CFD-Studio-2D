@@ -17,7 +17,7 @@
 - [한국어](CFD-STUDIO-AGENT-GUIDE.md)
 - [English](CFD-STUDIO-AGENT-GUIDE.en.md)
 - [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
-- Studio V1.0 · 에이전트 인터페이스 v1.3
+- Studio V1.0 · 에이전트 인터페이스 v1.4
 - 연결 확인·단계별 복구·오프라인 초안의 출처·개발 모드 절차 포함
 
 ## 기술 자료

@@ -37,8 +37,14 @@ class ActivityTests(unittest.TestCase):
             with self.assertRaisesRegex(ActivityError, 'PAUSED'):
                 self.activity.dispatch(body)
         self.assertEqual(self.activity.snapshot()['task']['status'], 'paused')
-        self.activity.dispatch({'action': 'resume'})
-        self.assertEqual(self.activity.snapshot()['task']['status'], 'disconnected')
+        revision = self.activity.snapshot()['stop_revision']
+        resumed = self.activity.dispatch({'action': 'activate', 'name': 'Agent', 'mode': 'development',
+                                         'stage': 'debug', 'detail': 'Continue review',
+                                         'after_stop': revision, 'user_request': 'Continue the requested review'})
+        self.assertFalse(resumed['paused'])
+        self.assertNotEqual(resumed['token'], owner['token'])
+        with self.assertRaisesRegex(ActivityError, 'OWNER_MISMATCH'):
+            self.activity.dispatch({'action': 'update', 'token': owner['token'], 'stage': 'test', 'detail': 'Old work'})
 
     def test_expired_replacement_invalidates_old_owner(self):
         owner = self.start()
@@ -75,6 +81,18 @@ class ActivityTests(unittest.TestCase):
             with self.assertRaises(ActivityError):
                 self.activity.dispatch(body)
         self.assertIsNone(self.activity.snapshot()['task'])
+
+    def test_reactivation_requires_new_instruction_and_current_stop_revision(self):
+        self.start()
+        first = self.activity.dispatch({'action': 'pause'})
+        current = self.activity.dispatch({'action': 'pause'})
+        args = {'action': 'activate', 'name': 'Agent', 'mode': 'development', 'stage': 'test', 'detail': 'Review'}
+        for extra in ({}, {'after_stop': current['stop_revision']},
+                      {'after_stop': first['stop_revision'], 'user_request': 'Continue'}):
+            with self.assertRaisesRegex(ActivityError, 'PAUSED'):
+                self.activity.dispatch({**args, **extra})
+        with self.assertRaisesRegex(ActivityError, 'UNKNOWN_ACTION'):
+            self.activity.dispatch({'action': 'resume'})
 
     def test_history_bounded_and_snapshots_are_independent(self):
         owner = self.start()

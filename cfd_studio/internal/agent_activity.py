@@ -27,6 +27,7 @@ class Activity:
         self.task = None
         self.paused = False
         self.revision = 0
+        self.stop_revision = None
         self.deadline = 0
         self.history = deque(maxlen=20)
         self.viewers = {}
@@ -41,7 +42,7 @@ class Activity:
         visible = any(seen['revision'] == self.revision and self.clock() - seen['at'] < 8
                       for seen in self.viewers.values())
         return {'server': self.server, 'revision': self.revision, 'task': task, 'paused': self.paused,
-                'displayed': visible, 'history': copy.deepcopy(list(self.history))}
+                'stop_revision': self.stop_revision, 'displayed': visible, 'history': copy.deepcopy(list(self.history))}
 
     def snapshot(self):
         with self.lock:
@@ -68,14 +69,18 @@ class Activity:
                     raise ActivityError('ACTIVITY_BUSY')
                 self.viewers[tab] = {'revision': revision, 'at': self.clock()}
                 return self._snapshot()
-            if action in ('pause', 'resume'):
-                self.paused = action == 'pause'
+            if action == 'pause':
+                self.paused = True
                 self.revision += 1
+                self.stop_revision = self.revision
                 return self._snapshot()
-            if action == 'start':
-                if self.paused:
+            if action in ('start', 'activate'):
+                if self.paused and (action != 'activate' or type(body.get('after_stop')) is not int
+                                    or body['after_stop'] != self.stop_revision
+                                    or not isinstance(body.get('user_request'), str)
+                                    or not body['user_request'].strip()):
                     raise ActivityError('PAUSED')
-                if self.task and self.task['stage'] not in TERMINAL and self.clock() < self.deadline:
+                if not self.paused and self.task and self.task['stage'] not in TERMINAL and self.clock() < self.deadline:
                     raise ActivityError('ACTIVITY_BUSY')
                 name = self._text(body.get('name'), 80)
                 detail = self._text(body.get('detail'), 240)
@@ -83,6 +88,9 @@ class Activity:
                 mode = body.get('mode')
                 if not isinstance(stage, str) or stage not in STAGES - TERMINAL or mode not in ('development', 'operation'):
                     raise ActivityError('ACTIVITY_INVALID_INPUT')
+                if self.paused:
+                    self._text(body.get('user_request'), 240)
+                self.paused = False
                 self.token = secrets.token_urlsafe(32)
                 self.task = {'id': secrets.token_hex(12), 'name': name, 'mode': mode,
                              'stage': stage, 'detail': detail}
@@ -106,7 +114,7 @@ class Activity:
             self.revision += 1
             self.history.append({key: self.task[key] for key in ('stage', 'detail', 'updated_at')})
             result = self._snapshot()
-            if action == 'start':
+            if action in ('start', 'activate'):
                 result['token'] = self.token
             return result
 
@@ -137,8 +145,8 @@ def route(handler, *, post=False, activity=ACTIVITY):
         if not 0 < length <= 4096:
             raise ActivityError('ACTIVITY_INVALID_INPUT')
         body = json.loads(handler.rfile.read(length))
-        # Only same-origin browser controls may issue user pause/resume receipts
-        if isinstance(body, dict) and body.get('action') in ('pause', 'resume', 'seen') and not origin:
+        # Only same-origin browser controls may issue user stop and display receipts
+        if isinstance(body, dict) and body.get('action') in ('pause', 'seen') and not origin:
             raise ActivityError('ACTIVITY_FORBIDDEN')
         handler._json(activity.dispatch(body))
     except ActivityError as exc:

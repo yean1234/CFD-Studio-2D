@@ -1,6 +1,6 @@
 # AI Agent Guide
 
-- CFD Studio V1.0 · Agent interface v1.3
+- CFD Studio V1.0 · Agent interface v1.4
 
 [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
 
@@ -16,7 +16,7 @@
 - Modes: `development` for source work, `operation` for Studio UI work
 - Stages: `review`, `draft`, `debug`, `test`, `ui`, `waiting`, `blocked`; finish with `completed` or `failed`
 - Keep details brief and in the user's language; never include credentials or complete Config values
-- Exit `3` or `PAUSED`: stop further edits and actions, read status only, wait for the user's Resume
+- Exit `3` or `PAUSED`: stop further edits and actions, read status only, wait for a new explicit user instruction
 - Exit `2`: inspect the error; exit `4`: no visible-tab render receipt, do not claim it appeared
 - `displayed: true` acknowledges rendering by a visible Studio tab; it does not prove intended-tab attachment, user review or permission to calculate
 - After 120 seconds without updates: Agent disconnected; HTTP failure: Progress connection lost; waiting, blocked and terminal states do not blink
@@ -77,10 +77,8 @@
 - Use existing commands with `run(command,args,{owner,expectedContext:CFDAgent.observe().context,response:"compact"})`
 - Operator lease: 120 seconds, renewed by successful commands or `renew({owner})`; other operators remain read-only
 - Reobserve after user edits or selection changes; never overwrite concurrent user changes from stale context
-- **Return control to user** clears the operator and pauses agent commands without stopping a solver
 - Operator, handoff and review are page-local memory and reset on reload; no server or cross-tab lock
 - Handoff is context, not authorization; do not ask again for the same already-authorized scope
-- Localized recipes: `recipe("observe"|"review"|"handoff","en")`, or **Workflow guide → Copy workflow prompt**
 - [Features, command errors and research references](AGENT-COLLABORATION.md)
 
 ## Template-based Config workflow
@@ -112,7 +110,7 @@
 - New read methods in interface v1.3; existing commands remain compatible
 - Use `code`, `path` and `action` to fix the affected input; avoid inspecting the entire source or blindly repeating actions
 - `APP-X001` means an unclassified error; retain its details and investigate
-- Honor pause signals and the existing wait workflow; never simulate the user's Resume action
+- Honor pause signals and the existing wait workflow; never reactivate without a new user instruction
 
 ## Result review
 
@@ -127,10 +125,10 @@
 ## Quick start
 
 1. Start CFD Studio and select the project to use
-2. Open **Settings → LLM agent → Agent guide → Copy agent prompt**
+2. Give this guide and the task to the external agent
 3. Give the prompt and your task to the agent, then connect it to the Studio tab you are viewing
 4. Follow the actions on screen and the **Agent operating** indicator at the top
-5. Select **Stop agent** at the top right to pause commands, then **Resume agent** to continue
+5. **Stop agent** hides operation UI and signals the agent to stop; give a new instruction in the agent conversation to continue
 
 - Copying the prompt does not connect the browser automatically · Follow your agent tool's connection procedure
 - Command names and JSON keys stay the same in every interface language
@@ -214,36 +212,16 @@ async function applyDraft(document) {
 - Studio does not expose an HTTP/MCP command server or enable a remote debugging port
 - Before running CFD, check solver installation, Studio execution support, Config, termination conditions and the queue
 
-## Agent prompt
+## Agent activation
 
-- Open **Settings → LLM agent → Agent guide** at the top right
-- Select **Copy agent prompt** and paste it into the agent conversation
-- If clipboard access is unavailable, select **Show guide** and copy the text manually
-- **Alt + Shift + A** opens or closes the guide panel
-- The prompt contains preparation steps, commands, input rules and checks for execution results
-- The generated agent prompt is in English · Interface buttons support Korean, English and Japanese
-- The prompt asks the agent to report in the user's language and preserve user-defined names and Config values
-
-## On-screen controls
-
-| Control or indicator | Function |
-| --- | --- |
-| Blue outline | Highlights the button or input being operated |
-| **Agent operating** at the top center | Blinks during agent activity · Remains static with reduced motion enabled |
-| **Stop agent** at the top right | Blocks subsequent commands and sends a pause signal |
-| **Resume agent** in the same position | Sends a resume signal |
-| Panel at the bottom right | Shows the current command and recent delivery records |
-| **Pause commands** / **Allow commands** | Pauses or resumes command acceptance |
-| **×** | Hides the guide panel without pausing commands |
-
-- Commands act on the actual project, Case, Config and Viewer controls
-- Pausing does not cancel an action already delivered or stop a running CFD calculation
-- If the user changes a selection or input, the agent must read the current screen again before continuing
-- The following screenshots show the Korean interface · Control positions are shared across languages
-
-![Agent activity indicator](assets/agent-controls/banner.png)
-
-![Agent guide panel](assets/agent-controls/guide.png)
+- No embedded AI start button; the external agent reads `CFDAgent.prompt()` and connects to the current Studio tab
+- Agent-only shortcut: `await CFDAgent.activate({name:"Agent", task:"Task summary"})`
+- Development uses progress CLI `start`; update the existing session if already active
+- No human-facing start, resume, command console or keyboard toggle
+- Only an active session shows **External agent operating** and **Stop agent**
+- Stop immediately hides agent UI, emits `cfd-agent-pause` and blocks subsequent actions with `PAUSED`
+- Completion hides agent UI; a new user instruction is required after a stop
+- Reobserve when the user changes inputs or selection
 
 ## Commands
 
@@ -253,13 +231,12 @@ async function applyDraft(document) {
 - `CFDAgent.state()`: current project, Case, queue, screen, inputs, buttons, notices and log
 - `CFDAgent.prompt()`: the prompt to copy
 - `CFDAgent.history()`: up to 100 recent command records
-- `CFDAgent.waitForResume({timeoutMs:30000})`: wait for user resume · Maximum wait per call is 60 seconds
 - `CFDAgent.finish()`: clear the activity indicator while preserving a user pause
 - `await CFDAgent.run(command, args)`: operate a screen control
-- The guide panel also accepts JSON through **Command input → Run command**
 
 ```javascript
 // Read the current screen and real project identifiers
+await CFDAgent.activate({name: 'Agent', task: 'Review project'});
 const state = CFDAgent.state();
 
 // Example: select the first listed project only if it is the requested one
@@ -319,7 +296,7 @@ await CFDAgent.run('ui.fill', { target: field.target, value: 'Heat transfer comp
 ```
 
 - Labels depend on the interface language · Read the actual label before selecting a control
-- JSON example for the guide panel
+- Command JSON example for the external agent
 
 ```json
 {"command":"config.open","args":{}}
@@ -339,32 +316,28 @@ await CFDAgent.run('ui.fill', { target: field.target, value: 'Heat transfer comp
 | --- | --- |
 | `rejected` | Inspect the returned `error` |
 | `BUSY` | Inspect the current action, then issue commands sequentially |
-| `PAUSED` | Wait for the user to resume |
+| `PAUSED` | Wait for a new explicit user instruction |
 | `STALE_TARGET` / `CONTROL_NOT_VISIBLE` | Read the screen again and select a current control |
 | `CONTROL_DISABLED` | Check the requirements displayed on screen |
 | `INVALID_INPUT` / `INPUT_INVALID` | Correct the input format or range |
 
-## Pause and resume
+## Stop and wait
 
-- Pausing sets `state().paused` to `true` and emits `cfd-agent-pause`
-- Resuming emits `cfd-agent-resume` · Signals include the session, sequence number and time
-- Read the state before every command · Wait after a pause signal or a `PAUSED` response
-- Handle the wait in the agent's browser controller
+- Stop sets `state().paused` and emits `cfd-agent-pause`
+- Stop further edits and commands; wait for a new explicit user instruction, never reactivate automatically
+- Only after that instruction, read `CFDAgent.state().progress.state.stop_revision` and use the dedicated shortcut
+- Supply the actual instruction as `userRequest`; the server cannot authenticate conversation consent, so the controller must honor this rule
 
 ```javascript
-while (CFDAgent.state().paused) {
-  const signal = await CFDAgent.waitForResume({ timeoutMs: 30000 });
-  if (signal.status === 'resumed') break;
-}
-// Recheck the screen and any user edits before choosing the next action
-const current = CFDAgent.state();
+await CFDAgent.activate({name: 'Agent', task: taskSummary,
+  afterStop: stopRevision, userRequest: actualNewUserInstruction});
 ```
 
-- Call `CFDAgent.finish()` when the requested work is complete
-- If the agent is unresponsive, **Stop agent** blocks further interface commands
-- Studio cannot suspend the external LLM process itself · The connected controller must honor the pause signal
-- Previously delivered actions and CFD calculations continue · Use the Case's calculation stop control to stop CFD
-- Do not bypass a pause by opening another tab, reloading, calling internal UI functions or resuming automatically
+- CLI: `activate --session-file output\new-agent-session.json --after-stop N --user-request "Actual new instruction" --stage review --detail "New task" --wait-visible`
+- `N` is the current `stop_revision`; use a new session file; the previous owner token is invalidated
+- Finish browser-owned sessions with `await CFDAgent.finish()`; finish CLI-owned sessions with CLI `finish`
+- Reloading does not clear pause; never restart tabs or servers to bypass it
+- This cannot forcibly terminate an external LLM, in-flight shell command or CFD; controllers must check the signal between bounded actions
 
 ## Scope and limitations
 

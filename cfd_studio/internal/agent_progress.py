@@ -33,7 +33,7 @@ def request(port, body=None):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('start', 'update', 'status', 'finish'))
+    parser.add_argument('action', choices=('start', 'activate', 'update', 'status', 'finish'))
     parser.add_argument('--studio', type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument('--session-file', type=Path)
     parser.add_argument('--name', default='AI agent')
@@ -42,6 +42,8 @@ def main(argv=None):
     parser.add_argument('--detail')
     parser.add_argument('--wait-visible', action='store_true')
     parser.add_argument('--history', action='store_true')
+    parser.add_argument('--after-stop', type=int)
+    parser.add_argument('--user-request')
     args = parser.parse_args(argv)
     if args.action != 'status' and not args.session_file:
         parser.error('--session-file is required; use a new file in an ignored output folder')
@@ -53,19 +55,19 @@ def main(argv=None):
         body = None
         if args.action != 'status':
             body = {'action': args.action, 'stage': args.stage, 'detail': args.detail}
-            if args.action == 'start':
+            if args.action in ('start', 'activate'):
                 # Reserve before claiming; never overwrite another controller's token
                 with args.session_file.open('x', encoding='utf-8'):
                     pass
                 created = True
-                body.update(name=args.name, mode=args.mode)
+                body.update(name=args.name, mode=args.mode, after_stop=args.after_stop, user_request=args.user_request)
             else:
                 session = json.loads(args.session_file.read_text(encoding='utf-8'))
                 if session['port'] != port:
                     raise ValueError('Session port changed; reconnect explicitly')
                 body['token'] = session['token']
         result = request(port, body)
-        if args.action == 'start' and 'token' in result:
+        if args.action in ('start', 'activate') and 'token' in result:
             token = result.pop('token')
             args.session_file.write_text(json.dumps({'port': port, 'token': token}), encoding='utf-8')
             created = False

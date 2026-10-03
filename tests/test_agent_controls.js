@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {VERSION,commands,validate,prompt}=require('../cfd_studio/internal/agent_controls.js');
-test('versioned catalogue has no duplicate commands',()=>{assert.equal(VERSION,'1.3');assert.equal(new Set(commands).size,commands.length);});
+test('versioned catalogue has no duplicate commands',()=>{assert.equal(VERSION,'1.4');assert.equal(new Set(commands).size,commands.length);});
 test('reject unsupported commands and invalid parameters',()=>{
  for(const [name,args] of [['eval',{}],['ui.fill',{target:'x',value:3}],['ui.check',{target:'x',checked:1}],['ui.select',{value:'x'}],['viewer.mode',{mode:'bad'}],['project.select',{}],['case.select',null]])assert.throws(()=>validate(name,args));
 });

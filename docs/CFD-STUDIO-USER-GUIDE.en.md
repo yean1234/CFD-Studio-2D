@@ -1,6 +1,6 @@
 # User guide
 
-- CFD Studio V1.0 · Agent interface v1.3
+- CFD Studio V1.0 · Agent interface v1.4
 - [한국어](CFD-STUDIO-USER-GUIDE.md) · [日本語](CFD-STUDIO-USER-GUIDE.ja.md)
 - OpenFOAM CFD interface designed to reduce AI-agent operating effort while keeping people in the same visible workflow
 
@@ -67,13 +67,11 @@
 
 ## AI agent collaboration
 
-- **Settings → LLM agent → Agent guide**: copy the main prompt
-- **Workflow guide → Copy workflow prompt**: relevant-state reading, Config review, or control and handoff
-- **Config → Review changes**: compare original inputs and the draft; **Reviewed** records human review only
-- Changed or pending inputs invalidate that review; saving and running remain separate
-- **Return control to user** releases the assigned operator and pauses agent commands; an active solver continues
-- Operator, review and handoff are page-local memory; recheck after reload
-- [Agent guide](CFD-STUDIO-AGENT-GUIDE.en.md) · [Design references and limits](AGENT-COLLABORATION.md)
+- Give the external agent the [agent guide](CFD-STUDIO-AGENT-GUIDE.en.md) and the task
+- Only agent activation commands show **External agent operating** and **Stop agent**
+- **Stop agent** immediately hides operation UI, blocks subsequent commands and sends a pause signal
+- No human start or resume buttons; continue through a new instruction in the agent conversation
+- Active CFD continues; Config review, saving and calculation remain separate
 
 ## Errors and storage
 
