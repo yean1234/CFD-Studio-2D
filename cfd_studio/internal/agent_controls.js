@@ -251,28 +251,27 @@ async function userStop(){
 function mount(){
   const style=doc.createElement('style');
   style.textContent=`
-body.agent-banner-visible #hdr{padding-right:calc(var(--agent-stop-width,160px) + 32px)}
 .agent-focus{outline:2px solid #79b7ff!important;outline-offset:3px!important}
 #agentBanner{position:fixed;inset:10px 16px auto 16px;margin:0;padding:0;border:0;background:transparent;color:#fff;overflow:visible;width:auto;pointer-events:none;font:13px system-ui}
 #agentBanner .agent-banner-row{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:36px;padding:0 180px}
 #agentBannerText{padding:8px 16px;border:1px solid #77baff70;border-radius:20px;background:#13233bf2;box-shadow:0 2px 12px #0006;animation:agentBlink 1.5s ease-in-out infinite}
 #agentProgressDetail{max-width:720px;padding:6px 12px;border-radius:8px;background:#191919ed;font-size:12px;overflow-wrap:anywhere;white-space:pre-wrap;text-align:center}
-#agentBannerStop{position:absolute;right:0;top:0;pointer-events:auto;min-height:36px;padding:8px 14px;border:1px solid #c5666690;border-radius:8px;background:#3b1d1df5;color:#ffd9d9;font:inherit;cursor:pointer}
+#agentBannerStop{position:absolute;left:calc(50% + var(--agent-label-half,90px) + 12px);top:0;white-space:nowrap;pointer-events:auto;min-height:36px;padding:8px 14px;border:1px solid #c5666690;border-radius:8px;background:#3b1d1df5;color:#ffd9d9;font:inherit;cursor:pointer}
 #agentBanner.agent-settled #agentBannerText{animation:none}
 @keyframes agentBlink{0%,100%{opacity:1}50%{opacity:.4}}
 @media(prefers-reduced-motion:reduce){#agentBannerText{animation:none}}
-@media(max-width:640px){#agentBanner .agent-banner-row{padding:42px 0 0;align-items:flex-start}#agentProgressDetail{text-align:left;max-height:72px;overflow:auto}#agentBannerText{font-size:11px;padding:8px}#agentBannerStop{font-size:11px}}`;
+@media(max-width:640px){#agentBanner .agent-banner-row{padding:42px 0 0;align-items:flex-start}#agentProgressDetail{text-align:left;max-height:72px;overflow:auto}#agentBannerText{font-size:11px;padding:8px}#agentBannerStop{font-size:11px;left:auto;right:0;top:42px}}`;
   doc.head.append(style);
   banner=doc.createElement('aside');
   banner.id='agentBanner';banner.dataset.agentUi='';banner.setAttribute('popover','manual');
   banner.innerHTML='<div class="agent-banner-row"><strong id="agentBannerText" role="status"></strong><span id="agentProgressDetail" role="status" translate="no"></span><button type="button" id="agentBannerStop" data-agent-user-only></button></div>';
   doc.body.append(banner);
   $('agentBannerStop').onclick=userStop;
-  // Reserve translated button width without covering existing header controls
+  // Keep agent controls beside the status label without moving the application header
   new ResizeObserver(()=>{
-    const width=Math.ceil($('agentBannerStop').getBoundingClientRect().width);
-    if(width>0)doc.body.style.setProperty('--agent-stop-width',width+'px');
-  }).observe($('agentBannerStop'));
+    const width=$('agentBannerText').getBoundingClientRect().width;
+    if(width>0)banner.style.setProperty('--agent-label-half',width/2+'px');
+  }).observe($('agentBannerText'));
   root.addEventListener('cfd-language-change',paint);
   root.addEventListener('cfd-agent-progress',()=>{
     const progress=root.CFDAgentActivity?.snapshot();
