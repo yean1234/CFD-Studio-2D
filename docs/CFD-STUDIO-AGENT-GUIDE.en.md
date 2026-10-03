@@ -97,6 +97,17 @@
 - Rendering an input does not connect it to a solver; inspect execution adapter support
 - [JSON rules](CONFIG-JSON.md) · [Error codes](ERROR-CODES.md) · [Multilingual error dictionary](config-error-codes.json)
 
+### Pre-execution checks
+
+- If the current task already owns an active progress CLI session, do not also call `CFDAgent.activate()`; never reuse another operator's session
+- `CFDAgent.configDocument()` returns `{document: ...}` or an error object; check `document` before use
+- Template `document.fields` is a schema; project/Case `document.config` contains values; do not substitute one document for the other
+- A Template may retain values even without a preset; distinguish published inputs, defaults and unresolved values
+- Successful spatial JSON retrieval is not successful 3D generation; inspect preview warnings, boundaries and porous regions
+- Solver installation does not establish geometry, mesh import, transport or execution-adapter support
+- Stop the calculation stage on unsupported geometry; retain the draft and exact error code, never silently switch to a surrogate
+- Record editor draft, project save, Case save, mesh check and calculation completion separately
+
 ### Compact inspection
 
 | Read method | Purpose |

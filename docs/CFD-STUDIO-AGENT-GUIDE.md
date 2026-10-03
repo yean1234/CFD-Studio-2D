@@ -102,6 +102,17 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_progress.py fini
 - 입력 UI에 표시되는 것과 솔버가 계산에 사용하는 것은 별개 · 실행 어댑터 지원 확인
 - [JSON 규칙](CONFIG-JSON.md) · [오류 코드](ERROR-CODES.md) · [다국어 오류 사전](config-error-codes.json)
 
+### 실행 전 확인
+
+- 진행 CLI로 현재 작업을 이미 활성화했다면 `CFDAgent.activate()`를 중복 호출하지 않음 · 다른 담당의 세션은 사용하지 않음
+- `CFDAgent.configDocument()`의 반환값은 `{document: ...}` 또는 오류 객체 · `document` 존재를 확인한 뒤 사용
+- Template의 `document.fields`는 양식, 프로젝트·Case의 `document.config`는 입력값 · 두 문서를 서로 대체하지 않음
+- 기존 프리셋을 선택하지 않아도 Template에 남은 값이 있을 수 있음 · 문헌값·기본값·미확정값을 대조
+- 공간 JSON 조회 성공과 3D 형상 생성 성공은 별도 · 미리보기 경고·경계·다공성 영역 확인
+- 솔버 설치 확인만으로 형상 생성·격자 가져오기·수송·실행 어댑터 연결을 판정하지 않음
+- 미지원 형상 오류가 나오면 그 단계에서 계산 보류 · 초안과 정확한 오류 코드를 보존하고 임의의 등가 모델로 바꾸지 않음
+- 현재 편집기 초안, 프로젝트 저장, Case 저장, 격자 검사, 계산 완료를 각각 기록
+
 ### 간결한 상태 확인
 
 | 조회 | 용도 |
