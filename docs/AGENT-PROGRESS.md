@@ -56,5 +56,6 @@
 - `tests/test_agent_activity.py`: 담당 충돌·일시정지·만료·화면 수신·입력 검사·출처 검사·CLI 세션 보존
 - `tests/test_agent_activity.js`: 표시 구분·숨겨진 탭·응답 순서·연결 끊김·서버 재시작
 - `tests/serve_agent_activity_fixture.py`: 프로젝트나 CFD에 접근하지 않는 독립 화면 검사 서버
+- `tests/browser_agent_header.js`: 실제 Studio에서 진행 표시가 CFD·Viewer·환경 설정·도움말 버튼을 가리지 않는지 확인 · 입력·프로젝트·대기열 변경 없음
 - 화면 검사: 상태 수신, 일시정지 후 CLI·화면 명령 차단, 재개, 모달 위 표시, 다국어 문구
 - 이 검사는 CFD 계산·수치 검증·실험 검증이 아님
