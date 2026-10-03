@@ -54,6 +54,7 @@
 - Data Sheet 오른쪽: 저장 시점의 선상 프로파일 · 거리별 값 조회
 - 3D 영상·사진, 그래프 이미지·CSV, Case 전체 CSV 내보내기
 - 에이전트 전용 화면 명령·JSON 입력·사용자 검토·일시정지 신호
+- 개발·화면 조작 진행 표시: [상태 전송과 오류 코드](docs/AGENT-PROGRESS.md) · 자료 확인·코드 수정·검사 단계와 연결 상태 표시
 - 에이전트 인터페이스 v1.3: 필요한 상태 조회·Config 변경 검토·조작 담당과 인계
 - [연결 확인과 오류 복구](docs/CFD-STUDIO-AGENT-GUIDE.md#연결-확인과-오류-복구): 서버 응답·현재 탭 연결·초안 반영·Case 저장을 별도 확인
 - [JSON 규칙](docs/CONFIG-JSON.md) · [오류 코드](docs/ERROR-CODES.md) · [협업과 참고 문헌](docs/AGENT-COLLABORATION.md)

@@ -30,3 +30,9 @@ test('connection recovery never confuses server responses with visible draft rev
   'reconcile user changes','proposed assumptions','only when its target, reviewed inputs and scope are unchanged'])
   assert.ok(text.includes(fragment),fragment);
 });
+
+test('external progress is cooperative and never a CFD control transport',()=>{
+ const text=prompt();
+ for(const fragment of ['agent_progress.py start','Exit 3 or PAUSED','exit 4 means no visible-tab render receipt',
+  'cannot interrupt your provider','cannot apply Config or run CFD','not attachment to the user'])assert.ok(text.includes(fragment),fragment);
+});

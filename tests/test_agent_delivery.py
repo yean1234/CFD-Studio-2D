@@ -24,6 +24,8 @@ class AgentDeliveryTests(unittest.TestCase):
         parser = Scripts()
         parser.feed(html)
         self.assertEqual(parser.sources.count('/agent_controls.js'), 1)
+        self.assertEqual(parser.sources.count('/agent_activity.js'), 1)
+        self.assertLess(parser.sources.index('/agent_activity.js'), parser.sources.index('/agent_controls.js'))
         self.assertLess(parser.sources.index('/execution_workspace.js'), parser.sources.index('/agent_controls.js'))
         self.assertLess(parser.sources.index('/i18n_help.js'), parser.sources.index('/agent_controls.js'))
 
@@ -35,3 +37,12 @@ class AgentDeliveryTests(unittest.TestCase):
         handler = Handler()
         self.assertTrue(get_route(handler, None))
         self.assertEqual(handler.result, (200, (ROOT/'cfd_studio/internal/agent_controls.js').read_bytes(), 'text/javascript; charset=utf-8'))
+
+    def test_progress_script_has_a_static_route(self):
+        class Handler:
+            path = '/agent_activity.js'
+            def _send(self, code, body, content_type):
+                self.result = (code, body, content_type)
+        handler = Handler()
+        self.assertTrue(get_route(handler, None))
+        self.assertEqual(handler.result[1], (ROOT/'cfd_studio/internal/agent_activity.js').read_bytes())

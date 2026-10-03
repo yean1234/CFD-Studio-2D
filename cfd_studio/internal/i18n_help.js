@@ -2,6 +2,7 @@
 (()=>{
  const api=globalThis.CFDI18n;if(!api)return;
  const original=[0,1,2].map(i=>document.getElementById('ifB'+i).innerHTML);
+ original[1]+='<details><summary>에이전트 작업 진행</summary><ul><li>자료 확인·코드 수정·검사는 상태 전송 시 상단에 표시 · 파일 수정만으로 자동 표시되지 않음</li><li>중단은 다음 에이전트 작업을 위한 신호 · 실행 중 명령·CFD 계산은 유지</li><li>120초간 갱신이 없으면 연결 끊김 표시 · 화면 표시 확인과 사용자 검토는 별도</li></ul></details>';
  original[1]+='<details><summary>에이전트 연결 확인</summary><ul><li>서버 응답과 현재 탭 연결은 별도 · 해당 탭의 CFDAgent 상태와 선택한 프로젝트·Case를 대조</li><li>연결 실패 시 오류가 발생한 단계부터 확인 · 정상 서버와 실행 중인 계산 유지</li><li>별도 JSON 초안은 화면 반영·검토·Case 저장과 구분 · 복구 후 현재 편집기와 다시 대조</li><li>질문 창이 표시되지 않으면 일반 대화로 질문 · 미확정값과 필요한 확인은 생략하지 않음</li></ul></details>';
  const help={
  en:[
@@ -43,6 +44,8 @@
  ['可視化・保存',[ '3DにはWebGL2対応ブラウザーが必要', '表示するセル・ベクトル・フレーム数が増えるとメモリー使用量と読込時間が増加', '表示密度・再生速度はソルバーの解像度や計算速度に影響しません', '保存間隔・出力項目に応じた空き容量を確保。プロジェクト全体と外部リンク原本をバックアップ' ]]]
  ]};
  help.en[1].push(['Property forms and diagnostics', ['Select an element → Material state → + Property → Property type; choose from material, initial conditions, thermal and other groups', 'Common properties remain available before state selection; vectors use XYZ controls and property tables use rows', 'Export JSON preserves Config values and display definitions; errors show a code, affected field and remedy', 'Agents start from the generated Template JSON, declare extensions, apply a draft and ask the user to review inputs and 3D before saving', 'Use CFDAgent.status() for compact polling and CFDAgent.errorInfo(code) for a targeted remedy']]);
+ help.en[1].push(['Agent progress', ['Reported review, code editing and test stages appear at the top; file edits alone do not update the interface', 'Stop signals the next agent action; in-flight commands and CFD continue', 'No update for 120 seconds shows disconnection; display receipt is separate from user review']]);
+ help.ja[1].push(['エージェント作業進行', ['送信された資料確認・コード修正・テスト段階を上部に表示 · ファイル変更だけでは更新されない', '停止は次の操作への信号 · 実行中命令とCFDは継続', '120秒更新がなければ接続切断表示 · 表示確認とユーザー確認は別']]);
  help.ja[1].push(['属性書式と診断', ['要素 → 物質状態 → + 属性 → 属性の種類から、材料・初期条件・熱伝達などの分類を選択', '状態未指定でも共通属性を表示し、ベクトルはXYZ入力、物性表は行で入力', 'JSONエクスポートでConfig値と表示定義を保存し、エラーはコード・該当項目・対処を表示', 'エージェントは生成済みTemplate JSONから編集し、拡張を明示して下書きに反映、入力と3Dをユーザーが確認した後に保存', 'CFDAgent.status()で簡潔な状態確認、CFDAgent.errorInfo(code)で該当コードの対処を取得']]);
  help.en[1].push(['Config JSON and storage', ['Template, project and Case use the same Config and 3D editor', 'Select JSON beside a section to slide the existing panels left and open JSON on the right', 'Save JSON applies changes to the draft; Save Case or save the parent project/Template to persist', 'Recorded Case inputs remain read-only; choose New Case from this Config to edit a copy', 'Template definitions are stored inside Studio; project and Case definitions are stored inside the project folder', 'Geometry and mesh definition JSON files are not solver meshes; importing an existing mesh requires its source data']]);
  help.ja[1].push(['Config JSONと保存', ['Template・プロジェクト・Caseで共通のConfigと3D編集画面を使用', '項目横のJSONを選択すると既存領域が左へ移動し、右側にJSONを表示', 'JSONを保存で下書きに反映し、Case保存または親のプロジェクト・Template保存で確定', '実行済みCaseは閲覧専用。このConfigで新規Caseからコピーを編集', 'Template定義はStudio内、プロジェクトとCase定義はプロジェクトフォルダー内に保存', '形状・格子設定JSONは計算格子ではありません。既存格子の取り込みには元データが必要']]);

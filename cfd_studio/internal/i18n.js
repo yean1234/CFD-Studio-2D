@@ -3,6 +3,20 @@
 'use strict';
 const supported=['ko','en','ja'],key='cfd-studio-language';
 const messages=Object.create(null);
+add("자료 확인","Reviewing inputs","資料確認");
+add("초안 작성","Preparing draft","下書き作成");
+add("코드 수정","Editing code","コード修正");
+add("검사 중","Testing","テスト中");
+add("화면 조작","Operating the interface","画面操作");
+add("사용자 확인 대기","Awaiting user review","ユーザー確認待ち");
+add("진행 불가","Blocked","進行不可");
+add("작업 완료","Task completed","作業完了");
+add("작업 실패","Task failed","作業失敗");
+add("에이전트 연결 끊김","Agent disconnected","エージェント接続切断");
+add("작업 상태 연결 끊김","Progress connection lost","作業状態の接続切断");
+add("개발 작업","Development work","開発作業");
+add("Studio 작업","Studio operation","Studio操作");
+add("일시정지 전달 실패 · 연결을 확인하세요","Pause delivery failed · Check connection","一時停止の送信失敗 · 接続を確認してください");
 function add(source,en,ja){messages[source]=[en,ja];}
 add("사용자 추가 속성의 이름: 더블클릭으로 변경 · Enter 또는 다른 곳 클릭으로 반영 · Esc로 취소","Custom property names: double-click to rename · Enter or click elsewhere to apply · Esc to cancel","ユーザー追加属性名：ダブルクリックで変更 · Enterまたは別の場所をクリックして反映 · Escで取消");
 add("기본 항목의 이름·자료형·단위는 Template 정의 유지 · 값은 입력칸에서 변경","Base names, types and units follow the Template · Edit values directly in their inputs","基本項目の名前・型・単位はTemplate定義を維持 · 値は入力欄で変更");

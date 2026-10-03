@@ -69,6 +69,7 @@ from warehouse_workspace import Workspace, get_route as warehouse_get, post_rout
 from config_presets import finite_number, validate_numerics, save_new_preset
 WAREHOUSE_WORKSPACE = Workspace(os.path.join(HERE, "_runtime", "warehouse"), SCFG)
 from study_platform import http as study_http
+from agent_activity import route as agent_activity_route
 from execution_workspace import ExecutionWorkspace, get_route as execution_get, post_route as execution_post
 EXECUTION_WORKSPACE = ExecutionWorkspace(os.path.dirname(HERE), lambda: _project_search_roots(), settings=SCFG,
     busy=lambda: bool(get_status().get("running")) or time.time()-STATE.get("group_launch_t", 0)<60 or any(j.get("status") in ("queued", "running") for j in WAREHOUSE_WORKSPACE.jobs.values()),
@@ -3698,8 +3699,10 @@ class H(BaseHTTPRequestHandler):
             except Exception: pass
 
     def _do_GET(self):
+        if agent_activity_route(self):
+            return
         u = urlparse(self.path)
-        if (u.path.startswith("/api/executions") or u.path in ("/execution_workspace.js", "/spatial_editor.js", "/form_config_editor.js", "/config_contract.js", "/form_wizard.js", "/config_editor.js", "/input_validation.js", "/warehouse_viewer.js", "/viewer_presentation.js", "/data_sheet_viewer.js", "/i18n.js", "/i18n_help.js", "/agent_controls.js", "/agent_collaboration.js")) and execution_get(self, EXECUTION_WORKSPACE):
+        if (u.path.startswith("/api/executions") or u.path in ("/execution_workspace.js", "/spatial_editor.js", "/form_config_editor.js", "/config_contract.js", "/form_wizard.js", "/config_editor.js", "/input_validation.js", "/warehouse_viewer.js", "/viewer_presentation.js", "/data_sheet_viewer.js", "/i18n.js", "/i18n_help.js", "/agent_controls.js", "/agent_collaboration.js", "/agent_activity.js")) and execution_get(self, EXECUTION_WORKSPACE):
             return
         if u.path.startswith(('/studies', '/api/studies', '/api/attempts', '/api/study-packages', '/api/capabilities')):
             if study_http.get(self, study_http.service(HERE, SCFG, PROJECT_DIR)):
@@ -4153,6 +4156,8 @@ class H(BaseHTTPRequestHandler):
                     "rid": _active_rid(), "cur": _active_rid(), "projects": list_projects()})
 
     def _do_POST(self):
+        if agent_activity_route(self, post=True):
+            return
         n = int(self.headers.get("Content-Length") or 0)
         u = urlparse(self.path)
         if u.path.startswith('/api/stud') and (n <= 0 or n > (28*1024*1024 if u.path.endswith('/import') else 65536)):
@@ -8682,6 +8687,7 @@ __TRACER_VIEWER__
 <script src="/i18n.js"></script>
 <script src="/i18n_help.js"></script>
 <script src="/agent_collaboration.js"></script>
+<script src="/agent_activity.js"></script>
 <script src="/agent_controls.js"></script>
 </body></html>
 '''

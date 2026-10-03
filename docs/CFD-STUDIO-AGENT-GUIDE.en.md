@@ -4,6 +4,28 @@
 
 [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
 
+## Visible progress
+
+- File inspection, code edits and tests require explicit progress reports; changing files alone does not update the interface
+- Run `cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_progress.py` from the repository root
+- Create an ignored `output` directory if missing; `start` requires a new `--session-file output\agent-session.json` and never overwrites it
+- Before work: `start --session-file output\agent-session.json --mode development --stage review --detail "Reviewing inputs" --wait-visible`
+- Before each step: `update --session-file output\agent-session.json --stage test --detail "Running relevant tests" --wait-visible`
+- Read `status` between bounded actions; update at least every 60 seconds during longer work
+- Finish: `finish --session-file output\agent-session.json --stage completed --detail "Tests passed; CFD not run"`
+- Modes: `development` for source work, `operation` for Studio UI work
+- Stages: `review`, `draft`, `debug`, `test`, `ui`, `waiting`, `blocked`; finish with `completed` or `failed`
+- Keep details brief and in the user's language; never include credentials or complete Config values
+- Exit `3` or `PAUSED`: stop further edits and actions, read status only, wait for the user's Resume
+- Exit `2`: inspect the error; exit `4`: no visible-tab render receipt, do not claim it appeared
+- `displayed: true` acknowledges rendering by a visible Studio tab; it does not prove intended-tab attachment, user review or permission to calculate
+- After 120 seconds without updates: Agent disconnected; HTTP failure: Progress connection lost; waiting, blocked and terminal states do not blink
+- Progress, the last 20 entries and pause live in server memory, survive page reload, and reset on server restart
+- Pause cannot forcibly suspend an external LLM, in-flight command or solver; the controller checks it between bounded actions
+- This transport reports status only; use the existing visible-tab commands for Config, saving and CFD execution
+- Updates are not injected into running servers or tabs; preserve unsaved edits and running calculations before restarting Studio and reloading the page
+- [Progress error codes](AGENT-PROGRESS.md)
+
 ## Connection checks and recovery
 
 1. Check whether the automation tool starts

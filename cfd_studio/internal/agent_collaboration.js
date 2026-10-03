@@ -37,6 +37,16 @@ const prompts={
  ja:{observe:'必要な状態だけ確認：observe()のcursorを保持し、waitForChange({after:cursor,timeoutMs:30000})で変更を待機。inspect({query,limit:20})で操作対象を検索。runはresponse:"compact"を指定し、エラーはerrorInfo(code)で確認。変化がなければConfig全体や画面を繰り返し取得しないでください。',review:'Config変更の確認：生成済みTemplate JSONから下書きを作成。review.openで変更前後の値と3Dをユーザーに確認してもらってください。review.status()はその下書きの確認記録であり、保存や計算の許可ではありません。変更後は再確認し、依頼された範囲で保存・計算を行ってください。',handoff:'操作担当・引継ぎ：claim({name,task})で取得したtokenをrunのownerに渡し、observe().contextをexpectedContextに指定。他の担当がいる間は読み取りのみで待機。release({owner,summary})に完了・未完了・次の手順を記録。次の担当はhandoff()と実際の画面を照合し、PAUSEDを回避しないでください。'}
 };
 const errors={
+ ACTIVITY_BUSY:{"ko": "다른 작업의 상태가 활성화되어 있습니다 · 담당 종료를 기다리세요", "en": "Another task is active · Wait for handoff", "ja": "別の作業が有効です · 引継ぎを待ってください"},
+ ACTIVITY_OWNER_MISMATCH:{"ko": "작업 담당 세션이 다릅니다 · 세션과 서버를 확인하세요", "en": "Progress owner differs · Check session and server", "ja": "作業担当が異なります · セッションとサーバーを確認してください"},
+ ACTIVITY_FINISHED:{"ko": "종료한 작업입니다 · 새 작업은 새 세션으로 시작하세요", "en": "Task already finished · Start a new session for new work", "ja": "終了済みの作業です · 新しい作業は新規セッションで開始してください"},
+ ACTIVITY_STALE:{"ko": "작업 상태가 변경되었습니다 · 다시 조회하세요", "en": "Progress changed · Read it again", "ja": "作業状態が変更されました · 再取得してください"},
+ ACTIVITY_INVALID_INPUT:{"ko": "작업 단계와 짧은 설명을 확인하세요", "en": "Check the stage and short description", "ja": "作業段階と短い説明を確認してください"},
+ ACTIVITY_UNKNOWN_ACTION:{"ko": "지원하지 않는 상태 명령입니다 · 에이전트 사용법을 확인하세요", "en": "Unsupported progress action · Read the agent guide", "ja": "非対応の状態命令です · エージェントガイドを確認してください"},
+ ACTIVITY_FORBIDDEN:{"ko": "상태 요청의 주소와 출처를 확인하세요", "en": "Check progress request address and origin", "ja": "状態要求のアドレスと出所を確認してください"},
+
+ ACTIVITY_UNAVAILABLE:{ko:'작업 상태 연결이 끊겼습니다 · 서버 연결을 확인하고 상태를 다시 조회하세요',en:'Progress connection lost · Check the server and observe again',ja:'作業状態の接続が切れました · サーバーを確認して再取得してください'},
+ PAUSED:{ko:'사용자가 작업을 일시정지했습니다 · 재개 신호를 기다리세요',en:'The user paused the task · Wait for Resume',ja:'ユーザーが作業を一時停止しました · 再開を待ってください'},
  OWNER_BUSY:{ko:'다른 에이전트가 조작 중입니다 · 인계를 기다리세요',en:'Another agent is operating · Wait for handoff',ja:'他のエージェントが操作中です · 引継ぎを待ってください'},
  OWNER_REQUIRED:{ko:'현재 조작 담당의 토큰이 필요합니다 · claim 응답의 token을 전달하세요',en:'The current operator token is required · Pass the claim token',ja:'現在の担当トークンが必要です · claimのtokenを指定してください'},
  OWNER_EXPIRED:{ko:'조작 담당이 만료되었거나 해제되었습니다 · 화면을 확인하고 다시 확보하세요',en:'Control expired or was released · Inspect the screen and claim again',ja:'操作権が期限切れまたは解放済みです · 画面を確認して再取得してください'},

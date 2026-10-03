@@ -6,6 +6,14 @@
 - Stage only the task's changes; exclude user projects and machine settings
 - UI follows Template and solver definitions, not project names
 
+## Agent progress
+
+- Report development and operation stages with `cfd_studio/internal/agent_progress.py` as described in `docs/CFD-STUDIO-AGENT-GUIDE.md`
+- Check pause before each bounded action; do not continue edits or commands after `PAUSED` until the user resumes
+- Use `--wait-visible` before claiming a stage appeared in Studio; file changes alone do not update the interface
+- If the progress endpoint or current tab is unavailable, report that limitation in chat; do not claim attachment or restart a live Studio blindly
+- Progress reports never replace visible Config review or authorize CFD execution
+
 ## Documentation updates
 
 When the user requests “문서 업데이트” (update documentation), treat the following as one task:

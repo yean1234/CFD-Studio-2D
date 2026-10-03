@@ -4,6 +4,33 @@
 
 [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
 
+## 작업 진행 표시
+
+- 화면 명령 이외의 자료 확인·코드 수정·검사도 상태 전송이 필요 · 파일 수정만으로 자동 표시되지 않음
+- 실행 위치: 저장소 루트 · Windows 내장 Python 사용 · 세션 파일은 Git에서 제외한 새 `output/` 경로
+- 작업 시작 전 `start`, 각 단계 전에 `update`, 종료 시 `finish` · 장시간 작업은 60초 이내 간격으로 상태 확인·갱신
+- `--mode development`: 개발 작업 · 실제 CFD 조작은 `--mode operation`
+- `--stage`: `review`, `draft`, `debug`, `test`, `ui`, `waiting`, `blocked` · 종료는 `completed` 또는 `failed`
+- `--detail`: 사용자가 이해할 수 있는 짧은 설명 · Config 전체·인증 정보 입력 금지
+
+```bat
+cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_progress.py start --session-file output\agent-session.json --mode development --stage review --detail "입력 및 실행 경로 확인" --wait-visible
+cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_progress.py update --session-file output\agent-session.json --stage test --detail "관련 검사 실행" --wait-visible
+cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_progress.py status
+cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_progress.py finish --session-file output\agent-session.json --stage completed --detail "검사 완료 · CFD 미실행"
+```
+
+- `output` 폴더가 없으면 먼저 생성 · 기존 세션 파일을 덮어쓰지 않음
+- 종료 코드 `3` 또는 `PAUSED`: 다음 파일 수정·명령을 중단하고 상태만 조회 · 사용자의 재개 대기
+- 종료 코드 `2`: 오류 확인 · 코드 `4`: 화면 표시 수신 미확인 · 성공으로 보고하지 않음
+- `displayed: true`: 보이는 Studio 탭이 해당 상태를 렌더링했다는 수신 확인 · 사용자 검토·특정 탭 연결·계산 승인은 아님
+- 120초간 갱신이 없으면 **에이전트 연결 끊김** · 서버 통신 실패는 **작업 상태 연결 끊김** · 완료·대기·차단은 점멸하지 않음
+- 상태·최근 20건·일시정지는 서버 메모리에 보관 · 탭 새로고침 후 재조회 · 서버 재시작 시 초기화
+- 일시정지는 외부 LLM·이미 시작한 명령·솔버를 강제로 중단하지 않음 · 에이전트가 짧은 작업 단위 사이에서 신호 확인
+- 이 통로는 상태 전용 · Config 입력·저장·계산 시작은 계속 현재 화면의 공개 명령 사용
+- 업데이트 적용은 실행 중 서버와 탭에 자동 주입되지 않음 · 미저장 입력과 계산 상태를 확인한 뒤 Studio 재실행·페이지 새로고침
+- [상태 오류 코드](AGENT-PROGRESS.md)
+
 ## 연결 확인과 오류 복구
 
 1. 화면 조작 도구가 시작되는지 확인

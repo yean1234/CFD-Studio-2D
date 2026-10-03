@@ -530,7 +530,7 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
 
 def get_route(handler, workspace):
     url = urlparse(handler.path)
-    if url.path in ('/execution_workspace.js', '/spatial_editor.js', '/config_editor.js', '/input_validation.js', '/form_config_editor.js', '/config_contract.js', '/form_wizard.js', '/warehouse_viewer.js', '/viewer_presentation.js', '/data_sheet_viewer.js', '/i18n.js', '/i18n_help.js', '/agent_controls.js', '/agent_collaboration.js'):
+    if url.path in ('/execution_workspace.js', '/spatial_editor.js', '/config_editor.js', '/input_validation.js', '/form_config_editor.js', '/config_contract.js', '/form_wizard.js', '/warehouse_viewer.js', '/viewer_presentation.js', '/data_sheet_viewer.js', '/i18n.js', '/i18n_help.js', '/agent_controls.js', '/agent_collaboration.js', '/agent_activity.js'):
         handler._send(200, Path(__file__).with_name(url.path[1:]).read_bytes(), 'text/javascript; charset=utf-8')
         return True
     if not url.path.startswith('/api/executions'):

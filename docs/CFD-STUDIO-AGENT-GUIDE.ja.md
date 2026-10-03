@@ -4,6 +4,28 @@
 
 [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
 
+## 作業進行表示
+
+- 資料確認・コード修正・テストも状態送信が必要 · ファイル変更だけでは画面は更新されない
+- リポジトリーのルートで `cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_progress.py` を使用
+- `output` がなければ作成 · 新しい `--session-file output\agent-session.json` を指定 · 既存ファイルは上書きしない
+- 開始前：`start --session-file output\agent-session.json --mode development --stage review --detail "入力を確認" --wait-visible`
+- 各段階の前：`update --session-file output\agent-session.json --stage test --detail "関連テストを実行" --wait-visible`
+- 短い操作の間に `status` を確認 · 長い作業では60秒以内に確認・更新
+- 終了：`finish --session-file output\agent-session.json --stage completed --detail "テスト完了・CFD未実行"`
+- モード：開発は `development`、Studio画面操作は `operation`
+- 段階：`review`, `draft`, `debug`, `test`, `ui`, `waiting`, `blocked` · 終了は `completed` または `failed`
+- 説明はユーザーの言語で簡潔に記述 · 認証情報やConfig全体は送信しない
+- 終了コード `3` または `PAUSED`：編集・操作を停止し、状態だけ確認してユーザーの再開を待機
+- コード `2`：エラー確認 · コード `4`：表示受信未確認 · 表示成功と報告しない
+- `displayed: true` は表示中のStudioタブで描画された確認 · 対象タブへの接続・ユーザー確認・計算許可ではない
+- 120秒更新がなければ接続切断表示 · HTTP失敗は作業状態の接続切断 · 待機・進行不可・終了状態は点滅しない
+- 状態・直近20件・一時停止はサーバーメモリーに保持 · ページ再読込後も取得可能 · サーバー再起動で初期化
+- 外部LLM・実行済み命令・ソルバーを強制停止する機能ではない · エージェントが短い作業の間に確認
+- 状態専用の経路 · Config入力・保存・計算は引き続き現在の画面の公開命令を使用
+- 更新は起動中のサーバーやタブへ自動適用されない · 未保存入力と実行中計算を確認してからStudio再起動・ページ再読込
+- [状態エラーコード](AGENT-PROGRESS.md)
+
 ## 接続確認と復旧
 
 1. 画面操作ツールが起動するか確認
