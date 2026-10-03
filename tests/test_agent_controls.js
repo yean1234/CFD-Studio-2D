@@ -22,3 +22,11 @@ test('JSON commands validate scope, syntax and size before dispatch',()=>{
 test('agent prompt requires JSON drafts and staged user review',()=>{
  const text=prompt();for(const fragment of ['state().json','not field-by-field entry','before final saving','before queue.add or queue.start','not a server-enforced approval system','JSON apply does not save'])assert.ok(text.includes(fragment),fragment);
 });
+
+test('connection recovery never confuses server responses with visible draft review',()=>{
+ const text=prompt();
+ for(const fragment of ['even an OK result does not prove current-tab access','NOT a live-editor export',
+  'no reply is not approval','pause the affected operational step','stop unchanged retries',
+  'reconcile user changes','proposed assumptions','only when its target, reviewed inputs and scope are unchanged'])
+  assert.ok(text.includes(fragment),fragment);
+});

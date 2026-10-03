@@ -345,9 +345,9 @@
         "ja": "エージェント側の作業パス接続に失敗しました"
       },
       "action": {
-        "ko": "Windows 로컬 프로젝트에서 기존 탭에 다시 연결하세요 · 계산 재시작 불필요",
-        "en": "Reconnect the existing tab from the Windows local workspace; do not restart a calculation",
-        "ja": "Windowsのローカルプロジェクトから既存タブへ再接続してください · 計算の再起動は不要です"
+        "ko": "에이전트 호스트의 작업 경로 연결을 확인하세요 · 로컬 작업 환경 변경은 복구 후보이며 해결 보장은 아닙니다",
+        "en": "Check the agent host workspace mapping; changing the local workspace is a recovery option, not a guaranteed fix",
+        "ja": "エージェント側の作業パスを確認してください · ローカル環境の変更は復旧候補であり解決の保証ではありません"
       },
       "retry": "review"
     },

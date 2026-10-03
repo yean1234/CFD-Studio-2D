@@ -2,6 +2,7 @@
 (()=>{
  const api=globalThis.CFDI18n;if(!api)return;
  const original=[0,1,2].map(i=>document.getElementById('ifB'+i).innerHTML);
+ original[1]+='<details><summary>에이전트 연결 확인</summary><ul><li>서버 응답과 현재 탭 연결은 별도 · 해당 탭의 CFDAgent 상태와 선택한 프로젝트·Case를 대조</li><li>연결 실패 시 오류가 발생한 단계부터 확인 · 정상 서버와 실행 중인 계산 유지</li><li>별도 JSON 초안은 화면 반영·검토·Case 저장과 구분 · 복구 후 현재 편집기와 다시 대조</li><li>질문 창이 표시되지 않으면 일반 대화로 질문 · 미확정값과 필요한 확인은 생략하지 않음</li></ul></details>';
  const help={
  en:[
  [['Workflow',[ 'CFD Template: solver, analysis choices, input fields, types and units', 'Preset: reusable values scoped to one Template', 'Project: folder containing independent Cases, input snapshots and results', 'Case: Config, termination, goals, logs and results; inputs are frozen when execution starts' ]],
@@ -49,6 +50,8 @@
  help.ja[0].unshift(['開発目的', ['AIエージェントの操作負担を減らし、同じ画面でユーザーが確認できるOpenFOAM CFDインターフェース', 'Template JSON・必要な状態取得・エラーコードで繰り返し探索を削減、実際のトークン・料金削減率は別途測定']]);
  help.en[1].push(['Agent collaboration', ['Agent guide → Workflow guide → Copy workflow prompt: selective observation, Config review, or control and handoff', 'Config → Review changes → Reviewed: compare the draft; saving and calculation remain separate', 'Return control to user clears the operator and pauses agent commands; active solvers continue', 'Operator, review and handoff are page-local memory and reset on reload; they are not server locks']]);
  help.ja[1].push(['エージェント協働', ['エージェントガイド → 作業ガイド → 作業プロンプトをコピー：状態取得・Config確認・担当引継ぎを選択', 'Config → 変更を確認 → 確認済み：下書きを比較、保存・計算開始は別操作', 'ユーザーに操作権を返すと担当解除と命令一時停止、実行中ソルバーは継続', '担当・確認・引継ぎは現在ページのメモリー、再読込時にリセット、サーバーのロックではない']]);
+ help.en[1].push(['Agent connection checks', ['Server responses and current-tab access are separate; match tab-local CFDAgent state to the selected project and Case', 'Identify the failed layer before recovery; preserve healthy servers and running calculations', 'Offline JSON drafts are not applied, reviewed or saved Cases; reconcile with the live editor after recovery', 'If a question widget is missing, ask in ordinary chat; do not skip unresolved values or required review']]);
+ help.ja[1].push(['エージェント接続確認', ['サーバー応答と現在タブへの接続は別、タブ内のCFDAgent状態をプロジェクト・Caseと照合', '失敗した段階を確認して復旧し、正常なサーバーと実行中の計算を維持', '別ファイルのJSON下書きは画面反映・確認・Case保存ではない、復旧後に編集画面と再照合', '質問UIが表示されなければ通常の会話で質問し、未確定値や必要な確認を省略しない']]);
  api.renderHelp=locale=>{
  for(let i=0;i<3;i++){
   const host=document.getElementById('ifB'+i);host.setAttribute('translate','no');

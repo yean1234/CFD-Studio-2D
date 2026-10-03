@@ -4,6 +4,48 @@
 
 [한국어](CFD-STUDIO-AGENT-GUIDE.md) · [English](CFD-STUDIO-AGENT-GUIDE.en.md) · [日本語](CFD-STUDIO-AGENT-GUIDE.ja.md)
 
+## Connection checks and recovery
+
+1. Check whether the automation tool starts
+2. Check Studio HTTP and agent script responses
+3. Read `CFDAgent.describe()` and `CFDAgent.observe()` in the user's visible tab
+4. Match the returned session, project and Case to the screen before acting
+
+| Check | Evidence | Does not prove |
+| --- | --- | --- |
+| Automation host | Successful tool call | Studio access |
+| Server and scripts | `agent_diagnostics.py` | Current-tab access or user review |
+| Current tab | Tab-local describe/observe and screen comparison | Permission to save or calculate |
+| Applied draft | Reread JSON, notices and 3D | Saved Case or completed CFD |
+
+- Diagnostic `stages`: automation_host / studio_http / agent_scripts / current_tab
+- HTTP success still reports `current_tab: not_checked`; exit code 0 does not mean tab attachment
+- Port follows `CFD_STUDIO_PORT`, otherwise `studio_config.json`; run diagnostics in the Windows execution environment
+- `APP-A001`: external automation workspace error before Studio access; follow bounded tool recovery, then stop unchanged retries
+- Changing the local workspace is a recovery hypothesis, not a guaranteed fix
+- `APP-N001`: server access failed; distinguish starting a stopped server from restarting a running one
+- Do not stop a healthy server, user browser or solver to repair an external tool failure
+- If a question widget is missing, repeat the essential question in ordinary chat; no reply is not review or authorization
+
+### Operation and development
+
+- Normal operation uses public CFDAgent commands and the user's current tab
+- When debugging is requested: pause the affected step, record error and impact, fix/test the relevant code, reconnect and reobserve
+- Preserve projects, unsaved edits, calculations, Raw and results; code tests are not CFD runs
+- Do not reload a tab with unchecked unsaved edits after a server change
+- Report external blockers and the necessary next action; avoid unrelated product changes
+
+### Draft provenance and state
+
+- Distinguish a live-editor export, a server Template snapshot and a repository reference
+- A separate draft file is not applied UI state, user review or a saved Case
+- After recovery, reread the editor document and reconcile user changes before applying intended edits
+- Separate published values, unit conversions, Template defaults, proposed assumptions and unavailable inputs
+- Check solver installation, execution adapter, geometry, result reading and transport support separately
+- Unsupported models block their calculation stage; do not silently substitute surrogate geometry or another module's results
+- Saving and calculation remain separate; complete required screen review first and reuse explicit authorization only for unchanged targets, inputs and scope
+
+
 ## Collaboration v1.3
 
 - Purpose: reduce repeated input and observation effort when agents operate OpenFOAM CFD, while users review the same visible workflow
@@ -21,7 +63,7 @@
 
 ## Template-based Config workflow
 
-1. Generate the Template using the survey and solver selection
+1. Select the intended existing Template; generate one with the survey only when no suitable Template exists
 2. Export its generated schema with **Edit form → Export JSON** or `CFDAgent.configDocument()`
 3. Edit from that exported document, rather than inventing a replacement Config
 4. Declare extensions in `config_schema` with type, label, unit and `items`; put values in `config`

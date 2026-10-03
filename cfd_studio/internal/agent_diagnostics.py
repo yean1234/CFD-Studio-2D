@@ -3,26 +3,42 @@ import argparse
 import json
 from pathlib import Path
 import re
-import urllib.error
+import sys
 import urllib.request
 
+if __package__:
+    from .studio_launcher import configured_port
+else:
+    # The bundled isolated Python omits the script directory from sys.path
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from studio_launcher import configured_port
 
-def diagnose(studio, client_error='', opener=urllib.request.urlopen):
+
+def diagnostic_result(checks, url=None):
+    """Keep server reachability distinct from attachment to the user's tab."""
+    scopes = {row['scope']: row['code'] for row in checks}
+    stages = {
+        'automation_host': 'failed' if 'external_client' in scopes else 'not_checked',
+        'studio_http': 'failed' if 'studio_http' in scopes else 'responded' if 'studio_interface' in scopes else 'not_checked',
+        'agent_scripts': 'ready' if scopes.get('studio_interface') == 'OK' else 'failed' if 'studio_interface' in scopes else 'not_checked',
+        'current_tab': 'not_checked',
+    }
+    return {'url': url, 'checks': checks, 'stages': stages, 'tab_connected': 'not_checked',
+            'note': 'HTTP availability does not prove attachment to the user tab or permission to calculate'}
+
+
+def diagnose(studio, client_error='', opener=urllib.request.urlopen, *, environ=None):
     studio = Path(studio)
     checks = []
     if 'sandboxCwd is not a local file URI' in client_error:
         checks.append({'code': 'APP-A001', 'scope': 'external_client',
                        'detail': 'The automation host rejected its workspace URI before connecting to Studio',
-                       'action': 'Use the Windows local CFD-Studio workspace and reconnect the existing tab; do not restart a solver'})
+                       'action': 'Check the automation host workspace mapping; a Windows local workspace is an unverified recovery option, not a guaranteed fix; preserve Studio and solvers'})
     try:
-        config_path = studio/'studio_config.json'
-        config = json.loads(config_path.read_text(encoding='utf-8-sig')) if config_path.exists() else {}
-        port = config.get('port', 8712)
-        if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
-            raise ValueError('port must be an integer in 1..65535')
+        port = configured_port(studio, environ)
     except (OSError, ValueError) as exc:
         checks.append({'code': 'APP-A002', 'scope': 'studio_config', 'detail': str(exc)})
-        return {'checks': checks, 'tab_connected': 'not_checked'}
+        return diagnostic_result(checks)
     url = f'http://127.0.0.1:{port}'
     try:
         with opener(url+'/agent_controls.js', timeout=3) as response:
@@ -40,8 +56,7 @@ def diagnose(studio, client_error='', opener=urllib.request.urlopen):
     except (OSError, UnicodeError) as exc:
         checks.append({'code': 'APP-N001', 'scope': 'studio_http', 'detail': str(exc),
                        'action': 'Check the configured port and whether Studio is running; do not terminate the browser or solver'})
-    return {'url': url, 'checks': checks, 'tab_connected': 'not_checked',
-            'note': 'HTTP availability does not prove attachment to the user tab or permission to calculate'}
+    return diagnostic_result(checks, url)
 
 
 def main():
