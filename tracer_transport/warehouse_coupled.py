@@ -194,6 +194,9 @@ relaxationFactors { equations { ".*" 1; } }
         numerical_validation_scope='execution_mass_energy_balance_only_no_refinement_study',
         solver='warehouseBuoyantFoam', field_units={'C':'kg/m3', 'U':'m/s', 'T':'K'},
         coupling='T -> buoyancy -> U,phi -> T,C; T -> D; dilute C has no feedback on flow')
+    if 'porous_mesh' in spec:
+        from .porous_warehouse_mesh import mesh_plan
+        model['mesh_plan'] = mesh_plan(spec)
     model['computational_domain'] = symmetry_domain(spec)
     model['loading'] = dict(spec['loading'], blocks=blocks)
     model['coordinate_representation'] = 'arithmetic_mean_of_six_face_centres; approximate_hexahedral_representative_point'

@@ -360,7 +360,7 @@
       const config=currentConfig(),fields=field.fields,meshKey=field.key;
       const base=el('fieldset',null,'fc-section');base.append(el('legend','기본 격자'));main.append(base);
       const aligned=meshKey==='porous_mesh'&&config.porous_mesh?.kind==='aligned_grain_blocks';
-      renderFields(fields.filter(f=>f.key!=='refinement_regions'&&(!aligned||!['domain_mode','maximum_cell_edge_m'].includes(f.key))),base,[meshKey]);
+      renderFields(fields.filter(f=>f.key!=='refinement_regions'&&(!aligned||!['domain_mode','maximum_cell_edge_m','max_axis_spacing_ratio'].includes(f.key))),base,[meshKey]);
       if(aligned){
         const modeRow=el('label','계산 영역','fc-role');
         const mode=el('select');
@@ -400,6 +400,22 @@
         });
         sizeRow.append(size);
         base.append(sizeRow);
+        const transitionRow=el('label','축 구간 간격비 한도','fc-role');
+        const transition=el('input');
+        transition.type='number';
+        transition.min='1';
+        transition.step='any';
+        transition.placeholder='ex) 1.2';
+        transition.disabled=readonly;
+        transition.setAttribute('aria-label','축 구간 간격비 한도');
+        transition.value=config.porous_mesh.max_axis_spacing_ratio??'';
+        transition.onchange=()=>guarded(()=>{
+          const value=transition.value===''?null:Number(transition.value);
+          if(value!==null&&(!Number.isFinite(value)||value<=1))throw Error('[MESH-R010] Ratio must be greater than 1');
+          updateMesh('max_axis_spacing_ratio',value);
+        });
+        transitionRow.append(transition);
+        base.append(transitionRow,el('p','빈칸은 전이 제어 해제 · 벽 경계층·y+ 자동 설정 아님','fc-note'));
         const report=el('div',null,'fc-note');
         report.setAttribute('role','status');
         const plan=button('격자 계획 확인',async()=>{
@@ -427,6 +443,12 @@
               const row=el('div');
               row.append(el('span',label),document.createTextNode(': '+value));
               report.append(row);
+            }
+            if(p.mesh_transition?.enabled){
+              const row=el('div');
+              row.append(el('span','축별 최대 간격비'),document.createTextNode(': '+p.mesh_transition.axis_reference_ratios.map(v=>v.toFixed(3)).join(' / ')));
+              report.append(row);
+              report.append(el('div','X / Y / Z 기준 구간 · 지붕 Z는 최대 높이 기준'));
             }
             report.append(el('div',p.within_cell_budget?'셀 수 한도 이내':'셀 수 한도 초과'));
             report.append(el('div','배열 크기만 산정 · 솔버 메모리·격자·출력 제외'));

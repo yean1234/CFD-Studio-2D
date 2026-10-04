@@ -7,6 +7,7 @@ import math
 from pathlib import Path
 from .warehouse_geometry import header
 from .warehouse_symmetry import symmetry_domain, PATCH
+from .mesh_transition import apply_transition, transition_report
 
 
 def _planned_layout(spec):
@@ -43,6 +44,8 @@ def _planned_layout(spec):
         zc=capped_counts([bottom,top-bottom,g['eaves_m']+g['roof_rise_m']-top],zc)
     from .local_mesh_refinement import refine_counts
     xc,yc,zc=refine_counts(spec,x,y,[0.,bottom,top],xc,yc,zc)
+    lengths=[xd,yd,[bottom,top-bottom,g['eaves_m']+g['roof_rise_m']-top]]
+    xc,yc,zc=apply_transition(m,lengths,(xc,yc,zc))
     domain = symmetry_domain(spec)
     if domain:
         lower,upper = domain['bounds_m'][1]
@@ -79,6 +82,9 @@ def mesh_plan(spec):
         'memory_basis':'Five float64 components only (one vector and two scalars); excludes mesh, pressure, turbulence, matrix, temporary arrays and output. Not a solver RAM estimate.',
         'mesh_generated':False,'cfd_executed':False,
         'computational_domain':symmetry_domain(spec),
+        'mesh_transition':transition_report(spec['porous_mesh'],
+            [[b-a for a,b in zip(x,x[1:])],[b-a for a,b in zip(y,y[1:])],
+             [z[1],z[2]-z[1],g['eaves_m']+g['roof_rise_m']-z[2]]],(xc,yc,zc)),
     }
 
 

@@ -560,6 +560,34 @@
         "ja": "生成された場とログを確認し、境界の欠落を修正してから実行してください"
       },
       "retry": "review"
+    },
+    "MESH-R010": {
+      "code": "MESH-R010",
+      "message": {
+        "ko": "축 구간 간격비 한도가 올바르지 않습니다",
+        "en": "Invalid axis spacing ratio limit",
+        "ja": "軸区間の間隔比上限が不正です"
+      },
+      "action": {
+        "ko": "1보다 큰 유한한 수를 입력하거나 빈칸으로 해제하세요",
+        "en": "Enter a finite number greater than 1, or leave blank to disable",
+        "ja": "1より大きい有限値を入力するか空欄で無効にしてください"
+      },
+      "retry": "review"
+    },
+    "MESH-R011": {
+      "code": "MESH-R011",
+      "message": {
+        "ko": "지정 간격비로 전이 격자를 구성하지 못했습니다",
+        "en": "Axis transition could not settle",
+        "ja": "指定間隔比で格子遷移を構成できません"
+      },
+      "action": {
+        "ko": "간격비 한도를 완화하고 격자 계획을 다시 확인하세요",
+        "en": "Relax the ratio and check the mesh plan again",
+        "ja": "間隔比上限を緩和してメッシュ計画を再確認してください"
+      },
+      "retry": "review"
     }
   }
 }

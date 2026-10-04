@@ -422,3 +422,14 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 - [Warehouse symmetry and mesh planning](WAREHOUSE-SYMMETRY.en.md)
 
 - Modify `porous_mesh.domain_mode` and `maximum_cell_edge_m` in the actual editor export · do not truncate the source Template geometry · resolve ambiguous units and resource limits before execution · distinguish development checks from research calculations
+
+## Research-informed mesh transitions
+
+- Config → Mesh → **Axis interval spacing ratio limit** · enter a value greater than 1, or leave blank to disable
+- Increase counts on the coarser interval to limit adjacent reference spacings · works with full and symmetry-half domains without coarsening fine input spacing
+- **Check mesh plan** reports cell count and X/Y/Z reference ratios · tighter limits can increase cells and computational cost
+- Roof Z uses maximum layer height · this does not guarantee all 3D neighbor ratios, wall layers or y+
+
+- [Research-informed mesh transitions](APPLE-STORAGE-METHODS.en.md)
+
+- Add `porous_mesh.max_axis_spacing_ratio` only when needed to the JSON exported by the current Template · review the planned cells and scope on screen before the save/run workflow · do not change existing Cases or presets automatically

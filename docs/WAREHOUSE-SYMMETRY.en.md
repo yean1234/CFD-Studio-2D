@@ -67,3 +67,10 @@
 - [OpenFOAM blockMesh](https://www.openfoam.com/documentation/user-guide/4-mesh-generation-and-conversion/4.3-mesh-generation-with-the-blockmesh-utility)
 - [Dornier et al., Mean Mesh Adaptation for Efficient CFD Simulations with Operating Conditions Variability, 2024](https://arxiv.org/abs/2412.01274)
 - The cited condition-sampled mean-error adaptation is background research; its algorithm is not implemented here and does not validate an arbitrary ultrafine/ultracoarse half-domain split
+
+## Research-informed mesh transitions
+
+- [Research-informed mesh transitions](APPLE-STORAGE-METHODS.en.md)
+
+- [Alexander, Jakhar & Dasgupta (2024), Scientific Reports 14, 25402](https://doi.org/10.1038/s41598-024-76385-y)
+- [Alexander, Jakhar & Dasgupta (2025), Scientific Reports 15, 11534](https://doi.org/10.1038/s41598-025-95886-y)

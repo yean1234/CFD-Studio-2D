@@ -67,3 +67,10 @@
 - [OpenFOAM blockMesh](https://www.openfoam.com/documentation/user-guide/4-mesh-generation-and-conversion/4.3-mesh-generation-with-the-blockmesh-utility)
 - [Dornier et al., Mean Mesh Adaptation for Efficient CFD Simulations with Operating Conditions Variability, 2024](https://arxiv.org/abs/2412.01274)
 - 위 연구의 조건 표본 기반 평균 오차 적응은 참고 방법론 · 해당 알고리즘을 구현하거나 임의의 절반 초미세/절반 초거대 격자의 정확도를 입증한 것으로 해석하지 않음
+
+## 연구 기반 격자 전이
+
+- [연구 기반 격자 전이](APPLE-STORAGE-METHODS.md)
+
+- [Alexander, Jakhar & Dasgupta (2024), Scientific Reports 14, 25402](https://doi.org/10.1038/s41598-024-76385-y)
+- [Alexander, Jakhar & Dasgupta (2025), Scientific Reports 15, 11534](https://doi.org/10.1038/s41598-025-95886-y)

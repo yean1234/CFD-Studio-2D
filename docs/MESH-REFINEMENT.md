@@ -125,3 +125,7 @@
 
 - [한국어](WAREHOUSE-SYMMETRY.md) · [English](WAREHOUSE-SYMMETRY.en.md) · [日本語](WAREHOUSE-SYMMETRY.ja.md)
 - 연결된 정렬 저장고의 Y 대칭 절반·최대 셀 변 길이·셀 수 사전 검사 · 일반 AMR 및 독립 3D 접합은 미지원
+
+## 연구 기반 격자 전이
+
+- [선행연구·입력·구현 범위](APPLE-STORAGE-METHODS.md) · 축 구간 간격비 한도 · 자동 경계층/AMR은 미지원

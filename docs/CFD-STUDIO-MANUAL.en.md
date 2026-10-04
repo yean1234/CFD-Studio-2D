@@ -124,3 +124,12 @@
 - Local refinement propagates along existing block axes · adaptive mesh refinement and independently coupled fine/coarse 3D halves are unsupported
 
 - [Warehouse symmetry and mesh planning](WAREHOUSE-SYMMETRY.en.md)
+
+## Research-informed mesh transitions
+
+- Config → Mesh → **Axis interval spacing ratio limit** · enter a value greater than 1, or leave blank to disable
+- Increase counts on the coarser interval to limit adjacent reference spacings · works with full and symmetry-half domains without coarsening fine input spacing
+- **Check mesh plan** reports cell count and X/Y/Z reference ratios · tighter limits can increase cells and computational cost
+- Roof Z uses maximum layer height · this does not guarantee all 3D neighbor ratios, wall layers or y+
+
+- [Research-informed mesh transitions](APPLE-STORAGE-METHODS.en.md)

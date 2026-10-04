@@ -430,3 +430,14 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 - [저장고 대칭과 격자 계획](WAREHOUSE-SYMMETRY.md)
 
 - 현재 편집기에서 내보낸 JSON의 `porous_mesh.domain_mode`와 `maximum_cell_edge_m`만 필요한 범위에서 수정 · 전체 공간을 잘라서 원본 Template을 바꾸지 않음 · 단위가 불명확하거나 계산 자원이 부족하면 실행 전 확인 · 축소 시험과 연구 계산을 구분
+
+## 연구 기반 격자 전이
+
+- Config → 격자 → **축 구간 간격비 한도** · 1보다 큰 값 입력, 빈칸은 해제
+- 큰 셀 쪽 구간의 셀 수를 늘려 인접 기준 간격비를 제한 · 전체 영역과 대칭 절반에 적용 · 기존 미세 간격은 거칠게 변경하지 않음
+- **격자 계획 확인**에서 셀 수와 X/Y/Z 기준 간격비 확인 · 간격비를 낮추면 셀 수와 계산 비용이 증가할 수 있음
+- 지붕 Z는 최대 층 높이 기준 · 모든 실제 3D 이웃 셀의 성장비·벽 경계층·y+를 보장하지 않음
+
+- [연구 기반 격자 전이](APPLE-STORAGE-METHODS.md)
+
+- 현재 Template에서 내보낸 JSON에 `porous_mesh.max_axis_spacing_ratio`를 필요한 경우만 추가 · 격자 계획의 셀 수·범위를 화면에서 확인한 뒤 저장/실행 절차 진행 · 기존 Case와 프리셋은 자동 변경하지 않음

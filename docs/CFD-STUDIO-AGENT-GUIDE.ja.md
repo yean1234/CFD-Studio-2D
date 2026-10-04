@@ -422,3 +422,14 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 - [倉庫の対称条件とメッシュ計画](WAREHOUSE-SYMMETRY.ja.md)
 
 - 実際の編集画面から出力したJSONの`porous_mesh.domain_mode`と`maximum_cell_edge_m`を必要範囲で変更 · 元Templateの形状を切り取らない · 単位不明や資源不足は実行前に確認 · 開発試験と研究計算を区別
+
+## 研究を参考にした格子遷移
+
+- Config → メッシュ → **軸区間間隔比の上限** · 1より大きい値を入力、空欄で無効化
+- 粗い区間のセル数を増やして隣接基準間隔比を制限 · 全領域と対称半領域に対応し、細かい入力間隔を粗く変更しない
+- **メッシュ計画を確認**でセル数とX/Y/Z基準間隔比を確認 · 制限を厳しくするとセル数と計算費用が増える場合がある
+- 屋根Zは最大層高さ基準 · 全3D隣接セルの成長比・壁面層・y+は保証しない
+
+- [研究を参考にした格子遷移](APPLE-STORAGE-METHODS.ja.md)
+
+- 現在のTemplateから出力したJSONに必要時のみ `porous_mesh.max_axis_spacing_ratio` を追加 · 保存・実行の前に画面で予定セル数と範囲を確認 · 既存Caseやプリセットを自動変更しない

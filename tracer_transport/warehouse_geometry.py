@@ -123,7 +123,7 @@ def build(spec, destination, check=False):
     (destination/'system/blockMeshDict').write_text(mesh_dictionary(spec), encoding='ascii')
     (destination/'system/controlDict').write_text(header('controlDict') +
         'application blockMesh; startFrom startTime; startTime 0; stopAt endTime; endTime 0;\n'
-        'deltaT 1; writeControl timeStep; writeInterval 1;\n', encoding='ascii')
+        'deltaT 1; writeControl timeStep; writeInterval 1; writePrecision 16;\n', encoding='ascii')
     (destination/'system/fvSchemes').write_text(header('fvSchemes') +
         'ddtSchemes { default Euler; } gradSchemes { default Gauss linear; }\n'
         'divSchemes { default none; } laplacianSchemes { default Gauss linear corrected; }\n'
