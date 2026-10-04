@@ -3,7 +3,7 @@
 'use strict';
 const version=1,types=['string','number','integer','boolean','object','array','null'];
 const rows=[
- ["MESH-R010", "축 구간 간격비 한도가 올바르지 않습니다", "Invalid axis spacing ratio limit", "軸区間の間隔比上限が不正です", "1보다 큰 유한한 수를 입력하거나 빈칸으로 해제하세요", "Enter a finite number greater than 1, or leave blank to disable", "1より大きい有限値を入力するか空欄で無効にしてください"],
+ ["MESH-R010", "축 구간 간격비 한도가 올바르지 않습니다", "Invalid axis spacing ratio limit", "軸区間の間隔比上限が不正です", "사용 여부는 true/false로 지정하고 사용 시 1보다 큰 유한한 간격비를 입력하세요", "Set the enabled flag to true or false; when enabled, enter a finite ratio greater than 1", "使用設定をtrue/falseで指定し、有効時は1より大きい有限の間隔比を入力してください"],
  ["MESH-R011", "지정 간격비로 전이 격자를 구성하지 못했습니다", "Axis transition could not settle", "指定間隔比で格子遷移を構成できません", "간격비 한도를 완화하고 격자 계획을 다시 확인하세요", "Relax the ratio and check the mesh plan again", "間隔比上限を緩和してメッシュ計画を再確認してください"],
  ["MESH-S001", "현재 실행기가 지원하지 않는 격자 영역입니다", "Unsupported mesh domain for this adapter", "この実行アダプターでは未対応のメッシュ領域です", "연결된 저장고 격자에서 전체 또는 Y 대칭 절반을 선택하세요", "Choose full domain or a Y symmetry half in the connected warehouse mesh", "接続済み倉庫メッシュで全領域またはY対称半領域を選択してください"],
  ["MESH-S002", "적재 형상이 대칭이 아닙니다", "Loading geometry is not symmetric", "積載形状が対称ではありません", "Y 중앙면 양쪽의 형상·위치를 확인하거나 전체 영역을 선택하세요", "Check geometry on both sides of the Y midplane or use the full domain", "Y中央面の両側の形状と位置を確認するか全領域を使用してください"],

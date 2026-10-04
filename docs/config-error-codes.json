@@ -569,9 +569,9 @@
         "ja": "軸区間の間隔比上限が不正です"
       },
       "action": {
-        "ko": "1보다 큰 유한한 수를 입력하거나 빈칸으로 해제하세요",
-        "en": "Enter a finite number greater than 1, or leave blank to disable",
-        "ja": "1より大きい有限値を入力するか空欄で無効にしてください"
+        "ko": "사용 여부는 true/false로 지정하고 사용 시 1보다 큰 유한한 간격비를 입력하세요",
+        "en": "Set the enabled flag to true or false; when enabled, enter a finite ratio greater than 1",
+        "ja": "使用設定をtrue/falseで指定し、有効時は1より大きい有限の間隔比を入力してください"
       },
       "retry": "review"
     },

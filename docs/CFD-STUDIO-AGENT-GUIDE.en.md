@@ -425,7 +425,7 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 
 ## Research-informed mesh transitions
 
-- Config → Mesh → **Axis interval spacing ratio limit** · enter a value greater than 1, or leave blank to disable
+- Config → Mesh → **Use mesh spacing transitions** on/off · when enabled, enter a ratio greater than 1 · disabling preserves the value
 - Increase counts on the coarser interval to limit adjacent reference spacings · works with full and symmetry-half domains without coarsening fine input spacing
 - **Check mesh plan** reports cell count and X/Y/Z reference ratios · tighter limits can increase cells and computational cost
 - Roof Z uses maximum layer height · this does not guarantee all 3D neighbor ratios, wall layers or y+

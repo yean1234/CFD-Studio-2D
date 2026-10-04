@@ -28,6 +28,22 @@ class TransitionTests(unittest.TestCase):
         self.assertLessEqual(interval_ratio(lengths, after), 1.2*(1+1e-12))
         self.assertEqual(before, [20,4,5,4,20])
 
+    def test_explicit_toggle_preserves_ratio_and_legacy_behavior(self):
+        mesh = self.spec['porous_mesh']
+        mesh['max_axis_spacing_ratio'] = 1.2
+        legacy = mesh_plan(self.spec)
+        mesh['mesh_transition_enabled'] = False
+        disabled = mesh_plan(self.spec)
+        self.assertEqual(disabled['cells'], 1860)
+        self.assertFalse(disabled['mesh_transition']['enabled'])
+        self.assertEqual(mesh['max_axis_spacing_ratio'], 1.2)
+        mesh['mesh_transition_enabled'] = True
+        self.assertEqual(mesh_plan(self.spec)['cells'], legacy['cells'])
+        for invalid in ({'mesh_transition_enabled': True},
+                        {'mesh_transition_enabled': 'false', 'max_axis_spacing_ratio': 1.2}):
+            with self.assertRaisesRegex(ValueError, 'MESH-R010'):
+                transition_ratio(invalid)
+
     def test_budget_and_half_domain_plan(self):
         self.spec['porous_mesh'].update(max_axis_spacing_ratio=1.2, maximum_cells=1000)
         full = mesh_plan(self.spec)

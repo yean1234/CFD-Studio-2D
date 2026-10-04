@@ -4,7 +4,11 @@ import math
 
 def transition_ratio(mesh):
     value = mesh.get('max_axis_spacing_ratio')
-    if value is None:
+    enabled = mesh.get('mesh_transition_enabled', value is not None)
+    if type(enabled) is not bool:
+        raise ValueError('[MESH-R010] mesh_transition_enabled must be a boolean')
+    # An explicit off state retains the saved ratio without applying it
+    if not enabled:
         return None
     if type(value) not in (float, int) or not math.isfinite(value) or value <= 1:
         raise ValueError('[MESH-R010] max_axis_spacing_ratio must be finite and greater than 1')

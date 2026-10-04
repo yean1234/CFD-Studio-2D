@@ -106,6 +106,8 @@ add("전체 영역","Full domain","全領域");
 add("Y 중앙면 대칭 · 아래쪽 절반","Y midplane symmetry · lower half","Y中央面対称 · 下側半領域");
 add("Y 중앙면 대칭 · 위쪽 절반","Y midplane symmetry · upper half","Y中央面対称 · 上側半領域");
 add("최대 셀 변 길이 (m)","Maximum cell edge (m)","最大セル辺長 (m)");
+add("격자 간격 전이 사용","Use mesh spacing transitions","格子間隔の遷移を使用");
+add("사용 시 간격비 입력 · 끄면 값 보존 · 벽 경계층·y+ 자동 설정 아님","Enter a ratio when enabled · disabling preserves the value · no wall layers or automatic y+","有効時に間隔比を入力 · 無効時も値を保持 · 壁面層・y+の自動設定なし");
 add("축 구간 간격비 한도","Axis interval spacing ratio limit","軸区間間隔比の上限");
 add("빈칸은 전이 제어 해제 · 벽 경계층·y+ 자동 설정 아님","Blank disables transitions · no wall layers or automatic y+","空欄で遷移制御を無効化 · 壁面層・y+の自動設定なし");
 add("축별 최대 간격비","Maximum ratio by axis","軸別最大間隔比");

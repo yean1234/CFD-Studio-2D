@@ -13,14 +13,14 @@
 
 ## Implementation
 
-- Config → Mesh → **Axis interval spacing ratio limit** · enter a value greater than 1, or leave blank to disable
+- Config → Mesh → **Use mesh spacing transitions** on/off · when enabled, enter a ratio greater than 1 · disabling preserves the value
 - Increase counts on the coarser interval to limit adjacent reference spacings · works with full and symmetry-half domains without coarsening fine input spacing
 - **Check mesh plan** reports cell count and X/Y/Z reference ratios · tighter limits can increase cells and computational cost
 - Roof Z uses maximum layer height · this does not guarantee all 3D neighbor ratios, wall layers or y+
 - Generated mesh coordinates use 16-digit output precision with existing check tolerances retained · existing Case inputs are not changed automatically
 
 ```json
-{"porous_mesh": {"max_axis_spacing_ratio": 1.2}}
+{"porous_mesh": {"mesh_transition_enabled": true, "max_axis_spacing_ratio": 1.2}}
 ```
 
 - Partial fields to merge into an actual Template export, not a complete Config · 1.2 is an example for review, not a validated grain-warehouse default
@@ -42,3 +42,5 @@
 - OpenFOAM v2312 checkMesh passed; volume retained at 8,726.25m³
 - One-second, three-frame velocity/temperature/concentration execution checks passed; relative mass balance approximately 9.16e-14
 - Does not establish a 3cm research run, paper reproduction, grid convergence or experimental validation
+
+- `mesh_transition_enabled`: true applies transitions, false disables them · legacy Config without this key retains behavior based on whether a ratio is present · symmetry-half selection remains separate
