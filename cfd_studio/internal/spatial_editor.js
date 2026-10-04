@@ -81,6 +81,7 @@
   // These are compatibility conversions of known old formats, never inference from a display name.
   if(path.length===1&&path[0]==='tank'&&['width_mm','liquid_height_mm','depth_mm'].every(k=>Object.hasOwn(p,k)))return {...named,shape:'box',unit:'mm',min:[0,0,0],max:[p.width_mm,p.liquid_height_mm,p.depth_mm]};
   if(path.length===1&&['board','coil'].includes(path[0])&&['x0','x1','y0','y1','z0','z1'].every(k=>Object.hasOwn(p,k)))return {...named,shape:'box',unit:'mm',min:['x0','y0','z0'].map(k=>p[k]),max:['x1','y1','z1'].map(k=>p[k])};
+  if(path.length===1&&['dielectric_fluid','water'].includes(path[0])&&config.tank&&config.layers){const t=config.tank,b=config.layers.dielectric_mm;return {...named,shape:'box',unit:'mm',min:[0,path[0]==='water'?b:0,0],max:[t.width_mm,path[0]==='water'?t.liquid_height_mm:b,t.depth_mm]};}
   if(p.min_m&&p.max_m)return {...named,shape:'box',unit:'m',min:clone(p.min_m),max:clone(p.max_m)};
   return null;
  }
@@ -171,15 +172,39 @@
   }else part.fill=clone(fill);
   return resolveFills(next);
  }
+ function refinementBox(config,region){
+  if(!Object.hasOwn(region,'target_path'))return region;
+  const path=region.target_path;
+  if(!Array.isArray(path)||!path.length||path.length>20||path.some(k=>!(typeof k==='string'||Number.isInteger(k)&&k>=0)||['__proto__','constructor','prototype'].includes(k)))throw Error('[MESH-R001] '+tMesh('격자 대상 형상을 확인하세요'));
+  if(['shape','unit','min','max'].some(k=>Object.hasOwn(region,k)))throw Error('[MESH-R003] '+tMesh('형상 참조와 좌표 범위 중 하나만 지정하세요'));
+  const p=primitiveDefinition(config,path);if(!p)throw Error('[MESH-R002] '+tMesh('격자 대상 형상을 확인하세요'));validatePrimitive(p);
+  if(p.shape==='box')return {...region,...p};
+  const extent=[p.radius,p.radius,p.radius];if(p.shape==='cylinder')extent['xyz'.indexOf(p.axis)]=p.height/2;
+  return {...region,name:p.name,shape:'box',unit:p.unit,min:p.center.map((v,i)=>v-extent[i]),max:p.center.map((v,i)=>v+extent[i])};
+ }
+ function tMesh(text){return globalThis.CFDI18n?.translate?CFDI18n.translate(text):text;}
+ // Reindex references when an earlier array element is removed; never silently retarget.
+ function removeMeshTarget(config,path){
+  for(const mesh of [config.mesh,config.porous_mesh])for(const region of mesh?.refinement_regions||[]){
+   const ref=region.target_path;if(!Array.isArray(ref))continue;
+   if(path.every((k,i)=>ref[i]===k))throw Error(tMesh('이 형상의 국부 격자 연결을 먼저 삭제하세요'));
+  }
+  if(typeof path.at(-1)==='number')for(const mesh of [config.mesh,config.porous_mesh])for(const region of mesh?.refinement_regions||[]){
+   const ref=region.target_path;if(Array.isArray(ref)&&ref.length>=path.length&&path.slice(0,-1).every((k,i)=>ref[i]===k)&&ref[path.length-1]>path.at(-1))ref[path.length-1]--;
+  }
+ }
  function validateRefinements(config){
   const mesh=config.porous_mesh||config.mesh;if(!mesh?.refinement_regions)return;
   if(!Array.isArray(mesh.refinement_regions)||mesh.refinement_regions.length>64)throw Error('국부 격자 영역은 64개 이하로 정의하세요');
-  const rawBase=mesh.base_max_spacing_m?Math.min(...mesh.base_max_spacing_m):(mesh.dx_mm!==undefined?mesh.dx_mm:mesh.cell_size?.value);const base=typeof rawBase==='number'?(mesh.base_max_spacing_m?rawBase:mesh.dx_mm!==undefined?rawBase*.001:rawBase*unitScale[mesh.cell_size?.unit]):NaN;
-  for(const region of mesh.refinement_regions){
+  const silo=config._해석유형==='grain_silo'&&config.published;
+  const rawBase=mesh.base_max_spacing_m?Math.min(...mesh.base_max_spacing_m):(mesh.dx_mm!==undefined?mesh.dx_mm:mesh.cell_size?.value);const base=silo?Math.cbrt(Math.PI*(silo.storage_diameter_m/2)**2*silo.total_height_m/mesh.target_cells):typeof rawBase==='number'?(mesh.base_max_spacing_m?rawBase:mesh.dx_mm!==undefined?rawBase*.001:rawBase*unitScale[mesh.cell_size?.unit]):NaN;
+  for(const input of mesh.refinement_regions){
+   const region=refinementBox(config,input);
    validatePrimitive({name:region.name||'refinement',shape:region.shape,unit:region.unit,min:region.min,max:region.max});
    if(region.shape!=='box')throw Error('국부 격자는 직육면체 영역을 지원합니다');
    const size=typeof region.cell_size?.value==='number'?region.cell_size.value*unitScale[region.cell_size?.unit]:NaN;if(!Number.isFinite(size)||size<=0||!Number.isFinite(base)||base<=0||size>=base)throw Error('국부 격자 간격은 기본 격자보다 작은 양수로 입력하세요');
    if(config.porous_mesh&&config.geometry_spec?.geometry){const g=config.geometry_spec.geometry,scale=unitScale[region.unit],lo=region.min.map(v=>v*scale),hi=region.max.map(v=>v*scale),roof=y=>g.eaves_m+g.roof_rise_m*(1-Math.abs(2*y/g.width_m-1));if(lo.some(v=>v<0)||hi[0]>g.length_m||hi[1]>g.width_m||hi[2]>Math.min(roof(lo[1]),roof(hi[1]))+1e-10)throw Error('국부 격자가 계산 영역을 벗어났습니다');}
+   if(silo){const scale=unitScale[region.unit],lo=region.min.map(v=>v*scale),hi=region.max.map(v=>v*scale),r=silo.storage_diameter_m/2;if(lo[2]<0||hi[2]>silo.total_height_m||lo[0]<-r||lo[1]<-r||hi[0]>r||hi[1]>r||Math.hypot(...[0,1].map(i=>Math.max(lo[i],Math.min(0,hi[i]))))>=r)throw Error('국부 격자가 계산 영역을 벗어났습니다');}
    if(config.tank){const limit=[config.tank.width_mm,config.tank.liquid_height_mm,config.tank.depth_mm].map(v=>v*.001),scale=unitScale[region.unit];if(region.min.some(v=>v*scale<0)||region.max.some((v,i)=>v*scale>limit[i]))throw Error('국부 격자가 계산 영역을 벗어났습니다');}
   }
  }
@@ -373,5 +398,5 @@
   dialog.append(header,el('p',schemaOnly?'초기 형상은 Template에 저장 · 프로젝트에서 독립적으로 수정 가능':'형상 확인용 미리보기 · 격자 생성·솔버 계산은 별도','sp-note'),body,help,error,actions);
   dialog.onclose=()=>{closed=true;clear();dialog.remove();};document.body.append(dialog);dialog.showModal();return dialog;
  }
- const api={elementCollections,fillInfo,fillSpace,filledPrimitive,resolveFills,applyFill,validateRefinements,runnerGeometryIssue,primitiveDefinition,validatePrimitive,applyPrimitive,transformInfo,transform,keys,parse,extract,merge,document:spatialDocument,mergeDocument,shapes,elements,partBindings,isGeometryPath,at,pathId,viewer,open};if(typeof module!=='undefined')module.exports=api;else globalThis.CFDSpatial=api;
+ const api={refinementBox,removeMeshTarget,elementCollections,fillInfo,fillSpace,filledPrimitive,resolveFills,applyFill,validateRefinements,runnerGeometryIssue,primitiveDefinition,validatePrimitive,applyPrimitive,transformInfo,transform,keys,parse,extract,merge,document:spatialDocument,mergeDocument,shapes,elements,partBindings,isGeometryPath,at,pathId,viewer,open};if(typeof module!=='undefined')module.exports=api;else globalThis.CFDSpatial=api;
 })();

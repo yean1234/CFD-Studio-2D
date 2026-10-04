@@ -374,3 +374,8 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 ```
 
 - Launching again preserves an existing Studio server and opens its address · A conflicting service returns APP-A002 · No automatic port switching or process termination
+
+## Geometry refinement
+
+- Export the actual Template JSON first. Define `target_path` and `cell_size` under the existing mesh refinement list; do not mix a reference with explicit bounds. If arrays are reordered in JSON, update reference paths. Show the mesh scope and estimated cost before execution; a geometry preview is not mesh validation.
+- [Mesh refinement](MESH-REFINEMENT.md)

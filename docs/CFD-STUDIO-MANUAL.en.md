@@ -82,3 +82,8 @@
 - **Stop agent** immediately hides operation UI, blocks subsequent commands and sends a pause signal
 - No human start or resume buttons; continue through a new instruction in the agent conversation
 - Active CFD continues; Config review, saving and calculation remain separate
+
+## Geometry refinement
+
+- **Mesh → Local refinement → Select geometry → Add from geometry**, then enter the finer cell spacing. Use **+ Region** for explicit coordinate bounds. Geometry references follow current dimensions; spheres and cylinders use bounding boxes. Immersion and aligned warehouse generators are connected. The silo surrogate refines selected height intervals and the entire horizontal cross-section to preserve conformal faces. This does not add paper duct geometry or a generic solver adapter. Existing results remain unchanged.
+- [Mesh refinement](MESH-REFINEMENT.md)

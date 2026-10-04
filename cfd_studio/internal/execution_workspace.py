@@ -86,9 +86,13 @@ def validate_settings(config):
     check(config)
     kind = config_kind(config)
     if (config.get('mesh') or {}).get('refinement_regions'):
-        if kind!='immersion':raise ValueError('현재 실행기는 국부 격자 설정을 지원하지 않습니다')
-        from tmc49_full_tank.tools.mesh_refinement import refinement_boxes
-        t=config['tank'];refinement_boxes(config['mesh'],[t['width_mm'],t['liquid_height_mm'],t['depth_mm']])
+        if kind=='grain_silo':
+            from tmc49_full_tank.tools.build_silo_runtime import mesh_plan
+            mesh_plan(config)
+        elif kind=='immersion':
+            from tmc49_full_tank.tools.mesh_refinement import refinement_boxes
+            t=config['tank'];refinement_boxes(config['mesh'],[t['width_mm'],t['liquid_height_mm'],t['depth_mm']],config)
+        else:raise ValueError('현재 실행기는 국부 격자 설정을 지원하지 않습니다')
     if kind == 'warehouse':
         if (config.get('porous_mesh') or {}).get('refinement_regions'):
             from tracer_transport.porous_warehouse_mesh import layout

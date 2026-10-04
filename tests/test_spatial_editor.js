@@ -140,3 +140,15 @@ test('fill rejects overlap, invalid interior and self-reference without rewritin
  assert.throws(()=>s.applyFill(c,['domain'],{container_path:['domain'],axis:'y',start:0,end:2,unit:'m'}),/자기 자신/);
  c.domain.material_state='solid';c.domain.interior={shape:'box',unit:'m',min:[0,0,0],max:[2,3,1]};assert.throws(()=>s.fillSpace(c,['domain']),/외곽/);
 });
+
+test('refinement targets track shapes, guard deletion and reindex remaining references',()=>{
+ const sp=require('../cfd_studio/internal/spatial_editor.js');
+ const c={tank:{width_mm:100,liquid_height_mm:100,depth_mm:100},regions:[{name:'A',shape:'box',unit:'mm',min:[1,1,1],max:[10,10,10]},{name:'B',shape:'box',unit:'mm',min:[20,20,20],max:[30,30,30]}],mesh:{dx_mm:10,refinement_regions:[{target_path:['regions',1],cell_size:{value:2,unit:'mm'}}]}};
+ const before=structuredClone(c);sp.validateRefinements(c);assert.deepEqual(c,before);assert.deepEqual(sp.refinementBox(c,c.mesh.refinement_regions[0]).min,[20,20,20]);
+ assert.throws(()=>sp.removeMeshTarget(c,['regions',1]));sp.removeMeshTarget(c,['regions',0]);c.regions.splice(0,1);assert.deepEqual(c.mesh.refinement_regions[0].target_path,['regions',0]);sp.validateRefinements(c);
+ c.regions[0].max[0]=110;assert.throws(()=>sp.validateRefinements(c));delete c.regions[0];assert.throws(()=>sp.validateRefinements(c));
+});
+test('silo refinement validates physical bounds and target-cell reference spacing',()=>{
+ const sp=require('../cfd_studio/internal/spatial_editor.js'),c={_해석유형:'grain_silo',published:{storage_diameter_m:.8,total_height_m:1.4},mesh:{target_cells:4000,refinement_regions:[{name:'Band',shape:'box',unit:'m',min:[-.1,-.1,.4],max:[.1,.1,.6],cell_size:{value:.03,unit:'m'}}]}};
+ sp.validateRefinements(c);c.mesh.refinement_regions[0].min=[.35,.35,.4];c.mesh.refinement_regions[0].max=[.39,.39,.6];assert.throws(()=>sp.validateRefinements(c));
+});

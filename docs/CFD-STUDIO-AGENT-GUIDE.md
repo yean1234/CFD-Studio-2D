@@ -379,3 +379,11 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 ```
 
 - 실행 파일 재실행: 기존 Studio 서버를 유지하고 해당 주소 열기 · 다른 서비스의 포트 점유 시 APP-A002 · 포트 자동 변경 및 프로세스 강제 종료 없음
+
+## 형상별 격자
+
+- 실제 Template JSON의 `mesh.refinement_regions` 또는 `porous_mesh.refinement_regions` 사용
+- 형상 참조는 `target_path`·`cell_size` 지정 · 좌표 범위와 중복 지정 금지
+- 원본 형상 치수 변경은 참조 영역에 반영 · JSON 배열 재정렬 시 참조 경로도 갱신
+- 사일로 등가 형상은 지정 높이 구간 및 전체 수평 단면 세분화 · 원문 덕트 구현 여부 별도 확인
+- 범위·예상 셀 수 확인 후 새 Case에 반영 · 기존 결과 유지 · [지원 범위](MESH-REFINEMENT.md)

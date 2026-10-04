@@ -103,3 +103,5 @@ node --test tests/test_*.js
 - 서버는 로컬 PC 사용 전제
 - 외부 구성요소: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 - 자체 코드에 신규 라이선스를 임의 부여하지 않음 · 외부 구성요소는 각 라이선스 적용
+
+- [형상별 격자](docs/MESH-REFINEMENT.md): 형상 참조·국부 간격·생성기별 적용 범위

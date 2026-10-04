@@ -3,6 +3,12 @@
 'use strict';
 const version=1,types=['string','number','integer','boolean','object','array','null'];
 const rows=[
+ ["MESH-R001", "격자 대상 형상을 찾을 수 없습니다", "Refinement geometry was not found", "細分化対象の形状が見つかりません", "형상을 다시 선택하고 target_path를 확인하세요", "Select the geometry again and check target_path", "形状を再選択してtarget_pathを確認してください"],
+ ["MESH-R002", "격자 대상 형상 정의가 올바르지 않습니다", "Invalid refinement geometry definition", "細分化対象の形状定義が不正です", "형상 종류·단위·좌표·치수를 확인하세요", "Check primitive type, units, coordinates and dimensions", "形状種類・単位・座標・寸法を確認してください"],
+ ["MESH-R003", "국부 격자 입력 형식이 올바르지 않습니다", "Invalid refinement input format", "局所メッシュ入力形式が不正です", "형상 참조 또는 좌표 범위 중 하나로 영역 목록을 작성하세요", "Use a list of either geometry references or explicit bounds", "形状参照または座標範囲のリストを入力してください"],
+ ["MESH-R004", "국부 격자가 사일로 계산 영역과 겹치지 않습니다", "Refinement does not intersect the silo domain", "局所メッシュがサイロ計算領域と交差していません", "원기둥 내부와 겹치는 범위를 지정하세요", "Choose bounds that intersect the cylinder interior", "円柱内部と交差する範囲を指定してください"],
+ ["MESH-R005", "세분화 격자가 생성 한도를 초과합니다", "Refined mesh exceeds the generation limit", "細分化メッシュが生成上限を超えています", "간격·범위를 조정하세요 · maximum_cells는 1~20000000 정수", "Adjust spacing or bounds; maximum_cells must be an integer from 1 to 20000000", "間隔・範囲を調整してください · maximum_cellsは1〜20000000の整数"],
+
  ["CFG-G006", "격자 품질 검사를 통과하지 못했습니다", "Mesh quality check did not pass", "メッシュ品質検査に合格していません", "log.checkMesh를 확인하고 격자를 수정하세요", "Inspect log.checkMesh and correct the mesh", "log.checkMeshを確認してメッシュを修正してください"],
  ["CFG-G003", "사일로 설계 구분 또는 값이 올바르지 않습니다", "Invalid silo design or original/optimized scheme mix", "サイロ設計値または原案・最適化案の区分が不正です", "원안은 A=10·B=7·C=0·D=0으로 지정하세요", "Use A=10, B=7, C=0, D=0 for the original", "原案はA=10・B=7・C=0・D=0を指定してください"],
  ["CFG-G004", "사일로 실행 형상이 연결되지 않았습니다", "Silo execution geometry is not connected", "サイロの実行形状が接続されていません", "원문 덕트 형상은 미지원입니다 · 등가 모델은 가정을 검토한 뒤 선택하세요", "Paper duct geometry is unsupported; review assumptions before selecting the surrogate", "原論文のダクト形状は未対応です · 等価モデルの仮定を確認してください"],
@@ -48,7 +54,7 @@ const patterns=[
 ];
 // Explicit codes take precedence; text matching supports older error messages
 function normalize(error,language='ko'){
- const detail=String(error?.message??error??'').slice(0,700),embedded=detail.match(/\[(CFG-[JUG]\d{3}|APP-[A-Z]\d{3})\]/)?.[1];
+ const detail=String(error?.message??error??'').slice(0,700),embedded=detail.match(/\[(CFG-[JUG]\d{3}|APP-[A-Z]\d{3}|MESH-R\d{3})\]/)?.[1];
  const code=catalog[error?.code]?error.code:catalog[embedded]?embedded:error instanceof SyntaxError?'CFG-J001':patterns.find(([,p])=>p.test(detail))?.[0]||'APP-X001';
  const lang=['ko','en','ja'].includes(language)?language:'en',entry=catalog[code];
  return {code,message:entry.message[lang],action:entry.action[lang],path:Array.isArray(error?.path)?error.path:[],detail,retry:entry.retry};

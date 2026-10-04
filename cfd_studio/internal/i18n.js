@@ -828,6 +828,13 @@ add("선택한 축의 내부 공간 최솟값을 0으로 하는 거리","Distanc
 add("채움 적용","Apply fill","充填を適用");
 add("채움 연결 해제","Unlink fill","充填の関連付けを解除");
 add("기본 격자","Base mesh","基本メッシュ");
+add("격자 대상 형상","Refinement geometry","細分化対象の形状");
+add("형상 선택","Select geometry","形状を選択");
+add("형상에서 추가","Add from geometry","形状から追加");
+add("격자 대상 형상을 확인하세요","Check the refinement geometry target","細分化対象の形状を確認してください");
+add("형상 참조와 좌표 범위 중 하나만 지정하세요","Use either a geometry reference or coordinate bounds","形状参照または座標範囲のいずれかを指定してください");
+add("이 형상의 국부 격자 연결을 먼저 삭제하세요","Remove the refinement reference before deleting this geometry","この形状の局所メッシュ参照を先に削除してください");
+add("사일로는 지정 높이 구간과 전체 수평 단면을 세분화합니다","Silo refinement affects the selected height intervals and the entire horizontal cross-section","サイロでは指定した高さ区間と水平断面全体を細分化します");
 add("국부 격자","Local refinement","局所細分化");
 add("+ 영역","+ Region","+ 領域");
 add("국부 간격은 기본 간격보다 작게 입력 · 연결면을 맞추기 위해 주변 축 방향도 세분화","Use finer spacing than the base mesh · Adjacent axial strips are refined for conformal faces","基本メッシュより細かい間隔を入力 · 接続面を一致させるため周辺の軸方向も細分化");

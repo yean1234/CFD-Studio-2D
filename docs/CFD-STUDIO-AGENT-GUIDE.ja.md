@@ -374,3 +374,8 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 ```
 
 - 再起動操作では既存のStudioサーバーを保持してそのアドレスを開く · 別サービスのポート使用時はAPP-A002 · ポートの自動変更やプロセスの強制終了なし
+
+## 形状ごとの細分化
+
+- 実際のTemplate JSONを先に出力。既存の局所格子リストに `target_path` と `cell_size` を設定し、参照と直接座標を混在させない。JSONの配列を並べ替えた場合は参照パスも更新。計算前に細分化範囲と予想負荷を提示。形状プレビューは格子検証ではありません。
+- [Mesh refinement](MESH-REFINEMENT.md)

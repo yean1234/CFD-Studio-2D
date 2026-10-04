@@ -21,6 +21,45 @@ class LocalRefinementTests(unittest.TestCase):
         for key,value in [('max',[101,20,20]),('min',[0,float('nan'),0]),('cell_size',{'value':10,'unit':'mm'}),('cell_size',{'value':False,'unit':'mm'})]:
             bad=copy.deepcopy(r);bad[key]=value;c['mesh']['refinement_regions']=[bad]
             with self.assertRaises(ValueError):build_mesh(c)
+    def test_shape_reference_tracks_dimensions_without_mutating_config(self):
+        c=mesh_config();c['mesh']['refinement_regions']=[{'target_path':['board'],'cell_size':{'value':5,'unit':'mm'}}]
+        original=copy.deepcopy(c);resolved=refinement_boxes(c['mesh'],[100]*3,c)
+        self.assertEqual(resolved[0][:2],([c['board'][k+'0'] for k in 'xyz'],[c['board'][k+'1'] for k in 'xyz']))
+        self.assertGreater(build_mesh(c)[1],build_mesh(mesh_config())[1]);self.assertEqual(c,original)
+        c['board']['x1']+=1;self.assertEqual(refinement_boxes(c['mesh'],[100]*3,c)[0][1][0],c['board']['x1'])
+        del c['board']
+        with self.assertRaisesRegex(ValueError,'MESH-R001'):refinement_boxes(c['mesh'],[100]*3,c)
+
+    def test_curved_target_envelope_and_invalid_references(self):
+        from tmc49_full_tank.tools.mesh_refinement import geometry_box
+        c={'regions':[{'shape':'cylinder','unit':'m','center':[1,2,3],'radius':.5,'height':2,'axis':'x'}]}
+        self.assertEqual(geometry_box(c,['regions',0])['min'],[0,1.5,2.5])
+        for path in [[],['regions',-1],['__proto__'],['regions','0']]:
+            with self.assertRaises(ValueError):geometry_box(c,path)
+        c['mesh']={'dx_mm':100,'refinement_regions':[{'target_path':['regions',0],'min':[0,0,0],'cell_size':{'value':.01,'unit':'m'}}]}
+        with self.assertRaisesRegex(ValueError,'MESH-R003'):refinement_boxes(c['mesh'],[5000]*3,c)
+
+    def test_silo_refinement_preserves_domain_and_local_z_spacing(self):
+        from tests.test_silo_contract import draft,normalizer
+        from tmc49_full_tank.tools.build_silo_runtime import block_mesh,mesh_plan
+        c=draft();c['mesh']['target_cells']=4000;original,base=block_mesh(c)
+        c['geometry']={'regions':[{'name':'Band','shape':'box','unit':'m','min':[-.1,-.1,.4],'max':[.1,.1,.6]}]}
+        c['mesh']['refinement_regions']=[{'target_path':['geometry','regions',0],'cell_size':{'value':.03,'unit':'m'}}]
+        ok,normalized,message=normalizer()(c);self.assertTrue(ok,message);self.assertEqual(normalized['mesh']['refinement_regions'],c['mesh']['refinement_regions']);self.assertEqual(normalized['geometry'],c['geometry'])
+        text,plan=block_mesh(normalized);self.assertGreater(plan['actual_cells'],base['actual_cells'])
+        for key in ['radius','height','grain','inlet_half','outer']:self.assertEqual(plan[key],base[key])
+        self.assertEqual(plan['z_levels'],[0,.4,.6,1.,1.4])
+        for a,b,n in zip(plan['z_levels'],plan['z_levels'][1:],plan['z_counts']):
+            if a>=.4 and b<=.6:self.assertLessEqual((b-a)/n,.03)
+        c['mesh']['maximum_cells']=100
+        with self.assertRaisesRegex(ValueError,'MESH-R005'):mesh_plan(c)
+        c['mesh'].pop('maximum_cells');c['mesh']['refinement_regions'][0]['cell_size']['value']=1e-300
+        with self.assertRaisesRegex(ValueError,'MESH-R005'):mesh_plan(c)
+        c['mesh']['refinement_regions']=[]
+        self.assertEqual(block_mesh(c)[0],original)
+        c['mesh']['refinement_regions']=[{'shape':'box','unit':'m','min':[.35,.35,0],'max':[.39,.39,.1],'cell_size':{'value':.03,'unit':'m'}}]
+        with self.assertRaisesRegex(ValueError,'MESH-R004'):mesh_plan(c)
+
     def test_fill_cache_and_legacy_mapping_checked_on_server(self):
         c={'domain':{'shape':'box','unit':'m','min':[0,0,0],'max':[1,2,1]},'regions':[{'shape':'box','unit':'m','min':[0,.2,0],'max':[1,1.2,1],'fill':{'container_path':['domain'],'axis':'y','start':200,'end':1200,'unit':'mm'}}]}
         original=copy.deepcopy(c);validate_fill_definitions(c);self.assertEqual(c,original)

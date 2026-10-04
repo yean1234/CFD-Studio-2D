@@ -52,3 +52,5 @@
 - 사용법: [English](CFD-STUDIO-USER-GUIDE.en.md) · [日本語](CFD-STUDIO-USER-GUIDE.ja.md)
 - 설명서: [English](CFD-STUDIO-MANUAL.en.md) · [日本語](CFD-STUDIO-MANUAL.ja.md)
 - [에이전트 협업·참고 문헌](AGENT-COLLABORATION.md)
+
+- [형상별 격자](MESH-REFINEMENT.md): 형상 참조·국부 간격·생성기별 적용 범위

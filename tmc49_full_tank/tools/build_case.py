@@ -54,7 +54,7 @@ def validate(c):
     W, D, H = c['tank']['width_mm'], c['tank']['depth_mm'], c['tank']['liquid_height_mm']
     err = []
     try:
-        refinement_boxes(c['mesh'],[W,H,D])
+        refinement_boxes(c['mesh'],[W,H,D],c)
         validate_legacy_fills(c)
     except ValueError as exc:err.append(str(exc))
     def inbox(b, name, zfree=False):
@@ -182,7 +182,7 @@ def build_mesh(c):
     YS = breakpoints([b['y0'], b['y1'], k['y0'], k['y1'], c['layers']['dielectric_mm']]
                      + [v for u in cpus for v in (u['y0'], u['y1'])], 0, H)
     ZS = breakpoints([b['z0'], b['z1'], k['z0'], k['z1']], 0, D)
-    refinements=refinement_boxes(c['mesh'],[W,H,D])
+    refinements=refinement_boxes(c['mesh'],[W,H,D],c)
     XS,nx=refined_axis(XS,0,dx,refinements)
     YS,ny=refined_axis(YS,1,dx,refinements)
     ZS,nz=refined_axis(ZS,2,dx,refinements)

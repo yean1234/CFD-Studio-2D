@@ -7,8 +7,10 @@ import shutil
 
 if __package__:
     from .silo_contract import original_design, validate_runtime
+    from .mesh_refinement import refinement_boxes
 else:
     from silo_contract import original_design, validate_runtime
+    from mesh_refinement import refinement_boxes
 
 
 def header(cls, location, obj):
@@ -139,7 +141,7 @@ def mesh_plan(cfg):
     nz = nz_grain + nz_air
     actual = (ncore * ncore + 4 * ncore * nradial) * nz
     equivalent = (math.pi * radius * radius * height / actual) ** (1.0 / 3.0)
-    return {
+    plan = {
         "radius": radius, "height": height, "grain": grain,
         "inlet_half": inlet_half, "outer": outer,
         "ncore": ncore, "nradial": nradial,
@@ -150,6 +152,55 @@ def mesh_plan(cfg):
         "estimated_max_spacing_mm": max(spacings) * 1000.0,
         "estimated_max_aspect_ratio": aspect,
     }
+
+    return refine_plan(cfg, plan)
+
+
+def refine_plan(cfg, plan):
+    """Keep matching O-grid faces; XY refinement propagates across all layers."""
+    mesh=cfg['mesh'];regions=mesh.get('refinement_regions',[])
+    if not isinstance(regions,list):raise ValueError('[MESH-R003] refinement_regions must be a list')
+    if not regions:return plan
+    radius,height,grain=(plan[k] for k in ('radius','height','grain'))
+    base=(math.pi*radius**2*height/mesh['target_cells'])**(1/3)
+    boxes=refinement_boxes({'dx_mm':base*1000,'refinement_regions':regions},
+                           [radius*1000,radius*1000,height*1000],cfg,
+                           [-radius*1000,-radius*1000,0])
+    boxes=[([v/1000 for v in lo],[v/1000 for v in hi],size/1000) for lo,hi,size in boxes]
+    for lo,hi,_ in boxes:
+        closest=[max(lo[i],min(0,hi[i])) for i in range(2)]
+        if math.hypot(*closest)>=radius:
+            raise ValueError('[MESH-R004] Refinement does not intersect the cylindrical domain')
+    spacing=min(size for _,_,size in boxes)
+    limit=mesh.get('maximum_cells',20000000)
+    if type(limit) is not int or not 1<=limit<=20000000:
+        raise ValueError('[MESH-R005] maximum_cells must be an integer from 1 to 20000000')
+    # Reject excessive subdivision before converting ratios to cell counts
+    if max(radius,height)/spacing>limit:
+        raise ValueError('[MESH-R005] Refinement spacing exceeds the cell budget')
+    ncore=max(plan['ncore'],math.ceil(max(2*plan['inlet_half'],math.pi*radius/2)/spacing))
+    nradial=max(plan['nradial'],math.ceil((radius-plan['inlet_half'])/spacing))
+    levels=sorted({0.,grain,height,*[p[2] for lo,hi,_ in boxes for p in (lo,hi)]})
+    counts=[]
+    for a,b in zip(levels,levels[1:]):
+        original=grain/plan['nz_grain'] if b<=grain else (height-grain)/plan['nz_air']
+        local=min([original]+[size for lo,hi,size in boxes if a<hi[2] and b>lo[2]])
+        counts.append(max(1,math.ceil((b-a)/local)))
+    cells=(ncore*ncore+4*ncore*nradial)*sum(counts)
+    if cells>limit:raise ValueError(f'[MESH-R005] Refinement needs {cells} cells; limit is {limit}')
+    spacings=[2*plan['inlet_half']/ncore,(plan['outer']-plan['inlet_half'])/nradial,
+              math.pi*radius/(2*ncore),*[(b-a)/n for a,b,n in zip(levels,levels[1:],counts)]]
+    plan.update(ncore=ncore,nradial=nradial,z_levels=levels,z_counts=counts,
+                nz_grain=sum(n for b,n in zip(levels[1:],counts) if b<=grain),
+                nz_air=sum(n for a,n in zip(levels,counts) if a>=grain),actual_cells=cells,
+                equivalent_spacing_mm=(math.pi*radius**2*height/cells)**(1/3)*1000,
+                estimated_min_spacing_mm=min(spacings)*1000,
+                estimated_max_spacing_mm=max(spacings)*1000,
+                estimated_max_aspect_ratio=max(spacings)/min(spacings),
+                refinement={'strategy':'conformal_ogrid_xy_global_z_local',
+                            'base_reference_spacing_m':base,'resolved_boxes_m':boxes,
+                            'requested_regions':regions})
+    return plan
 
 
 def block_mesh(cfg):
@@ -162,7 +213,7 @@ def block_mesh(cfg):
     xy = [(-inlet_half, -inlet_half), (inlet_half, -inlet_half),
           (inlet_half, inlet_half), (-inlet_half, inlet_half),
           (-outer, -outer), (outer, -outer), (outer, outer), (-outer, outer)]
-    levels = [0.0, grain, height]
+    levels = plan.get("z_levels", [0.0, grain, height])
     vertices = [(x, y, z) for z in levels for x, y in xy]
     def v(level, point): return level * 8 + point
     shapes = [(0, 1, 2, 3), (4, 5, 1, 0), (5, 6, 2, 1),
@@ -170,7 +221,7 @@ def block_mesh(cfg):
     lines = [header("dictionary", "system", "blockMeshDict"), "scale 1;", "vertices\n("]
     lines.extend(f"    ({x:.12g} {y:.12g} {z:.12g})" for x, y, z in vertices)
     lines.extend([");", "blocks\n("])
-    for layer, zcells in enumerate((nz_grain, nz_air)):
+    for layer, zcells in enumerate(plan.get("z_counts", (nz_grain, nz_air))):
         for index, shape in enumerate(shapes):
             lower = [v(layer, point) for point in shape]
             upper = [v(layer + 1, point) for point in shape]
@@ -195,10 +246,10 @@ def block_mesh(cfg):
         lines.append("            (%s)" % " ".join(map(str, [v(0, shape[0]), v(0, shape[3]), v(0, shape[2]), v(0, shape[1])])))
     lines.extend(["        );\n    }", "    outlet\n    {\n        type patch;\n        faces\n        ("])
     for shape in shapes:
-        lines.append("            (%s)" % " ".join(map(str, [v(2, point) for point in shape])))
+        lines.append("            (%s)" % " ".join(map(str, [v(len(levels)-1, point) for point in shape])))
     lines.extend(["        );\n    }", "    walls\n    {\n        type wall;\n        faces\n        ("])
     outer_edges = [(4, 5), (5, 6), (6, 7), (7, 4)]
-    for layer in range(2):
+    for layer in range(len(levels)-1):
         for a, b in outer_edges:
             lines.append("            (%s)" % " ".join(map(str, [v(layer, a), v(layer, b), v(layer + 1, b), v(layer + 1, a)])))
     lines.extend(["        );\n    }", ");", "mergePatchPairs ();", ""])
@@ -544,6 +595,8 @@ def build(root, cfg, check=False):
                 "output_fields": cfg["run"].get("output_fields") or [],
                 "reproduction_status": "reviewed_surrogate_not_paper_geometry",
                 "geometry_assumptions": dict(cfg["silo"]["geometry_assumptions"])}
+    if "refinement" in plan:
+        manifest["mesh_plan"].update({key: plan[key] for key in ("refinement", "z_levels", "z_counts")})
     if geometry:
         manifest["geometry_model"] = {
             key: geometry[key] for key in (

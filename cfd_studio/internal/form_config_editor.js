@@ -275,7 +275,7 @@
     function schemaAt(path){let field,fields=draft.fields;for(const key of path){field=fields?.find(f=>f.key===key);fields=field?.fields;}return field;}
     function renderElement(main,entry){
       if(!elementDraft||JSON.stringify(elementPath)!==JSON.stringify(entry.path))elementDraft=fromConfig(entry.value,{fields:schemaAt(entry.path)?.fields||[]});elementPath=entry.path;entry={...entry,value:toConfig(elementDraft)};for(const f of elementDraft.fields)if(['radius','height'].includes(f.key)&&f.type==='null'){f.type='number';f.nullable=true;}if(!readonly&&!elementDraft.fields.some(f=>f.key==='name'))elementDraft.fields.unshift({key:'name',type:'string',value:entry.label});const heading=el('div',null,'fc-titlebar'),title=el('h3',entry.label);title.setAttribute('translate','no');heading.append(title);
-      const primitive=sp.primitiveDefinition(currentConfig(),entry.path);const geometryJSON=button('JSON',()=>openJSON(entry.path));geometryJSON.setAttribute('aria-label','요소 JSON');geometryJSON.classList.add('fc-json-action');if(!readonly)heading.append(button('요소 삭제',()=>guarded(()=>{commitJSON();const value=toConfig(draft),parent=sp.at(value,entry.path.slice(0,-1)),key=entry.path.at(-1);if(sp.elements(value).some(e=>JSON.stringify(e.value.fill?.container_path)===JSON.stringify(entry.path)))throw Error('이 공간을 사용하는 유체의 채움 연결을 먼저 해제하세요');if(Array.isArray(parent)){for(const e of sp.elements(value)){const ref=e.value.fill?.container_path;if(Array.isArray(ref)&&ref.length===entry.path.length&&JSON.stringify(ref.slice(0,-1))===JSON.stringify(entry.path.slice(0,-1))&&ref.at(-1)>key)ref[ref.length-1]--;}parent.splice(key,1);}else delete parent[key];draft=fromConfig(value,draft);elementId=null;render();})));heading.append(geometryJSON);main.append(heading);
+      const primitive=sp.primitiveDefinition(currentConfig(),entry.path);const geometryJSON=button('JSON',()=>openJSON(entry.path));geometryJSON.setAttribute('aria-label','요소 JSON');geometryJSON.classList.add('fc-json-action');if(!readonly)heading.append(button('요소 삭제',()=>guarded(()=>{commitJSON();const value=toConfig(draft),parent=sp.at(value,entry.path.slice(0,-1)),key=entry.path.at(-1);if(sp.elements(value).some(e=>JSON.stringify(e.value.fill?.container_path)===JSON.stringify(entry.path)))throw Error('이 공간을 사용하는 유체의 채움 연결을 먼저 해제하세요');sp.removeMeshTarget(value,entry.path);if(Array.isArray(parent)){for(const e of sp.elements(value)){const ref=e.value.fill?.container_path;if(Array.isArray(ref)&&ref.length===entry.path.length&&JSON.stringify(ref.slice(0,-1))===JSON.stringify(entry.path.slice(0,-1))&&ref.at(-1)>key)ref[ref.length-1]--;}parent.splice(key,1);}else delete parent[key];draft=fromConfig(value,draft);elementId=null;render();})));heading.append(geometryJSON);main.append(heading);
       const nameLabel=el('label','이름','fc-role fc-field'),nameInput=el('input');nameInput.setAttribute('aria-label','이름');nameInput.setAttribute('translate','no');nameInput.value=entry.value.name||entry.label;nameInput.readOnly=readonly;nameInput.oninput=()=>{elementDraft.fields.find(f=>f.key==='name').value=nameInput.value;title.textContent=nameInput.value;const item=[...body.querySelectorAll('[data-element-id]')].find(n=>n.dataset.elementId===entry.id);if(item){item.textContent=nameInput.value;item.title=nameInput.value;}schedulePreview();};nameLabel.append(nameInput);main.append(nameLabel);
       const settings=el('div',null,'fc-field'),roleLabel=el('label','영역 역할','fc-role'),role=el('input');role.setAttribute('aria-label','영역 역할');role.placeholder='ex) fluid, solid, heat_source';role.readOnly=readonly;role.value=entry.value.role||'';role.oninput=()=>{let field=elementDraft.fields.find(f=>f.key==='role');if(!field){field={key:'role',type:'string',value:''};elementDraft.fields.push(field);}field.value=role.value;};roleLabel.append(role);settings.append(roleLabel);main.append(settings);
       const profile=materialProfile(currentConfig(),entry.value,entry.path,form);
@@ -325,16 +325,27 @@
       section.append(el('p','선택한 축의 내부 공간 최솟값을 0으로 하는 거리','fc-note'));
       if(!readonly){const actions=el('div',null,'fc-actions');actions.append(button('채움 적용',()=>guarded(()=>{const next=sp.applyFill(currentConfig(),entry.path,definition);replaceSpatial(next);})));if(entry.value.fill)actions.prepend(button('채움 연결 해제',()=>guarded(()=>{if(c.tank&&c.layers&&entry.path.length===1&&['dielectric_fluid','water'].includes(entry.path[0]))throw Error('기존 실행기는 같은 공간의 연속된 두 유체층만 지원합니다');const next=currentConfig();delete sp.at(next,entry.path).fill;replaceSpatial(next);})));section.append(actions);}
     }
+    function meshTargetSelect(config,path){
+      const select=el('select');select.setAttribute('aria-label','격자 대상 형상');select.disabled=readonly;select.append(new Option('형상 선택',''));
+      for(const item of sp.elements(config)){try{const p=sp.primitiveDefinition(config,item.path);if(!p)continue;sp.validatePrimitive(p);select.append(new Option(item.label,item.id));}catch(_){continue;}}
+      const id=JSON.stringify(path);if(path.length&&!Array.from(select.options).some(o=>o.value===id))select.append(new Option(path.join(' / '),id));select.value=path.length?id:'';return select;
+    }
     function renderMesh(main,field){
       const config=currentConfig(),fields=field.fields,meshKey=field.key;
       const base=el('fieldset',null,'fc-section');base.append(el('legend','기본 격자'));main.append(base);
       renderFields(fields.filter(f=>f.key!=='refinement_regions'),base,[meshKey]);
       const section=el('fieldset',null,'fc-section');section.append(el('legend','국부 격자'));main.append(section);
       let root=fields.find(f=>f.key==='refinement_regions');
+      if(!readonly){const actions=el('div',null,'fc-actions'),select=meshTargetSelect(config,[]);actions.append(select,button('형상에서 추가',()=>guarded(()=>{
+        if(!select.value)throw Error('격자 대상 형상을 확인하세요');commitJSON();const c=toConfig(draft),path=JSON.parse(select.value);c[meshKey].refinement_regions??=[];
+        if(!Array.isArray(c[meshKey].refinement_regions)||c[meshKey].refinement_regions.length>=64)throw Error('국부 격자 영역은 64개 이하로 정의하세요');
+        const unit=c[meshKey].dx_mm!==undefined?'mm':'m';c[meshKey].refinement_regions.push({name:sp.at(c,path).name||path.join(' / '),target_path:path,cell_size:{value:null,unit}});draft=fromConfig(c,draft);render();
+      })));section.append(actions);}
+
       if(!readonly&&!root)section.append(button('+ 영역',()=>guarded(()=>{commitJSON();const c=toConfig(draft);c[meshKey].refinement_regions??=[];if(!Array.isArray(c[meshKey].refinement_regions))throw Error('국부 격자 영역은 목록으로 입력하세요');const unit=c[meshKey].dx_mm!==undefined?'mm':(c[meshKey].cell_size?.unit||'m');c[meshKey].refinement_regions.push({name:'Region '+(c[meshKey].refinement_regions.length+1),shape:'box',unit,min:[null,null,null],max:[null,null,null],cell_size:{value:null,unit}});draft=fromConfig(c,draft);render();})));
       if(root){const list=arrayControl(root,[meshKey,'refinement_regions']);list.classList.add('fc-mesh-regions');section.append(list);}
       if(meshKey==='porous_mesh')section.append(el('p','국부 간격에도 전체 세분화 배율이 적용됩니다','fc-note'));
-      section.append(el('p',(config.tank||config.porous_mesh?.kind==='aligned_grain_blocks')?'국부 간격은 기본 간격보다 작게 입력 · 연결면을 맞추기 위해 주변 축 방향도 세분화':'국부 격자 정의 저장 가능 · 계산 적용은 해당 격자 생성기 연결 필요','fc-note'));
+      section.append(el('p',config._해석유형==='grain_silo'?'사일로는 지정 높이 구간과 전체 수평 단면을 세분화합니다':(config.tank||config.porous_mesh?.kind==='aligned_grain_blocks')?'국부 간격은 기본 간격보다 작게 입력 · 연결면을 맞추기 위해 주변 축 방향도 세분화':'국부 격자 정의 저장 가능 · 계산 적용은 해당 격자 생성기 연결 필요','fc-note'));
     }
     function renderTransform(main,entry){
       const info=sp.transformInfo(currentConfig(),entry.path);if(!info)return;
@@ -522,6 +533,9 @@
     function renderFields(fields,host,path=[]){
       const modelOptions=fields.find(f=>f.key==='model_options'&&f.type==='array'&&f.value?.length&&f.value.every(v=>typeof v==='string'))?.value;const columns=!structure?tableColumns(fields):[];if(columns.length&&columns.some(f=>visible(f,path)))propertyTable(columns,fields,host,path);
       for(const field of fields){
+        if(!structure&&['mesh','porous_mesh'].includes(path[0])&&path[1]==='refinement_regions'&&field.key==='target_path'){
+          const row=el('label','격자 대상 형상','fc-field'),select=meshTargetSelect(currentConfig(),field.value||[]);select.onchange=()=>{field.value=select.value?JSON.parse(select.value):[];select.dispatchEvent(new Event('input',{bubbles:true}));};row.append(select);host.append(row);continue;
+        }
         if(!structure&&['mesh','porous_mesh'].includes(path[0])&&path.includes('refinement_regions')&&field.key==='shape'&&field.value==='box')continue;if(columns.includes(field)||(!structure&&modelOptions&&field.key==='model_options'&&fields.some(f=>f.key==='model')))continue;if(!structure&&field.key.startsWith('_'))continue;if(!visible(field,path))continue;if(path[0]==='geometry'&&field.key==='source'&&!field.value)continue;const p=[...path,field.key];
         if(structure){
           const box=el('div',null,'fc-field'),row=el('div',null,'fc-structure-row');box.dataset.fieldPath=p.join('.');box.append(row);host.append(box);

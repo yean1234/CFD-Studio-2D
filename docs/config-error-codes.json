@@ -378,6 +378,76 @@
         "ja": "log.checkMeshを確認してメッシュを修正してください"
       },
       "retry": "review"
+    },
+    "MESH-R001": {
+      "code": "MESH-R001",
+      "message": {
+        "ko": "격자 대상 형상을 찾을 수 없습니다",
+        "en": "Refinement geometry was not found",
+        "ja": "細分化対象の形状が見つかりません"
+      },
+      "action": {
+        "ko": "형상을 다시 선택하고 target_path를 확인하세요",
+        "en": "Select the geometry again and check target_path",
+        "ja": "形状を再選択してtarget_pathを確認してください"
+      },
+      "retry": "review"
+    },
+    "MESH-R002": {
+      "code": "MESH-R002",
+      "message": {
+        "ko": "격자 대상 형상 정의가 올바르지 않습니다",
+        "en": "Invalid refinement geometry definition",
+        "ja": "細分化対象の形状定義が不正です"
+      },
+      "action": {
+        "ko": "형상 종류·단위·좌표·치수를 확인하세요",
+        "en": "Check primitive type, units, coordinates and dimensions",
+        "ja": "形状種類・単位・座標・寸法を確認してください"
+      },
+      "retry": "review"
+    },
+    "MESH-R003": {
+      "code": "MESH-R003",
+      "message": {
+        "ko": "국부 격자 입력 형식이 올바르지 않습니다",
+        "en": "Invalid refinement input format",
+        "ja": "局所メッシュ入力形式が不正です"
+      },
+      "action": {
+        "ko": "형상 참조 또는 좌표 범위 중 하나로 영역 목록을 작성하세요",
+        "en": "Use a list of either geometry references or explicit bounds",
+        "ja": "形状参照または座標範囲のリストを入力してください"
+      },
+      "retry": "review"
+    },
+    "MESH-R004": {
+      "code": "MESH-R004",
+      "message": {
+        "ko": "국부 격자가 사일로 계산 영역과 겹치지 않습니다",
+        "en": "Refinement does not intersect the silo domain",
+        "ja": "局所メッシュがサイロ計算領域と交差していません"
+      },
+      "action": {
+        "ko": "원기둥 내부와 겹치는 범위를 지정하세요",
+        "en": "Choose bounds that intersect the cylinder interior",
+        "ja": "円柱内部と交差する範囲を指定してください"
+      },
+      "retry": "review"
+    },
+    "MESH-R005": {
+      "code": "MESH-R005",
+      "message": {
+        "ko": "세분화 격자가 생성 한도를 초과합니다",
+        "en": "Refined mesh exceeds the generation limit",
+        "ja": "細分化メッシュが生成上限を超えています"
+      },
+      "action": {
+        "ko": "간격·범위를 조정하세요 · maximum_cells는 1~20000000 정수",
+        "en": "Adjust spacing or bounds; maximum_cells must be an integer from 1 to 20000000",
+        "ja": "間隔・範囲を調整してください · maximum_cellsは1〜20000000の整数"
+      },
+      "retry": "review"
     }
   }
 }

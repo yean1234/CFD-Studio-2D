@@ -22,7 +22,7 @@ TREE = ast.parse((ROOT/'cfd_studio/app.py').read_text(encoding='utf-8'))
 
 
 def app_functions(folder):
-    # app.py 최상위는 개인 환경을 쓰므로 필요한 정의만 로드한다.
+    # Load only preset routes; keep the user environment and agent server isolated.
     namespace = dict(json=json, math=math, os=os, re=re, time=time,
                      BaseHTTPRequestHandler=BaseHTTPRequestHandler, urlparse=urlparse,
                      finite_number=finite_number, validate_numerics=validate_numerics,
@@ -30,6 +30,7 @@ def app_functions(folder):
                      SILO_CONFIG=str(ROOT/'silo_reproduction/config.json'),
                      _read_json_file=lambda p: json.loads(Path(p).read_text(encoding='utf-8')),
                      get_status=lambda: {'running': False}, warehouse_post=lambda *a: False,
+                     agent_activity_route=lambda *a, **kw: False,
                      WAREHOUSE_WORKSPACE=None, _apply_board_floor_revision=lambda c: (c, False),
                      saved_configs=lambda: sorted(p.stem for p in Path(folder).glob('*.json')),
                      saved_config_types=lambda: {})

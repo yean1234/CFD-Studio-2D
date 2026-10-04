@@ -8,15 +8,62 @@ import math
 SCALE={'m':1000.,'cm':10.,'mm':1.}
 
 
-def refinement_boxes(mesh, bounds):
+def geometry_box(config, path):
+    """Resolve an exact Config path to current axis-aligned bounds, without caching."""
+    if not isinstance(path, list) or not path or len(path)>20:
+        raise ValueError('[MESH-R001] Invalid refinement target_path')
+    part=config
+    for key in path:
+        if type(key) not in (str,int) or key in ('__proto__','constructor','prototype'):
+            raise ValueError('[MESH-R001] Invalid refinement target_path')
+        try:
+            if isinstance(part,list) and (type(key) is not int or key<0):raise KeyError(key)
+            part=part[key]
+        except (KeyError,IndexError,TypeError):
+            raise ValueError('[MESH-R001] Refinement target no longer exists') from None
+    if not isinstance(part,dict):raise ValueError('[MESH-R001] Refinement target must be a geometry object')
+    shape=part.get('shape')
+    if not shape:
+        if path==['tank']:
+            part={'unit':'mm','min':[0,0,0],'max':[part.get(k) for k in ('width_mm','liquid_height_mm','depth_mm')]}
+        elif path in (['board'],['coil']):
+            part={'unit':'mm','min':[part.get(k+'0') for k in 'xyz'],'max':[part.get(k+'1') for k in 'xyz']}
+        elif path in (['dielectric_fluid'],['water']) and 'tank' in config and 'layers' in config:
+            tank=config['tank'];boundary=config['layers']['dielectric_mm']
+            part={'unit':'mm','min':[0,boundary if path==['water'] else 0,0],
+                  'max':[tank['width_mm'],tank['liquid_height_mm'] if path==['water'] else boundary,tank['depth_mm']]}
+        elif 'min_m' in part and 'max_m' in part:
+            part={'unit':'m','min':part['min_m'],'max':part['max_m']}
+        else:raise ValueError('[MESH-R002] Target has no supported explicit primitive')
+        shape='box'
+    if shape=='box':return {'shape':'box','unit':part.get('unit'),'min':part.get('min'),'max':part.get('max')}
+    if shape not in ('sphere','cylinder'):raise ValueError('[MESH-R002] Target shape is unsupported')
+    center=part.get('center');radius=part.get('radius')
+    if not isinstance(center,list) or len(center)!=3 or any(type(v) not in (int,float) or not math.isfinite(v) for v in center) or type(radius) not in (int,float) or not math.isfinite(radius) or radius<=0:
+        raise ValueError('[MESH-R002] Invalid target dimensions')
+    extents=[radius]*3
+    if shape=='cylinder':
+        axis=part.get('axis');height=part.get('height')
+        if axis not in ('x','y','z') or type(height) not in (int,float) or not math.isfinite(height) or height<=0:
+            raise ValueError('[MESH-R002] Invalid cylinder axis or height')
+        extents['xyz'.index(axis)]=height/2
+    return {'shape':'box','unit':part.get('unit'),'min':[v-e for v,e in zip(center,extents)],'max':[v+e for v,e in zip(center,extents)]}
+
+
+def refinement_boxes(mesh, bounds, config=None, origin=None):
     regions=mesh.get('refinement_regions',[])
     if not isinstance(regions,list) or len(regions)>64:
         raise ValueError('refinement_regions must contain at most 64 boxes')
     base=mesh.get('dx_mm')
     if type(base) not in (int,float) or not math.isfinite(base) or base<=0:
         raise ValueError('mesh.dx_mm must be positive and finite')
+    origin=[0,0,0] if origin is None else origin
     result=[]
     for r in regions:
+        if isinstance(r,dict) and 'target_path' in r:
+            if any(k in r for k in ('shape','unit','min','max')):
+                raise ValueError('[MESH-R003] Use a geometry target or explicit bounds, not both')
+            r={**r,**geometry_box(config or {},r['target_path'])}
         if not isinstance(r,dict) or r.get('shape')!='box' or r.get('unit') not in SCALE:
             raise ValueError('Refinement requires an explicit box and length unit')
         scale=SCALE[r['unit']]
@@ -27,7 +74,7 @@ def refinement_boxes(mesh, bounds):
                 raise ValueError('Refinement coordinates must contain three finite numbers')
             coords.append([x*scale for x in v])
         lo,hi=coords
-        if any(a<0 or b<=a or b>limit for a,b,limit in zip(lo,hi,bounds)):
+        if any(a<start or b<=a or b>limit for a,b,start,limit in zip(lo,hi,origin,bounds)):
             raise ValueError('Refinement box is outside the calculation domain')
         q=r.get('cell_size',{})
         value=q.get('value') if isinstance(q,dict) else None
