@@ -282,11 +282,19 @@
   if(config.domain)region(config.domain,'domain',config.domain.unit,['domain']);
   if(config.regions)regions(config.regions,['regions']);
   if(config.mesh_regions)regions(config.mesh_regions,['mesh_regions']);
-  if(config.silo||config.published)notes.push('silo·published: 외부 격자 형상은 미리보기 미지원');
+  if(config.silo?.geometry_model==='equivalent_boundary_ports_v1'&&config.published){
+   const p=config.published,radius=num(p.storage_diameter_m,'storage_diameter_m',true)/2;
+   const height=num(p.total_height_m,'total_height_m',true),grain=num(p.grain_height_m,'grain_height_m',true);
+   if(grain>=height)throw Error('곡물 높이는 전체 높이보다 작아야 합니다');
+   // Match the connected O-grid domain; detailed ducts are not part of this model.
+   items.push({kind:'cylinder',name:'Domain',label:'Domain',radius,height,center:[0,0,height/2],axis:'z',path:['published']});
+   items.push({kind:'cylinder',name:'Porous zone',label:'Porous zone',radius,height:grain,center:[0,0,grain/2],axis:'z',path:['silo']});
+   notes.push('등가 경계 모델 · 급기 개구와 계산 격자는 표시하지 않음');
+  }else if(config.silo||config.published)notes.push('silo·published: 외부 격자 형상은 미리보기 미지원');
   if(config.probes_mm)notes.push('probes_mm: 측정 지점은 미리보기에 포함되지 않음');
   if(items.length>1000)throw Error('미리보기 형상은 1000개 이하로 입력하세요');
   if(!items.length)notes.push('표시할 형상이 없습니다 · 치수와 형식을 확인하세요');
-  const names=new Map(elements(config).map(e=>[e.id,e.label]));for(const item of items){item.id=pathId(item.path);item.label=names.get(item.id)||item.name;item.meshOnly=item.path[0]==='mesh_regions';}
+  const names=new Map(elements(config).map(e=>[e.id,e.label]));for(const item of items){item.id=pathId(item.path);item.label=item.label||names.get(item.id)||item.name;item.meshOnly=item.path[0]==='mesh_regions';}
   const issue=runnerGeometryIssue(config);if(issue)notes.push(issue);
   return {items,notes,up};
  }

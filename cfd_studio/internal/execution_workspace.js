@@ -226,17 +226,39 @@
     try{
       const [reply,catalogReply,surveyReply]=await Promise.all([api('/forms'),api('/solvers'),api('/form-survey')]);
       if(flow&&!flow.active)return;
-      const existing=reply.forms.find(f=>f.id===id),connected=existing&&!existing.definition_only;
+      const existing=reply.forms.find(f=>f.id===id);
+      let connected=!!(existing&&!existing.definition_only),executionTemplate=null;
       const survey=(settings,onApply,root=false)=>CFDFormWizard.recommend({options:surveyReply.options,...settings,onOpen:flow?.attach,onDismiss:root?flow?.finish:null,loadRecommendations:async answers=>(await api('/form-recommend',{answers})).result,generate:async(solver,answers)=>(await api('/form-from-survey',{solver,answers})).result,onApply});
       if(!existing&&!prepared){survey({},selection=>formEditor(null,selection,flow),true);return;}
       let solvers=catalogReply.solvers,installation=catalogReply.installation;
       let config=structuredClone(prepared?.result.config||existing?.blank_config||{}),schema=prepared?.result.config_schema|| (existing?.input_schema?structuredClone(existing.input_schema):CFDFormConfig.fromConfig({})),configured=!!(existing||prepared);
       const d=node('dialog');d.className='ew-dialog ew-form-dialog';
-      d.innerHTML='<form data-validation="submit"><h2></h2><label>CFD Template 이름<input name="name" required maxlength="80"></label><label>설명<textarea name="description" rows="2" maxlength="4000"></textarea></label><label>솔버<select name="solver"></select></label><section class="ew-solver-card" aria-label="솔버 기능"><div class="ew-solver-heading"><strong data-solver-title></strong><button type="button" class="btn" data-check>설치 확인</button></div><div data-install-result role="status" aria-live="polite"></div><p data-summary></p><p data-authors></p><div class="ew-solver-tags"></div><dl data-features></dl><p data-connection></p><p data-uses></p><details><summary>필수 Config</summary><ul data-required></ul></details><details><summary>선택·조건부 Config</summary><ul data-optional></ul></details><details><summary>계산 범위</summary><p data-inputs></p></details></section><div class="ew-form-config"><div><strong>Config 양식</strong><p data-config-count></p></div><div class="ew-bar"><button type="button" class="btn pri" data-wizard>양식 구성</button><button type="button" class="btn" data-config>양식 편집</button></div></div><p role="alert"></p><div class="ew-bar"><button type="button" class="btn" data-cancel>취소</button><button type="submit" class="btn pri">Template 저장</button></div></form>';
+      d.innerHTML='<form data-validation="submit"><h2></h2><label>CFD Template 이름<input name="name" required maxlength="80"></label><label>설명<textarea name="description" rows="2" maxlength="4000"></textarea></label><label>솔버<select name="solver"></select></label><label data-execution-template>실행 양식<select name="execution_template"></select></label><section class="ew-solver-card" aria-label="솔버 기능"><div class="ew-solver-heading"><strong data-solver-title></strong><button type="button" class="btn" data-check>설치 확인</button></div><div data-install-result role="status" aria-live="polite"></div><p data-summary></p><p data-authors></p><div class="ew-solver-tags"></div><dl data-features></dl><p data-connection></p><p data-uses></p><details><summary>필수 Config</summary><ul data-required></ul></details><details><summary>선택·조건부 Config</summary><ul data-optional></ul></details><details><summary>계산 범위</summary><p data-inputs></p></details></section><div class="ew-form-config"><div><strong>Config 양식</strong><p data-config-count></p></div><div class="ew-bar"><button type="button" class="btn pri" data-wizard>양식 구성</button><button type="button" class="btn" data-config>양식 편집</button></div></div><p role="alert"></p><div class="ew-bar"><button type="button" class="btn" data-cancel>취소</button><button type="submit" class="btn pri">Template 저장</button></div></form>';
       const f=d.querySelector('form');f.querySelector('h2').textContent=existing?'CFD Template 수정':'양식 확인';
       for(const dedicated of [false,true]){const group=node('optgroup');group.label=dedicated?'Studio 연결 솔버':'OpenFOAM 솔버';for(const solver of solvers.filter(x=>x.dedicated===dedicated))group.append(new Option(solver.id,solver.id));f.elements.solver.append(group);}
       f.elements.name.value=existing?.name||'';f.elements.description.value=existing?.description||'';f.elements.solver.value=existing?.solver||prepared.solver;f.elements.solver.disabled=true;
       const solver=()=>solvers.find(x=>x.id===f.elements.solver.value);
+      let genericConfig=structuredClone(config),genericSchema=structuredClone(schema);
+      let executionChoices=[];
+      const updateExecutionChoices=()=>{
+        executionChoices=(reply.templates||[]).filter(t=>t.solver===f.elements.solver.value);
+        f.elements.execution_template.replaceChildren();
+        f.querySelector('[data-execution-template]').hidden=!!existing||!executionChoices.length;
+        f.elements.execution_template.append(new Option('범용 양식 · 실행 연결 필요',''));
+        for(const template of executionChoices){
+          f.elements.execution_template.append(new Option(template.name,template.model));
+        }
+      };
+      updateExecutionChoices();
+      f.elements.execution_template.onchange=()=>{
+        executionTemplate=executionChoices.find(t=>t.model===f.elements.execution_template.value)||null;
+        connected=!!executionTemplate;
+        const source=executionTemplate&&reply.forms.find(t=>t.id===executionTemplate.model&&!t.definition_only);
+        config=structuredClone(executionTemplate?.config||genericConfig);
+        schema=structuredClone(source?.input_schema||genericSchema);
+        draw();
+      };
+
       const draw=()=>{
         const item=solver();f.querySelector('[data-solver-title]').textContent=item.id;f.querySelector('[data-summary]').textContent=item.summary;
         const authors=f.querySelector('[data-authors]');authors.replaceChildren();for(const link of item.upstream||[]){if(authors.children.length)authors.append(' · ');const a=node('a',link.label);a.href=link.url;a.target='_blank';a.rel='noopener noreferrer';authors.append(a);}
@@ -252,15 +274,17 @@
 
       f.querySelector('[data-check]').onclick=async()=>{const check=f.querySelector('[data-check]');check.disabled=true;f.querySelector('[data-install-result]').textContent='설치 확인 중';try{const r=await api('/solver-check',{});if(!d.isConnected)return;solvers=r.result.solvers;installation=r.result.installation;draw();}catch(e){f.querySelector('[data-install-result]').textContent=e.message;}finally{check.disabled=false;}};
       f.querySelector('[data-config]').onclick=()=>CFDFormConfig.open({config,schema,schemaOnly:true,title:'Config 양식',form:{solver:solver().id,definition_only:!connected},onSave:async(value,definition)=>{config=value;schema=definition;draw();}});
-      f.querySelector('[data-wizard]').onclick=()=>survey({answers:{...config?.analysis?.choices,time_mode:config?.analysis?.time_mode},selected:solver().id,fixedSolver:existing?.solver||null,replace:configured},async selection=>{config=selection.result.config;schema=selection.result.config_schema;f.elements.solver.value=selection.solver;configured=true;draw();});
+      f.querySelector('[data-wizard]').onclick=()=>survey({answers:{...config?.analysis?.choices,time_mode:config?.analysis?.time_mode},selected:solver().id,fixedSolver:existing?.solver||null,replace:configured},async selection=>{config=selection.result.config;schema=selection.result.config_schema;f.elements.solver.value=selection.solver;configured=true;genericConfig=structuredClone(config);genericSchema=structuredClone(schema);executionTemplate=null;connected=!!(existing&&!existing.definition_only);updateExecutionChoices();draw();});
       f.querySelector('[data-cancel]').onclick=()=>d.close();d.onclose=()=>{d.remove();flow?.finish();};d.oncancel=e=>{if(f.querySelector('[type=submit]').disabled)e.preventDefault();};
-      f.onsubmit=async e=>{e.preventDefault();const submit=f.querySelector('[type=submit]');submit.disabled=true;f.querySelector('[data-cancel]').disabled=true;try{if(!configured)throw Error('설문을 완료하고 솔버를 선택하세요');const saved=await api('/form',{id,revision:existing?.revision,name:f.elements.name.value,model:existing?.model||'solver_definition',solver:solver().id,description:f.elements.description.value,config:connected?existing.config:config,sections:existing?.sections||{},input_schema:schema});await flow?.onSaved(saved.result);d.close();await refresh();}catch(e){f.querySelector('[role=alert]').textContent=e.message;}finally{submit.disabled=false;f.querySelector('[data-cancel]').disabled=false;}};
+      f.onsubmit=async e=>{e.preventDefault();const submit=f.querySelector('[type=submit]');submit.disabled=true;f.querySelector('[data-cancel]').disabled=true;try{if(!configured)throw Error('설문을 완료하고 솔버를 선택하세요');const saved=await api('/form',{id,revision:existing?.revision,name:f.elements.name.value,model:existing?.model||executionTemplate?.model||'solver_definition',solver:solver().id,description:f.elements.description.value,config:connected?(existing?.config||executionTemplate.config):config,sections:existing?.sections||{},input_schema:schema});await flow?.onSaved(saved.result);d.close();await refresh();}catch(e){f.querySelector('[role=alert]').textContent=e.message;}finally{submit.disabled=false;f.querySelector('[data-cancel]').disabled=false;}};
       draw();document.body.append(d);if(flow?.attach(d)===false){d.remove();return;}d.showModal();
     }catch(e){if(flow){flow.error(e.message);flow.finish();}else message(e.message);}
   }
   function renderQueue(){const q=data.queue||{},box=$('ewQueue');box.replaceChildren();$('ewQueueCard').hidden=!q.active&&!q.order?.length&&!q.failure&&!q.service_error;const all=data.projects.flatMap(p=>p.runs);$('ewQueueState').textContent=q.failure?'실패 확인 필요':q.paused?(q.active?'현재 실행 후 일시정지':'일시정지'):q.active||q.order?.length?'순차 실행':'대기열 완료';
     for(const [i,id] of (q.order||[]).entries()){const r=all.find(r=>r.id===id),row=node('div',null,'ew-bar ew-queue-row');row.append(node('span',(i+1)+'. '+(data.projects.find(p=>p.id===r?.project_id)?.name||'프로젝트')+' / '+(r?.name||id)));const move=delta=>{const order=[...q.order],j=i+delta;if(j<0||j>=order.length)return;[order[i],order[j]]=[order[j],order[i]];queueAction('reorder',{ids:order});};const up=button('↑',()=>move(-1)),down=button('↓',()=>move(1));up.title='실행 순서 위로';down.title='실행 순서 아래로';up.disabled=i===0;down.disabled=i===q.order.length-1;row.append(up,down,button('제외',()=>queueAction('remove',{id})));box.append(row);}
     $('ewQueueStart').disabled=!!q.failure||(!q.order?.length&&!q.active);$('ewQueuePause').disabled=!!q.paused||(!q.active&&!q.order?.length);$('ewFailures').hidden=!q.failure;$('ewRetry').hidden=!q.failure;$('ewSkip').hidden=!q.failure;
+    $('ewRetry').disabled=queuePending||!q.failure;
+    $('ewSkip').disabled=queuePending||!q.failure;
     if(queuePending)for(const b of document.querySelectorAll('#ewQueue button,#ewQueueStart,#ewQueuePause,#ewRetry,#ewSkip,#ewEnqueue,#ewStop'))b.disabled=true;
     $('ewQueueError').textContent=q.failure?(all.find(r=>r.id===q.failure)?.error||'중단한 실행을 확인하세요'):q.service_error||'';
   }

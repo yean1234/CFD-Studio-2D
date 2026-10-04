@@ -42,6 +42,21 @@ def normalizer():
 
 
 class SiloContractTests(unittest.TestCase):
+    def test_custom_geometry_is_not_restricted_to_optimization_candidates(self):
+        config = draft()
+        config['silo']['kind'] = 'custom'
+        config['silo']['design']['A'] = 10.5
+        ok, result, message = normalizer()(config)
+        self.assertTrue(ok, message)
+        self.assertEqual(result['silo']['design'], config['silo']['design'])
+        validate_runtime(result)
+        for key, value in [('A', 0), ('B', 1.5), ('D', -1), ('C', True)]:
+            invalid = copy.deepcopy(config)
+            invalid['silo']['design'][key] = value
+            self.assertFalse(normalizer()(invalid)[0])
+        config['silo']['kind'] = 'optimized'
+        self.assertFalse(normalizer()(config)[0])
+
     def test_original_survives_normalization_and_keeps_review_metadata(self):
         config = draft(); config['_studio'] = {'goals': 'draft review'}
         before = copy.deepcopy(config)

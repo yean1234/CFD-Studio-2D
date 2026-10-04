@@ -31,15 +31,26 @@ def main():
     if probe.returncode:
         raise RuntimeError('Install and initialize WSL2 Ubuntu first: wsl --install -d Ubuntu')
     script = setup_script(HERE.parent, str(cfg.get('wsl_case', '~/cfd_studio_case')))
-    # Keep terminal stdin for sudo; encode script bytes to preserve Unicode paths
+    # Stage through stdin; command-line quoting differs between WSL releases.
     import base64
     encoded = base64.b64encode(script.encode('utf-8')).decode('ascii')
-    command = 'eval "$(printf %s ' + shlex.quote(encoded) + ' | base64 -d)"'
-    return subprocess.run(prefix + ['--', 'bash', '-lc', command], check=False).returncode
+    stage = ('umask 077\nTASK_SCRIPT=$(mktemp /tmp/cfd-studio-setup.XXXXXX) || exit 1\n'
+             + 'printf %s ' + shlex.quote(encoded) + ' | base64 -d > "$TASK_SCRIPT" || exit 1\n'
+             + 'printf "%s\\n" "$TASK_SCRIPT"\n')
+    result = subprocess.run(prefix + ['--exec', 'bash', '-s'], input=stage.encode('ascii'),
+                            capture_output=True, check=True)
+    target = result.stdout.decode('utf-8').strip()
+    if not target.startswith('/tmp/cfd-studio-setup.') or any(c.isspace() for c in target):
+        raise RuntimeError('Invalid installer staging path')
+    try:
+        # Inherit terminal input so sudo can still prompt when packages are absent.
+        return subprocess.run(prefix + ['--exec', 'bash', target], check=False).returncode
+    finally:
+        subprocess.run(prefix + ['--exec', 'rm', '-f', '--', target], check=False)
 
 if __name__ == '__main__':
     try:
         sys.exit(main())
-    except (OSError, ValueError, RuntimeError) as exc:
+    except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as exc:
         print('[setup] ' + str(exc), file=sys.stderr)
         sys.exit(1)

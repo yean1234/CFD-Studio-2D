@@ -128,7 +128,7 @@
 - Select one Case in Viewer, then switch between **3D Virtual / Data Sheet**
 - Left Data Sheet panel: whole-domain mean or point time series, up to three quantities
 - Right panel: line profile at a saved frame, with start/end coordinates and sample count
-- Line values use the nearest saved cell; do not describe them as spatial or temporal interpolation
+- Line values use the stored-grid sample; do not describe them as spatial or temporal interpolation
 - Enter JSON for the whole Config, complete spatial document or major section; individual properties do not each have a JSON button
 - Creating a Template does not add an execution adapter; inspect the actual execution connection
 
@@ -388,3 +388,22 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 - Use `_studio.geometry_groups` and geometry `editor_group` for folders; preserve geometry keys, coordinates and physics
 - After applying the draft, ask the user to review transparent bounds, spacing and grouping; saving and execution remain separate
 - [Mesh refinement](MESH-REFINEMENT.md)
+
+## Execution adapters and result checks
+
+- After selecting a solver for a new CFD Template, explicitly select a connected schema under **Execution adapter**
+- Generic schemas remain disconnected by default; installing a solver alone does not connect execution
+- Adapter selection replaces the Config structure; select it before editing and inspect JSON before saving
+- The equivalent silo preview shows cylindrical domain and porous extent; detailed ducts, inlet openings and mesh are not shown
+- Custom silo dimensions are not limited to optimization candidate lists; original and optimized designs retain separate validation
+- Initial-frame exclusion also applies to visualization conversion; legacy results without an explicit policy retain their coverage
+- Use the current tab: select adapter, export actual Template JSON, fill project Config, inspect preview, save Cases, then start the queue
+- After dispatched, observe persistence, dialog closure and queue state; do not treat dispatch as asynchronous completion
+- Update CLI progress within 60 seconds; on AGENT_INACTIVE inspect stop state and connection first
+- Distinguish live solver logs from saved results; solver termination alone does not certify complete storage
+- If the runtime directory is absent, use the provided installer; the updated setup_bridge preserves Unicode and spaced paths
+- If a short run was misclassified after the solver finished, preserve its result and verify conversion first; do not rerun automatically
+
+- Display-grid statistics exclude empty bins when saved cell centres (`C`) match the grid; genuine zero values remain
+- Point and line queries use the nearest occupied display bin; this is distinct from original CFD cells, volume averages or spatial interpolation
+- Legacy files without matching centres retain their display-grid lookup; empty-bin detection is not guaranteed

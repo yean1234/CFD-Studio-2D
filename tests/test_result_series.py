@@ -20,6 +20,28 @@ class SeriesTests(unittest.TestCase):
     def packed(self,name,magic,values,channels=1):
         n=len(values)//channels;data=magic+struct.pack('<3I6f',n,1,1,0,0,0,1,1,1)+struct.pack('<'+str(len(values))+'f',*values)
         path=self.root/name;path.write_bytes(data);return path
+    def test_sparse_display_bins_exclude_gaps_but_keep_real_zero(self):
+        from cfd_studio.internal.wsl_frame_compress import prepare_grid, header
+        centres = [(0,0,0), (.04,.04,.04)]
+        payload = b'internalField nonuniform List<vector>\n2\n(' + struct.pack('<6d', *sum((list(c) for c in centres), [])) + b');'
+        (self.root/'C').write_bytes(payload)
+        grid = prepare_grid(str(self.root/'C'))
+        size = grid['nx']*grid['ny']*grid['nz']
+        values = [0.]*(size*3)
+        values[grid['indexes'][1]*3] = 4
+        path = self.root/'flow_1.bin'
+        path.write_bytes(header(b'FLW1',grid)+struct.pack('<'+str(len(values))+'f',*values))
+        self.assertEqual(self.series.frame_stat(path,'speed',{})['mean'], 2)
+        value, sample = self.series.frame_point(path,'speed',{},[.025,.025,.035])
+        self.assertEqual(value,4)
+        self.assertEqual(sample['sampling'],'nearest_occupied_display_bin')
+        self.assertEqual(self.series.frame_point(path,'speed',{},[0,0,0])[0],0)
+        pressure = self.root/'pressure_1.bin'
+        pressure_values = [0.]*size
+        pressure_values[grid['indexes'][1]] = 6
+        pressure.write_bytes(header(b'PRS1',grid)+struct.pack('<'+str(size)+'f',*pressure_values))
+        self.assertEqual(self.series.frame_stat(pressure,'pressure',{'published':{'rho_kg_m3':2}})['mean'],6)
+
     def test_time_order_pagination_temperature_units_and_no_result_mutation(self):
         a=self.packed('therm_10.bin',b'THM1',[0,300,310]);b=self.packed('therm_2.bin',b'THM1',[280,290,0]);before=[a.read_bytes(),b.read_bytes()]
         first=self.series.page('case:a','temperature.mean',0,1);second=self.series.page('case:a','temperature.mean',first['next'],1)

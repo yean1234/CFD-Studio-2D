@@ -99,6 +99,10 @@ add("Windows GPU 엔진 사용률","Windows GPU engine utilization","Windows GPU
 add("측정값 없음","Reading unavailable","測定値なし");
 // Exact source strings keep translations independent of solver/configuration values.
 add("언어변환","Language","言語切替");
+add("등가 경계 모델 · 급기 개구와 계산 격자는 표시하지 않음","Equivalent boundary model · inlet openings and mesh not shown","等価境界モデル · 給気開口と計算格子は非表示");
+add("곡물 높이는 전체 높이보다 작아야 합니다","Grain height must be below total height","穀物高さは全高未満にしてください");
+add("실행 양식","Execution adapter","実行形式");
+add("범용 양식 · 실행 연결 필요","Generic schema · adapter required","汎用形式 · 実行連携が必要");
 add("화면 언어","Display language","表示言語");
 add("이 브라우저에 저장되며 즉시 적용됩니다","Applied immediately and saved in this browser","すぐに適用され、このブラウザーに保存されます");
 add("환경 설정","Settings","環境設定");

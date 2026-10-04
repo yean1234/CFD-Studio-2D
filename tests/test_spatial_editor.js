@@ -167,3 +167,12 @@ test('geometry folders retain IDs and template geometry while rejecting orphan r
  sp.validateRefinements(c);const copy=editor.toConfig(editor.blankDefinition(editor.fromConfig(c)));assert.deepEqual(copy._studio.geometry_groups,c._studio.geometry_groups);assert.equal(copy.geometry.regions[0].editor_group,'g');
  c._studio.geometry_groups=[];assert.throws(()=>sp.validateRefinements(c),/MESH-R009/);
 });
+
+
+test('connected silo preview uses runner height and porous extent without inventing detailed ducts',()=>{
+ const {shapes}=require('../cfd_studio/internal/spatial_editor.js');
+ const c={silo:{geometry_model:'equivalent_boundary_ports_v1'},published:{storage_diameter_m:.8,total_height_m:1.4,storage_height_m:1.2,grain_height_m:1}};
+ const result=shapes(c);assert.equal(result.items.length,2);assert.equal(result.items[0].height,1.4);assert.equal(result.items[1].height,1);assert.equal(result.items[0].radius,.4);
+ assert.throws(()=>shapes({...c,published:{...c.published,grain_height_m:2}}));
+ delete c.silo.geometry_model;assert.equal(shapes(c).items.length,0);
+});

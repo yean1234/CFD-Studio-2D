@@ -519,6 +519,16 @@ def _normalize_silo_config(value):
             values = original_design(silo)
         except ValueError as exc:
             return False, None, str(exc)
+    elif kind == "custom":
+        # Custom geometry is not restricted to the paper's optimization candidates.
+        values = {}
+        try:
+            for key in ("A", "B", "C", "D"):
+                values[key] = finite_number(design.get(key), key, integer=key in ("B", "D"))
+            if values["A"] <= 0 or not 1 <= values["B"] <= 64 or values["C"] < 0 or not 0 <= values["D"] <= 64:
+                raise ValueError("design bounds")
+        except (TypeError, ValueError):
+            return False, None, "[CFG-G003] Custom design requires A>0, B=1..64, C>=0 and D=0..64"
     else:
         values = {}
         for short, key, default in (("A", "A_mm", 20), ("B", "B_layers", 12),
@@ -2514,8 +2524,10 @@ for p in $(cat .cfd_studio_allrun.pid 2>/dev/null || true); do [ -n "$p" ] && [ 
 # 마커 앞에 빈 줄 강제(printf \\n) — 기록 중인 로그·계측 파일은 마지막 줄에 개행이 없는 경우가
 # 많아, 다음 마커가 그 줄 끝에 붙어(예: "ClockTime = 25 s==TIME==") 구간이 통째로 사라지던
 # 버그("실행은 되는데 반영이 안 됨") 원천 차단
-printf "\\n==RUN==\\n"; echo "$M $P1 $P3 $P4"
+printf "\\n==RUN==\\n"; echo "$M $P1 $P3 $P4 $A1"
 printf "\\n==LOG=%s==\\n" "$LOG"; [ -n "$LOG" ] && tail -n 25 "$LOG"
+printf "\\n==LOGRID==\\n"; cat .cfd_studio_runid 2>/dev/null || true
+printf "\\n==LOGSTAMP==\\n"; [ -n "$LOG" ] && python3 -c 'import os,sys; print(os.stat(sys.argv[1]).st_mtime)' "$LOG" 2>/dev/null || true
 printf "\\n==TIME==\\n"; [ -n "$LOG" ] && tail -c 262144 "$LOG" | grep "^Time = " | tail -1
 printf "\\n==END==\\n"; grep -m1 "^endTime" system/controlDict
 printf "\\n==WI==\\n"; grep -m1 "^writeInterval" system/controlDict
@@ -2586,7 +2598,7 @@ def get_status():
         if cur is not None: secs[cur].append(line)
     def sec(name): return "\n".join(secs.get(name, [])).strip()
     try:
-        rp = [int(float(x)) for x in sec("RUN").split()[:4]]
+        rp = [int(float(x)) for x in sec("RUN").split()[:5]]
         st["running"] = rp[0] > 0
         # [중단] 직후에는 프로세스가 없는데도 로그 신선도(P4)만으로 90초간 '실행 중'으로
         # 남던 문제 — 중단 후 3분 안이고 실제 프로세스(P1·P3)가 0이면 정지로 판정
@@ -2661,7 +2673,14 @@ def get_status():
     # 새 프로젝트를 준비하는 짧은 구간에는 직전 프로젝트의 로그가 아직
     # 보관되기 전일 수 있다. 그 로그의 End/수렴 문구를 새 프로젝트 완료로
     # 기록하지 않고, 새 솔버 로그가 시작될 때까지 실행 준비 상태를 유지한다.
-    launching_fresh = 0 <= time.time() - float(STATE.get("run_t") or 0) < 240
+    from solver_status import current_log_finished
+    process_counts = sec("RUN").split()
+    real_processes = sum(int(process_counts[i]) for i in (1, 2, 4)) if len(process_counts) >= 5 else 1
+    current_finished = current_log_finished(st.get("log"), sec("LOGRID"), _active_rid(),
+                                            sec("LOGSTAMP"), STATE.get("run_t"), real_processes)
+    if current_finished:
+        st["running"] = False
+    launching_fresh = 0 <= time.time() - float(STATE.get("run_t") or 0) < 240 and not current_finished
     if not st["running"] and not launching_fresh:
         converged_log = re.search(r"solution converged in\s+([\d.]+)\s+iterations", st.get("log") or "", re.I)
         reached_end = (st.get("time") is not None and st.get("endTime")
@@ -3142,6 +3161,8 @@ def _extract_worker_inner(requested_rid, S):
             meta_write(mp, meta)
             os.remove(PENDF)
         except Exception: pass
+    from frame_policy import selected_output_times
+    times = selected_output_times(times, project_config(rid) or {})
     wdir = win2wsl(PDIR)
     _cleanup_extract_temps(PDIR)
     sel = S.get("sel") or {"alpha": True, "flow": True, "therm": True, "phase": True,

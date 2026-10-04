@@ -63,7 +63,7 @@
 - Right graph: line profile at a saved frame, using start/end coordinates and sample count
 - Click or drag the graph to inspect exact displayed X/Y values
 - Data Sheet Export provides graph images and CSV; Case-wide CSV export is in CFD
-- Line profiles sample the nearest saved cell; interpolation between animation frames does not create new CFD results
+- Line profiles sample the stored-grid sample; interpolation between animation frames does not create new CFD results
 
 ## AI agent collaboration
 
@@ -96,3 +96,16 @@
 - Click the folder heading to collapse, double-click to rename, × to remove only the folder
 - Save preserves membership and collapsed state; existing results are unchanged
 - [Mesh refinement](MESH-REFINEMENT.md)
+
+## Execution adapters and result checks
+
+- After selecting a solver for a new CFD Template, explicitly select a connected schema under **Execution adapter**
+- Generic schemas remain disconnected by default; installing a solver alone does not connect execution
+- Adapter selection replaces the Config structure; select it before editing and inspect JSON before saving
+- The equivalent silo preview shows cylindrical domain and porous extent; detailed ducts, inlet openings and mesh are not shown
+- Custom silo dimensions are not limited to optimization candidate lists; original and optimized designs retain separate validation
+- Initial-frame exclusion also applies to visualization conversion; legacy results without an explicit policy retain their coverage
+
+- Display-grid statistics exclude empty bins when saved cell centres (`C`) match the grid; genuine zero values remain
+- Point and line queries use the nearest occupied display bin; this is distinct from original CFD cells, volume averages or spatial interpolation
+- Legacy files without matching centres retain their display-grid lookup; empty-bin detection is not guaranteed

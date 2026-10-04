@@ -250,3 +250,13 @@ class GenericResultLogTests(unittest.TestCase):
             self.assertEqual(actual[0], 'log.customSolver')
             self.assertEqual(actual[-1], 'log.blockMesh')
             self.assertTrue(all(p.parent == root for p in result_logs(root, {'solver': '../secret'})))
+
+    def test_managed_result_uses_archived_solver_log(self):
+        from cfd_studio.execution_workspace import result_logs
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            archive = root/'Raw_Data'/'Case_State'
+            archive.mkdir(parents=True)
+            (archive/'log.simpleFoam').write_text('Time = 90\nEnd\n')
+            paths = result_logs(root, {'openfoam_mapping': {'solver': 'simpleFoam'}})
+            self.assertEqual(next(p for p in paths if p.is_file()), archive/'log.simpleFoam')

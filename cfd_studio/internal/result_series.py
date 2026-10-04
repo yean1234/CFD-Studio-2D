@@ -58,6 +58,7 @@ class ResultSeries:
         self.cache = OrderedDict()
         self.catalog_cache = OrderedDict()
         self.index_cache = OrderedDict()
+        self.grid_cache = OrderedDict()
         self.lock = threading.Lock()
 
     def record(self, key):
@@ -123,8 +124,41 @@ class ResultSeries:
             return [[bb[k],bb[k+3]] for k in range(3)]
         except (OSError,struct.error): return None
 
+    def display_grid(self, path, raw):
+        """Recover occupied display bins from saved centres, never from field values"""
+        from cfd_studio.internal.wsl_frame_compress import prepare_grid
+
+        source = path.parent / 'C'
+        if not source.exists():
+            return None
+        stamp = source.stat()
+        key = (str(source), stamp.st_mtime_ns, stamp.st_size, raw[4:40])
+        with self.lock:
+            if key in self.grid_cache:
+                self.grid_cache.move_to_end(key)
+                return self.grid_cache[key]
+        grid = prepare_grid(str(source))
+        expected = struct.pack('<3I6f', grid['nx'], grid['ny'], grid['nz'], *grid['bbox'])
+        # Older exporters used a different Z layout; do not apply a mismatched mask
+        result = None
+        if expected == raw[4:40]:
+            nx, ny, nz = grid['nx'], grid['ny'], grid['nz']
+            bbox = grid['bbox']
+            occupied = [i for i, value in enumerate(grid['occupancy']) if value]
+            centres = [tuple(bbox[k] + (axis + .5)*(bbox[k+3]-bbox[k])/size
+                       for k, (axis, size) in enumerate(((i%nx, nx), ((i//nx)%ny, ny), (i//(nx*ny), nz))))
+                       for i in occupied]
+            result = {'mask': grid['occupancy'], 'occupied': occupied, 'centres': centres}
+        with self.lock:
+            self.grid_cache[key] = result
+            while len(self.grid_cache) > 8:
+                self.grid_cache.popitem(last=False)
+        return result
+
     def frame_stat(self, path, field, config, *, raw=None):
-        stamp=path.stat(); cache_key=(str(path),stamp.st_mtime_ns,stamp.st_size,field,config.get('published',{}).get('rho_kg_m3'),config.get('layers',{}).get('dielectric_mm'))
+        stamp=path.stat(); centre_path=path.parent/'C'
+        centre_stamp=centre_path.stat() if centre_path.exists() else None
+        cache_key=(str(path),stamp.st_mtime_ns,stamp.st_size, (centre_stamp.st_mtime_ns,centre_stamp.st_size) if centre_stamp else None,field,config.get('published',{}).get('rho_kg_m3'),config.get('layers',{}).get('dielectric_mm'))
         with self.lock:
             if raw is None and cache_key in self.cache: self.cache.move_to_end(cache_key); return self.cache[cache_key]
         if raw is None: raw=path.read_bytes()
@@ -153,7 +187,8 @@ class ResultSeries:
             values=array('f'); values.frombytes(raw[40:])
             if sys.byteorder!='little': values.byteswap()
             if not all(math.isfinite(v) for v in values): raise ValueError('유한하지 않은 저장값')
-            if field in ('speed','ux','uy','uz','pressure','k','epsilon'):
+            grid = self.display_grid(path, raw)
+            if grid is None and field in ('speed','ux','uy','uz','pressure','k','epsilon'):
                 plane=nx*ny;keep=[]
                 for z in range(nz):
                     if channels==3: occupied=any(abs(v)>1e-30 for v in values[z*plane*3:(z+1)*plane*3])
@@ -174,6 +209,8 @@ class ResultSeries:
                 rho=config.get('published',{}).get('rho_kg_m3',1)
                 if not isinstance(rho,(int,float)) or not math.isfinite(rho) or rho<=0: raise ValueError('압력 밀도 오류')
                 values=[v*rho for v in values]
+            if grid is not None and field not in ('temperature','lower_temperature','upper_temperature'):
+                values = [v for i, v in enumerate(values) if grid['mask'][i]]
         result=stats(values)
         with self.lock:
             self.cache[cache_key]=result
@@ -239,7 +276,7 @@ class ResultSeries:
                 missing = nz-len(keep)
                 if len(keep)>=2 and missing>=3 and missing>=nz*.05 and any(b>a+1 for a,b in zip(keep,keep[1:])):
                     empty_planes = set(range(nz))-set(keep)
-        return raw, values, empty_planes
+        return raw, values, empty_planes, self.display_grid(path, raw)
 
     def profile_frames(self, key, field):
         catalog = self.catalog(key)
@@ -308,12 +345,12 @@ class ResultSeries:
             samples.append({'distance_m':distance,'requested_xyz_m':point,**info})
         return {'id':key,'metric':field,'unit':metric['unit'],'axis':'distance','frame_axis':catalog['axis'],
                 'frame':frame,'saved_x':times[frame],'start_m':list(start),'end_m':list(end),
-                'sampling':'nearest_saved_cell','samples':samples,'points':points,'total':count,'next':count,'errors':[]}
+                'sampling':next((s['sampling'] for s in samples if 'sampling' in s), 'nearest_saved_cell'),'samples':samples,'points':points,'total':count,'next':count,'errors':[]}
 
     def frame_point(self, path, field, config, xyz, *, prepared=None):
         # Use the same integrity checks and units as whole-field statistics.
         prepared = prepared or self.prepare_points(path, field, config)
-        raw, values, empty_planes = prepared
+        raw, values, empty_planes, grid = prepared
         dims = struct.unpack_from('<3I', raw, 4)
         bbox = struct.unpack_from('<6f', raw, 16)
         if any(xyz[k] < bbox[k] or xyz[k] > bbox[k+3] for k in range(3)):
@@ -323,6 +360,10 @@ class ResultSeries:
         n = nx*ny*nz
         cell = (ijk[2]*ny+ijk[1])*nx+ijk[0]
         centre = [bbox[k]+(ijk[k]+.5)*(bbox[k+3]-bbox[k])/dims[k] for k in range(3)]
+        if grid is not None and not grid['mask'][cell]:
+            nearest = min(range(len(grid['occupied'])), key=lambda i: math.dist(grid['centres'][i], xyz))
+            cell = grid['occupied'][nearest]
+            centre = list(grid['centres'][nearest])
         value = None
         if field in ('water','vapour','liquid'):
             if raw[:4] != b'PHS2' or raw[40+2*n+cell]:
@@ -337,7 +378,7 @@ class ResultSeries:
                 elif field == 'temperature': value = values[cell]-273.15 if values[cell]>0 else None
                 elif field == 'pressure': value = values[cell]*config.get('published',{}).get('rho_kg_m3',1)
                 else: value = values[cell]
-        return value, {'cell_index':cell,'cell_centre_m':centre,'cell_centre_distance_m':math.dist(centre,xyz)}
+        return value, {'sampling':'nearest_occupied_display_bin' if grid is not None else 'display_bin', 'cell_index':cell,'cell_centre_m':centre,'cell_centre_distance_m':math.dist(centre,xyz)}
 
     def point_page(self, key, field, xyz, offset=0, limit=16):
         if len(xyz)!=3 or not all(math.isfinite(v) for v in xyz): raise ValueError('유한한 X·Y·Z 좌표를 입력하세요')
@@ -374,7 +415,7 @@ class ResultSeries:
                 except (ValueError,OSError,struct.error) as error:
                     points.append([t,None]); errors.append(path.name+': '+str(error))
         return {'id':key,'metric':field,'axis':catalog['axis'],'requested_xyz_m':list(xyz),
-                'sampling':'nearest_saved_cell','samples':samples,'points':points,'total':total,
+                'sampling':next((s['sampling'] for s in samples if 'sampling' in s), 'nearest_saved_cell'),'samples':samples,'points':points,'total':total,
                 'next':min(total,offset+limit),'errors':errors}
 
     @staticmethod

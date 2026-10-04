@@ -41,6 +41,15 @@ def atomic_json(path, value):
 def result_logs(root, config):
     """Prefer the configured solver, then available solver logs, then setup logs."""
     root = Path(root)
+    archived = root/'Raw_Data'/'Case_State'
+    if archived.is_dir() and not archived.is_symlink():
+        # Managed Cases keep verified original logs with their saved OpenFOAM state.
+        return result_logs(archived, config) + result_logs_shallow(root, config)
+    return result_logs_shallow(root, config)
+
+
+def result_logs_shallow(root, config):
+    root = Path(root)
     solver = config_solver(config)
     preferred = [root/('log.'+solver)] if solver and re.fullmatch(r'[A-Za-z0-9_+-]+', solver) else []
     setup = {'log.blockMesh', 'log.checkMesh', 'log.snappyHexMesh', 'log.decomposePar', 'log.reconstructPar'}
@@ -408,7 +417,9 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
                 lp = Path(case['attempts'][-1]['job_path']).with_name('execution.log')
                 log = lp.read_text(encoding='utf-8', errors='replace')[-50000:] if lp.exists() else ''
         live = self.live()
-        if key == 'legacy:'+str(live.get('rid', '')) and live.get('running'):
+        live_key = 'legacy:'+str(live.get('rid', ''))
+        linked_key = case.get('result_key') if case else key
+        if linked_key == live_key and (live.get('running') or case and case.get('status') == 'running'):
             log = live.get('log') or log
         return {**record, 'recovery': self.recovery(record, config, log, read_json(p/'checks.json', {})), 'config': config, 'log': log, 'log_source': str(path) if path else None,
                 'checks': read_json(p/'checks.json', {}), 'grid': read_json(p/'grid_assessment.json', None)}
