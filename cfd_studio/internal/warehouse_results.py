@@ -174,6 +174,7 @@ class WarehouseResults:
                 'numerical_pass': bool(checks.get('numerical_pass')), 'experimental_validation': False,
                 'times_s': list(times), 'cells': len(centres)//3,
                 'geometry': config['geometry_spec']['geometry'],
+                'computational_domain': model.get('computational_domain'),
                 'geometry_basis': checks['geometry_basis'],
                 'relative_balance_error': checks['relative_balance_error'],
                 'diffusivity_source': model.get('diffusivity_source'),
@@ -253,6 +254,9 @@ class WarehouseResults:
         length, width = geometry['length_m'], geometry['width_m']
         roof = geometry['eaves_m'] + geometry['roof_rise_m']*(1-abs(2*xyz[1]/width-1))
         if not (0 <= xyz[0] <= length and 0 <= xyz[1] <= width and 0 <= xyz[2] <= roof):
+            raise ValueError('좌표가 저장동 계산 영역 밖입니다')
+        domain = model.get('computational_domain')
+        if domain and any(not lo<=v<=hi for v,(lo,hi) in zip(xyz,domain['bounds_m'])):
             raise ValueError('좌표가 저장동 계산 영역 밖입니다')
         if time_s < times[0] or time_s > times[-1]:
             raise ValueError('시간이 저장된 프레임 범위 밖입니다')

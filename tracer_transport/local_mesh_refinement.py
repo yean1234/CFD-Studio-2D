@@ -4,7 +4,6 @@ Existing block boundaries and restriction-parent ordering are retained. A box
 refines every aligned interval it intersects, projected on the three axes.
 """
 import math
-import numpy as np
 
 
 def refine_counts(spec,x,y,z,xc,yc,zc):
@@ -25,5 +24,5 @@ def refine_counts(spec,x,y,z,xc,yc,zc):
         for a,b,count in zip(points,points[1:],counts):
             sizes=[size for lo,hi,size in boxes if a<hi[axis] and b>lo[axis]]
             values.append(max(int(count),math.ceil((b-a)*factors[axis]/min(sizes))) if sizes else int(count))
-        result.append(np.asarray(values,dtype=object))
+        result.append(values)
     return tuple(result)

@@ -359,7 +359,85 @@
     function renderMesh(main,field){
       const config=currentConfig(),fields=field.fields,meshKey=field.key;
       const base=el('fieldset',null,'fc-section');base.append(el('legend','기본 격자'));main.append(base);
-      renderFields(fields.filter(f=>f.key!=='refinement_regions'),base,[meshKey]);
+      const aligned=meshKey==='porous_mesh'&&config.porous_mesh?.kind==='aligned_grain_blocks';
+      renderFields(fields.filter(f=>f.key!=='refinement_regions'&&(!aligned||!['domain_mode','maximum_cell_edge_m'].includes(f.key))),base,[meshKey]);
+      if(aligned){
+        const modeRow=el('label','계산 영역','fc-role');
+        const mode=el('select');
+        mode.setAttribute('aria-label','계산 영역');
+        mode.disabled=readonly;
+        const modes=[
+          ['full','전체 영역'],
+          ['symmetry_y_min','Y 중앙면 대칭 · 아래쪽 절반'],
+          ['symmetry_y_max','Y 중앙면 대칭 · 위쪽 절반']
+        ];
+        for(const [value,label] of modes)mode.append(new Option(label,value));
+        mode.value=config.porous_mesh.domain_mode||'full';
+        modeRow.append(mode);
+        base.append(modeRow);
+        const updateMesh=(key,value)=>{
+          commitJSON();
+          const next=toConfig(draft);
+          if(value===null)delete next.porous_mesh[key];
+          else next.porous_mesh[key]=value;
+          draft=fromConfig(next,draft);
+          render();
+        };
+        mode.onchange=()=>guarded(()=>updateMesh('domain_mode',mode.value));
+        const sizeRow=el('label','최대 셀 변 길이 (m)','fc-role');
+        const size=el('input');
+        size.type='number';
+        size.min='0';
+        size.step='any';
+        size.placeholder='ex) 0.03';
+        size.setAttribute('aria-label','최대 셀 변 길이 (m)');
+        size.disabled=readonly;
+        size.value=config.porous_mesh.maximum_cell_edge_m??'';
+        size.onchange=()=>guarded(()=>{
+          const value=size.value===''?null:Number(size.value);
+          if(value!==null&&(!Number.isFinite(value)||value<=0))throw Error('양수를 입력하세요');
+          updateMesh('maximum_cell_edge_m',value);
+        });
+        sizeRow.append(size);
+        base.append(sizeRow);
+        const report=el('div',null,'fc-note');
+        report.setAttribute('role','status');
+        const plan=button('격자 계획 확인',async()=>{
+          plan.disabled=true;
+          report.textContent='확인 중';
+          try{
+            commitJSON();
+            const snapshot=JSON.stringify(toConfig(draft));
+            const response=await fetch('/api/executions/mesh-plan',{
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({config:JSON.parse(snapshot)})
+            });
+            const reply=await response.json();
+            if(!response.ok||reply.ok===false)throw Error(reply.msg||'요청 실패');
+            if(!report.isConnected||JSON.stringify(toConfig(draft))!==snapshot)return;
+            const p=reply.result||reply;
+            report.replaceChildren();
+            const rows=[
+              ['예상 셀 수',p.cells.toLocaleString()],
+              ['최대 셀 변 길이 (m)',p.maximum_cell_edge_m.toPrecision(5)],
+              ['5개 성분 배열 (GB)',(p.five_components_float64_bytes/1e9).toPrecision(4)]
+            ];
+            for(const [label,value] of rows){
+              const row=el('div');
+              row.append(el('span',label),document.createTextNode(': '+value));
+              report.append(row);
+            }
+            report.append(el('div',p.within_cell_budget?'셀 수 한도 이내':'셀 수 한도 초과'));
+            report.append(el('div','배열 크기만 산정 · 솔버 메모리·격자·출력 제외'));
+          }catch(error){
+            contract.display(report,error);
+          }finally{
+            plan.disabled=false;
+          }
+        });
+        base.append(plan,report,el('p','대칭은 대칭 초기·경계조건에만 적용 · 비대칭 유동 제외','fc-note'));
+      }
       const section=el('fieldset',null,'fc-section');section.append(el('legend','국부 격자'));main.append(section);
       let root=fields.find(f=>f.key==='refinement_regions');
       if(!readonly){const actions=el('div',null,'fc-actions'),select=meshTargetSelect(config,[]);actions.append(select,button('형상에서 추가',()=>guarded(()=>{

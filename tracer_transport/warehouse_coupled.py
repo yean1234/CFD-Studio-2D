@@ -12,6 +12,7 @@ import time
 import numpy as np
 
 from .warehouse_scenario import PATCHES, validate as validate_base
+from .warehouse_symmetry import symmetry_domain, patch_names, clipped_blocks, apply_field_boundaries
 from .warehouse_case import write_scalar, DIFFUSIVITY_SOURCE
 from .warehouse_geometry import build, checked_mesh_quality
 from .mesh_centres import cell_centres
@@ -52,17 +53,23 @@ def validate(spec):
         from .porous_warehouse_mesh import layout
         *_, count = layout(spec)
         geometry.update(cells=count, mesher='grain_boundary_aligned', mesh_only=False, transport_ready=True)
+    domain = symmetry_domain(spec)
+    if domain:
+        geometry['volume_m3'] *= domain['volume_fraction']
+        geometry['computational_domain'] = domain
     return geometry
 
 
-def uniform(out, name, value, dims, boundary, vector=False):
+def uniform(out, name, value, dims, boundary, vector=False, patches=PATCHES):
     cls = 'volVectorField' if vector else 'volScalarField'
-    patches = '\n'.join(f'{p} {{ {boundary} }}' for p in PATCHES)
+    patches = '\n'.join(f'{p} {{ {boundary} }}' for p in patches)
     (out/'0'/name).write_text(header(name, cls)+f'dimensions [{dims}];\ninternalField uniform {value};\nboundaryField {{\n{patches}\n}}\n')
 
 
 def generate(spec, out):
     geometry = validate(spec)
+    patches = patch_names(spec, PATCHES)
+    blocks = clipped_blocks(spec)
     out = Path(out)
     build(spec['geometry_spec'], out, check=False)
     mesh_data = None
@@ -76,12 +83,13 @@ def generate(spec, out):
     (out/'state.json').write_text('{"status":"preparing"}')
     for command in ('blockMesh', 'checkMesh'):
         run_command(out, command)
-    quality = checked_mesh_quality((out/'log.checkMesh').read_text(), geometry['cells'], geometry['volume_m3'])
+    quality = checked_mesh_quality((out/'log.checkMesh').read_text(), geometry['cells'], geometry['volume_m3'],
+                                   extra_patches=tuple(p for p in patches if p not in PATCHES))
     (out/'mesh_quality.json').write_text(json.dumps(quality, indent=2))
     centres = mesh_data['cell_centres_m'] if mesh_data is not None else cell_centres(out/'constant/polyMesh', geometry['cells'])
     loaded = np.zeros(len(centres), bool)
     block_counts = []
-    for block in spec['loading']['blocks']:
+    for block in blocks:
         mask = np.all((centres >= block['min_m']) & (centres < block['max_m']), axis=1)
         if not mask.any():
             raise ValueError('Mesh does not resolve a loading block')
@@ -98,7 +106,7 @@ def generate(spec, out):
         concentration = initial_average(spec,mesh_data)
         if not np.array_equal(loaded,mesh_data['loaded_region'].astype(bool)):
             raise ValueError('Grain regions disagree with aligned mesh')
-        ideal_volume=sum(float(np.prod(np.asarray(b['max_m'])-b['min_m'])) for b in spec['loading']['blocks'])
+        ideal_volume=sum(float(np.prod(np.asarray(b['max_m'])-b['min_m'])) for b in blocks)
         if not np.isclose(mesh_data['cell_volumes_m3'][loaded].sum(),ideal_volume,rtol=1e-12):
             raise ValueError('Grain volume differs from physical block envelopes')
     alpha_air = c['nu_m2_s']/c['Pr']
@@ -111,13 +119,13 @@ def generate(spec, out):
         ('diffusionFactor', np.where(loaded, eps/spec['loading']['tortuosity'], 1.), '0 0 0 0 0 0 0'),
         ('freeGas', (~loaded).astype(float), '0 0 0 0 0 0 0')]
     for name, values, dims in fields:
-        write_scalar(out/'0', name, values, dims, PATCHES)
+        write_scalar(out/'0', name, values, dims, patches)
     temp = c['initial_temperature_C']+273.15
     table = ' '.join(f'({t:g} {v+273.15:.12g})' for t, v in zip(spec['temperature']['times_s'], spec['temperature']['values_C']))
     boundaries = []
-    for p in PATCHES:
+    for p in patches:
         # The annex interface and floor are insulated scenario boundaries.
-        if p in ('floor', 'annexInterface'):
+        if p in ('floor', 'annexInterface', 'symmetryPlane'):
             bc = 'type zeroGradient;'
         else:
             bc = f'''type externalWallHeatFluxTemperature; mode coefficient;
@@ -126,12 +134,14 @@ def generate(spec, out):
         boundaries.append(f'{p} {{ {bc} }}')
     (out/'0/T').write_text(header('T', 'volScalarField') +
         f'dimensions [0 0 0 1 0 0 0];\ninternalField uniform {temp};\nboundaryField {{'+ '\n'.join(boundaries)+'}\n')
-    uniform(out, 'U', '(0 0 0)', '0 1 -1 0 0 0 0', 'type fixedValue; value uniform (0 0 0);', True)
-    uniform(out, 'p_rgh', 0, '0 2 -2 0 0 0 0', 'type fixedFluxPressure; value uniform 0;')
-    uniform(out, 'k', c['initial_k_m2_s2'], '0 2 -2 0 0 0 0', f"type kqRWallFunction; value uniform {c['initial_k_m2_s2']};")
-    uniform(out, 'epsilon', c['initial_epsilon_m2_s3'], '0 2 -3 0 0 0 0', f"type epsilonWallFunction; value uniform {c['initial_epsilon_m2_s3']};")
-    uniform(out, 'nut', 0, '0 2 -1 0 0 0 0', 'type nutkWallFunction; value uniform 0;')
-    uniform(out, 'alphat', 0, '0 2 -1 0 0 0 0', f"type alphatJayatillekeWallFunction; Prt {c['Prt']}; value uniform 0;")
+    uniform(out, 'U', '(0 0 0)', '0 1 -1 0 0 0 0', 'type fixedValue; value uniform (0 0 0);', True, patches=patches)
+    uniform(out, 'p_rgh', 0, '0 2 -2 0 0 0 0', 'type fixedFluxPressure; value uniform 0;', patches=patches)
+    uniform(out, 'k', c['initial_k_m2_s2'], '0 2 -2 0 0 0 0', f"type kqRWallFunction; value uniform {c['initial_k_m2_s2']};", patches=patches)
+    uniform(out, 'epsilon', c['initial_epsilon_m2_s3'], '0 2 -3 0 0 0 0', f"type epsilonWallFunction; value uniform {c['initial_epsilon_m2_s3']};", patches=patches)
+    uniform(out, 'nut', 0, '0 2 -1 0 0 0 0', 'type nutkWallFunction; value uniform 0;', patches=patches)
+    uniform(out, 'alphat', 0, '0 2 -1 0 0 0 0', f"type alphatJayatillekeWallFunction; Prt {c['Prt']}; value uniform 0;", patches=patches)
+    if symmetry_domain(spec):
+        apply_field_boundaries(out/'0')
     (out/'constant/transportProperties').write_text(header('transportProperties')+f'''
 transportModel Newtonian; nu {c['nu_m2_s']}; beta {1/temp}; TRef {temp};
 Pr {c['Pr']}; Prt {c['Prt']};
@@ -184,6 +194,8 @@ relaxationFactors { equations { ".*" 1; } }
         numerical_validation_scope='execution_mass_energy_balance_only_no_refinement_study',
         solver='warehouseBuoyantFoam', field_units={'C':'kg/m3', 'U':'m/s', 'T':'K'},
         coupling='T -> buoyancy -> U,phi -> T,C; T -> D; dilute C has no feedback on flow')
+    model['computational_domain'] = symmetry_domain(spec)
+    model['loading'] = dict(spec['loading'], blocks=blocks)
     model['coordinate_representation'] = 'arithmetic_mean_of_six_face_centres; approximate_hexahedral_representative_point'
     model['leakage'] = 'excluded; sealed impermeable gas boundaries'
     model['porous_grain'] = 'homogenized grain-stack envelopes; effective porosity, Darcy resistance and LTE heat storage; individual bag membranes unresolved'
@@ -344,10 +356,14 @@ def reconstruct_geometry(out,processes):
         for p in (addressing,proc/'0/cellCentres',proc/'0/cellVolumes'):
             sources[str(p.relative_to(out))]=hashlib.sha256(p.read_bytes()).hexdigest()
     if not np.all(seen==1) or not np.all(volumes>0):raise ValueError('Incomplete/duplicate cell geometry')
-    write_scalar(out/'0','cellVolumes',volumes,'0 3 0 0 0 0 0',PATCHES)
+    spec = json.loads((out/'transport_input.json').read_text())
+    patches = patch_names(spec, PATCHES)
+    write_scalar(out/'0','cellVolumes',volumes,'0 3 0 0 0 0 0',patches)
     body='\n'.join('('+' '.join(f'{v:.16g}' for v in row)+')' for row in centres)
-    bcs='\n'.join(p+' { type zeroGradient; }' for p in PATCHES)
+    bcs='\n'.join(p+' { type '+('symmetryPlane' if p=='symmetryPlane' else 'zeroGradient')+'; }' for p in patches)
     (out/'0/cellCentres').write_text(header('cellCentres','volVectorField')+f'dimensions [0 1 0 0 0 0 0];\ninternalField nonuniform List<vector> {cells} (\n{body}\n);\nboundaryField {{ {bcs} }}\n')
+    if symmetry_domain(spec):
+        apply_field_boundaries(out/'0')
     (out/'geometry_export_sources.json').write_text(json.dumps(sources,indent=2))
 
 

@@ -60,3 +60,8 @@
 - 새 Template의 **실행 양식**은 설치 확인과 별도 · 지원 어댑터를 명시적으로 선택
 - [릴리스 노트](RELEASE-NOTES.md)의 실행 연결 및 결과 조회 항목 참고
 - 개인 프로젝트·원본 계산·화면 증거는 프로젝트 저장 위치에 보관하며 공개 문서에서 제외
+
+## 대칭 영역과 사전 계획
+
+- [한국어](WAREHOUSE-SYMMETRY.md) · [English](WAREHOUSE-SYMMETRY.en.md) · [日本語](WAREHOUSE-SYMMETRY.ja.md)
+- 연결된 정렬 저장고의 Y 대칭 절반·최대 셀 변 길이·셀 수 사전 검사 · 일반 AMR 및 독립 3D 접합은 미지원

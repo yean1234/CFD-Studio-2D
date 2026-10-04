@@ -616,6 +616,13 @@ def post_route(handler, workspace, body):
         if path == '/api/executions/project-config-check':
             workspace.check_project_config(body.get('form_id'),body.get('config'))
             result={'valid':True}
+        elif path == '/api/executions/mesh-plan':
+            from tracer_transport.porous_warehouse_mesh import mesh_plan
+            config = body.get('config')
+            mesh = config.get('porous_mesh') if isinstance(config, dict) else None
+            if not isinstance(mesh, dict) or mesh.get('kind') != 'aligned_grain_blocks':
+                raise ValueError('[MESH-S001] Mesh planning requires a connected aligned warehouse mesh')
+            result = mesh_plan(config)
         elif path == '/api/executions/form-inspect':
             from cfd_studio.solver_requirements import inspect_config
             result = inspect_config(body.get('solver'),body.get('config'))

@@ -228,6 +228,24 @@ class ExecutionWorkspaceTests(unittest.TestCase):
         self.assertEqual(handler._json.call_args.args[1],400)
         self.assertFalse((self.workspace.folder/'runs').exists())
 
+    def test_mesh_plan_is_read_only_and_reports_budget_without_allocation(self):
+        config = json.loads((ROOT/'tracer_transport/warehouse_porous_convergence.json').read_text())
+        config['porous_mesh'].update(domain_mode='symmetry_y_min', maximum_cell_edge_m=.03)
+        before = copy.deepcopy(config)
+        handler = Mock()
+        handler.path = '/api/executions/mesh-plan'
+        self.assertTrue(post_route(handler, self.workspace, {'config':config}))
+        result = handler._json.call_args.args[0]['result']
+        self.assertEqual(result['cells'], 404078304)
+        self.assertFalse(result['within_cell_budget'])
+        self.assertFalse(result['mesh_generated'])
+        self.assertEqual(config, before)
+        self.assertFalse((self.workspace.folder/'runs').exists())
+        for invalid in (None, [], {'porous_mesh':[]}, {'porous_mesh':{'kind':'unknown'}}):
+            post_route(handler, self.workspace, {'config':invalid})
+            self.assertEqual(handler._json.call_args.args[1], 400)
+            self.assertIn('MESH-S001', handler._json.call_args.args[0]['msg'])
+
     def test_concurrent_project_creation_does_not_drop_existing_membership(self):
         self.workspace.snapshot()
         with ThreadPoolExecutor(max_workers=5) as pool:

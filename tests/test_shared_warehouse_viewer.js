@@ -121,3 +121,16 @@ test('warehouse density levels include all available cells at the highest settin
  const low=[.000001,0,0],high=[0,.000001,0];const v=warehouseFlowVector(low,high,.5);
  assert.deepEqual(v.velocity,[.0000005,.0000005,0]);assert.ok(v.speed>0);assert.deepEqual(warehouseFlowVector([0,0,0],[0,0,0],0),{velocity:[0,0,0],speed:0});
 });
+
+test('symmetry Viewer draws only the computed half without reflecting results',()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../cfd_studio/internal/warehouse_viewer.js'),'utf8');
+ const fn=source.slice(source.indexOf('function warehouseBuildGeometry(){'),source.indexOf('async function loadWarehouseResult('));
+ for(const bounds of [[0,12.5],[12.5,25]]){
+  const ctx={WH:{geometry:[],meta:{geometry:{length_m:78,width_m:25,eaves_m:7.2,roof_rise_m:3.5},computational_domain:{bounds_m:[[0,78],bounds,[0,10.7]]}}},gl:{deleteBuffer(){}},mesh:vertices=>({vertices})};
+  vm.createContext(ctx);vm.runInContext(fn,ctx);ctx.warehouseBuildGeometry();
+  const points=ctx.WH.geometry[0].mesh.vertices;
+  const ys=points.filter((_,i)=>i%3===1),zs=points.filter((_,i)=>i%3===2);
+  assert.equal(Math.min(...ys),bounds[0]*1000);assert.equal(Math.max(...ys),bounds[1]*1000);
+  assert.equal(Math.max(...zs),10700);assert.equal(ctx.WH.geometry.length,2);
+ }
+});

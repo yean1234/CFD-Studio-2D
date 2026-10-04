@@ -76,3 +76,10 @@ test('backend silo and agent connection codes retain their localized identity',(
   for(const lang of ['ko','en','ja'])assert.equal(contract.normalize(Error('['+code+'] details'),lang).code,code);
  }
 });
+
+test('symmetry errors retain their backend code and detail',()=>{
+ for(const code of ['MESH-S001','MESH-S002','MESH-S003','MESH-S004']){
+  const info=contract.normalize(Error('['+code+'] Physical input mismatch'),'ja');
+  assert.equal(info.code,code);assert.ok(info.detail.includes('Physical input mismatch'));
+ }
+});

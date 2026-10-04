@@ -79,7 +79,7 @@ mergePatchPairs ();
 '''
 
 
-def checked_mesh_quality(log_text, expected_cells, expected_volume_m3):
+def checked_mesh_quality(log_text, expected_cells, expected_volume_m3, extra_patches=()):
     """Read independent checkMesh measurements, failing closed on missing data."""
     if 'Mesh OK.' not in log_text:
         raise RuntimeError('checkMesh did not report Mesh OK; inspect preserved logs')
@@ -100,7 +100,7 @@ def checked_mesh_quality(log_text, expected_cells, expected_volume_m3):
     nonorthogonality = metric(r'\bMesh non-orthogonality Max:\s*'+number, 'non-orthogonality')
     skewness = metric(r'\bMax skewness\s*=\s*'+number, 'skewness')
     patches = {}
-    for name in ('floor', 'roof', 'sideWalls', 'endWall', 'annexInterface'):
+    for name in ('floor', 'roof', 'sideWalls', 'endWall', 'annexInterface') + tuple(extra_patches):
         patches[name] = metric(r'^\s*'+name+r'\s+(\d+)\s+', name+' patch', int)
     if cells != expected_cells or regions != 1 or any(count < 1 for count in patches.values()):
         raise RuntimeError('checkMesh topology disagrees with the requested domain')

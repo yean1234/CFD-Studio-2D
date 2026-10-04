@@ -9,7 +9,7 @@ function warehouseCompatible(a,b){return a.total_cells===b.total_cells&&a.sampli
 function warehouseField(){const fields=WPresentation.layers('warehouse',WH?.meta.available_fields||['concentration']).filter(f=>f.available&&f.kind==='scalar');return (fields.find(f=>LY(f.control))||fields[0])?.id||null;}
 function warehouseValues(f,field){return WPresentation.values(f,field);}
 function warehouseRange(a,b,field){const x=WPresentation.range(a,field),y=WPresentation.range(b,field);if(!x||!y)throw Error('Result field range unavailable: '+field);return [Math.min(x[0],y[0]),Math.max(x[1],y[1])];}
-function warehouseCamera(){if(!WH)return;const g=WH.meta.geometry;tgt=[g.length_m*500,g.width_m*500,(g.eaves_m+g.roof_rise_m)*420];rad=Math.max(g.length_m,g.width_m,g.eaves_m+g.roof_rise_m)*2500;th=-.25;ph=.35;}
+function warehouseCamera(){if(!WH)return;const g=WH.meta.geometry,range=WH.meta.computational_domain?.bounds_m?.[1]||[0,g.width_m];tgt=[g.length_m*500,(range[0]+range[1])*500,(g.eaves_m+g.roof_rise_m)*420];rad=Math.max(g.length_m,g.width_m,g.eaves_m+g.roof_rise_m)*2500;th=-.25;ph=.35;}
 function rememberWarehouse(){if(!WH||!warehouseActive())return;WHSAVED.set(WH.id,{clock,th,ph,rad,tgt:[...tgt],layers:Object.fromEntries(WHLAYERS.map(id=>[id,!!document.getElementById(id).checked]))});}
 function suspendWarehouseViewer(){rememberWarehouse();WHGEN++;for(const r of WHREQUESTS)r.abort();WHREQUESTS.clear();setPlay(false,true);PLAYBUFSEQ++;PLAYBUFFERING=false;}
 function cancelViewerLoad(){VLOADGEN++;VFRAMEGEN++;VPREFETCHTOKEN++;PLAYBUFSEQ++;PLAYBUFFERING=false;loadFrames.busy=false;loadFrames.pending=false;if(REC)stopVideo();setPlay(false,true);}
@@ -32,7 +32,7 @@ function configureWarehouseUI(){if(!WH)return;saveWarehouseUI();document.body.cl
  GDEF[0].title='온도 범위 (°C)';GDEF[1].title='농도 범위 ('+WH.unit+')';GDEF[2].title='최대 유속 (m/s)';
  document.querySelector('#hud .hrow').innerHTML='<span>t <b id="hT">—</b> s</span><span>표시 <b id="hC">—</b>셀</span><span hidden>농도 표본최대 <b id="hV">—</b> '+WH.unit+'</span>';
  document.querySelector('#hud .hrow').style.display='';document.getElementById('hLiveG').style.display='none';
- const g=WH.meta.geometry;document.getElementById('hGeo').textContent=g.length_m+' × '+g.width_m+' m · '+(WH.meta.loading?.blocks?.length?'다공성 곡물 · ':'')+(WH.meta.model==='normalized_gable_verification'?'정규화 시험':'ClO₂ 가정 기반 계산');
+ const g=WH.meta.geometry;document.getElementById('hGeo').textContent=g.length_m+' × '+g.width_m+' m · '+(WH.meta.loading?.blocks?.length?'다공성 곡물 · ':'')+(WH.meta.model==='normalized_gable_verification'?'정규화 시험':'ClO₂ 가정 기반 계산')+(WH.meta.computational_domain?' · 대칭 절반 영역':'');
  document.getElementById('plabels').replaceChildren();document.getElementById('gcol')._keys='';
  document.getElementById('saveShot').title='현재 3D 화면 저장';document.getElementById('vizWarn').style.display='none';document.getElementById('empty').style.display='none';
  for(const title of document.querySelectorAll('#vlegend .ltit'))title.style.display='';
@@ -41,10 +41,19 @@ function configureWarehouseUI(){if(!WH)return;saveWarehouseUI();document.body.cl
 }
 function updateWarehouseSlots(){if(!WH)return;const m=WH.meta,n=m.times_s.length;for(const [id,title,text] of [['slBub','농도장',n+'개'],['slPhase','계산 격자',m.cells.toLocaleString()+'셀'],['slFlow','속도장',m.available_fields?.includes('velocity')?n+'개':'해당 없음'],['slTherm','온도장',m.available_fields?.includes('temperature')?n+'개':'해당 없음']]){const e=document.getElementById(id);e.textContent=text;e.parentElement.querySelector('b').textContent=title;e.className='sst ok';}document.getElementById('projDataName').textContent=WH.name;document.getElementById('btnRunTxt').textContent='다시 읽기';document.getElementById('btnRun').disabled=false;document.getElementById('btnUpdateViz').style.display='none';}
 function warehouseBuildGeometry(){for(const g of WH.geometry||[])gl.deleteBuffer(g.mesh.b);WH.geometry=[];const g=WH.meta.geometry,L=g.length_m*1000,W=g.width_m*1000,E=g.eaves_m*1000,H=E+g.roof_rise_m*1000;
+ const domain=WH.meta.computational_domain;
+ if(domain){
+  const [y0,y1]=domain.bounds_m[1].map(v=>v*1000),roof=y=>E+(H-E)*(1-Math.abs(2*y/W-1));
+  const v=[[0,y0,0],[L,y0,0],[L,y1,0],[0,y1,0],[0,y0,roof(y0)],[L,y0,roof(y0)],[L,y1,roof(y1)],[0,y1,roof(y1)]];
+  const edges=[[0,1],[1,2],[2,3],[3,0],[0,4],[1,5],[2,6],[3,7],[4,5],[5,6],[6,7],[7,4]];
+  WH.geometry.push({type:'outline',mesh:mesh(edges.flatMap(([a,b])=>[...v[a],...v[b]]))});
+  WH.geometry.push({type:'roof',mesh:mesh([v[4],v[5],v[6],v[4],v[6],v[7]].flat())});
+ }else{
  const v=[[0,0,0],[L,0,0],[L,W,0],[0,W,0],[0,0,E],[L,0,E],[L,W,E],[0,W,E],[0,W/2,H],[L,W/2,H]];
  const edges=[[0,1],[1,2],[2,3],[3,0],[0,4],[1,5],[2,6],[3,7],[4,5],[6,7],[4,8],[8,7],[5,9],[9,6],[8,9]];
  WH.geometry.push({type:'outline',mesh:mesh(edges.flatMap(([a,b])=>[...v[a],...v[b]]))});
  const roof=[v[4],v[5],v[9],v[4],v[9],v[8],v[8],v[9],v[6],v[8],v[6],v[7]];WH.geometry.push({type:'roof',mesh:mesh(roof.flat())});
+ }
  for(const b of WH.meta.loading?.blocks||[]){const a=b.min_m.map(x=>x*1000),z=b.max_m.map(x=>x*1000);WH.geometry.push({type:'grain',mesh:mesh(boxTris(...a,...z))},{type:'grainEdge',mesh:mesh(boxEdges(...a,...z))});}
 }
 async function loadWarehouseResult(id,name){rememberWarehouse();suspendWarehouseViewer();cancelViewerLoad();const gen=WHGEN;if(WH?.geometry)for(const g of WH.geometry)gl.deleteBuffer(g.mesh.b);WH=null;CFG=VIZCFG={_해석유형:'warehouse'};FRAMES=[];VSTREAMERR.clear();idx=0;clock=0;FLOWMAP={};THERMMAP={};PHASEMAP={};PRESSUREMAP={};TURBMAP={};BUBLOADED=0;Cxyz=null;VHIST=[];VHISTC=[];VHISTV=[];

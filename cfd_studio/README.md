@@ -117,3 +117,9 @@ wsl -l -v
 - 한글·공백이 있는 Windows 경로 지원 · 제공된 `설치.bat` 사용
 - WSL 내부 설치 스크립트는 임시 파일로 전달 · Linux 패키지 설치에 필요한 암호 입력은 터미널에서 진행
 - 설치 완료 후 솔버 설치와 Studio 실행 양식 연결을 각각 확인
+
+## 격자 계획
+
+- 정렬 저장고의 셀 수 계획은 포함된 Windows Python에서 수행 · 추가 Windows NumPy 설치 불필요
+- 실제 격자 생성·솔버는 기존 WSL OpenFOAM·NumPy 환경 필요
+- [대칭 영역·셀 수 한도·메모리 산정 범위](../docs/WAREHOUSE-SYMMETRY.md)

@@ -407,3 +407,18 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 - Display-grid statistics exclude empty bins when saved cell centres (`C`) match the grid; genuine zero values remain
 - Point and line queries use the nearest occupied display bin; this is distinct from original CFD cells, volume averages or spatial interpolation
 - Legacy files without matching centres retain their display-grid lookup; empty-bin detection is not guaranteed
+
+
+## Warehouse symmetry and mesh planning
+
+- Connected aligned warehouse Config → **Mesh → Computational domain**: select the full domain or one side of the Y midplane
+- Enter a positive **Maximum cell edge (m)** · 3 cm is `0.03` · leave blank to retain base spacing and refinement
+- **Check mesh plan** reports cell count, planned edge bound, basic array size and cell budget · it does not generate a mesh or start a solver
+- Symmetry applies only to the connected model with symmetric loading, initial concentration, material and thermal boundaries · asymmetric flow is excluded
+- Exceeding the cell budget blocks generation without silently coarsening the mesh · array size is not total solver memory
+- Viewer displays only the computed half and rejects queries in the omitted half · Config geometry editing retains the full physical space
+- Local refinement propagates along existing block axes · adaptive mesh refinement and independently coupled fine/coarse 3D halves are unsupported
+
+- [Warehouse symmetry and mesh planning](WAREHOUSE-SYMMETRY.en.md)
+
+- Modify `porous_mesh.domain_mode` and `maximum_cell_edge_m` in the actual editor export · do not truncate the source Template geometry · resolve ambiguous units and resource limits before execution · distinguish development checks from research calculations

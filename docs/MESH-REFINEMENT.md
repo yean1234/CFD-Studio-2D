@@ -120,3 +120,8 @@
 - 테스트: `tests/test_mesh_components.py`, `tests/browser_mesh_components.js`
 
 - 관련 회귀 검사: Python 65개·JavaScript 65개·실제 화면 15항목 통과
+
+## 대칭 영역과 사전 계획
+
+- [한국어](WAREHOUSE-SYMMETRY.md) · [English](WAREHOUSE-SYMMETRY.en.md) · [日本語](WAREHOUSE-SYMMETRY.ja.md)
+- 연결된 정렬 저장고의 Y 대칭 절반·최대 셀 변 길이·셀 수 사전 검사 · 일반 AMR 및 독립 3D 접합은 미지원

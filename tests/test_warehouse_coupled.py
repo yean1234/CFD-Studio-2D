@@ -58,6 +58,17 @@ class CoupledTests(unittest.TestCase):
             self.assertEqual(query['temperature_status'],'solved_energy_C')
             self.assertEqual(len(query['source_files']),6)
 
+    def test_unsimulated_half_cannot_be_queried_as_saved_data(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            case=self.fixture(root)
+            model=json.loads((case/'model_contract.json').read_text())
+            model['computational_domain']={'bounds_m':[[0,2],[0,1],[0,3]]}
+            (case/'model_contract.json').write_text(json.dumps(model))
+            reader=WarehouseResults(root)
+            with self.assertRaisesRegex(ValueError,'계산 영역 밖'):
+                reader.sample(case.name,[1.5,1.5,.5],0,10)
+
     def test_temperature_and_velocity_tampering_rejects_both_frame_and_query(self):
         for name in ('T','U'):
             with self.subTest(field=name), tempfile.TemporaryDirectory() as temp:

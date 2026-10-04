@@ -504,6 +504,62 @@
         "ja": "フォルダー名・一意のID・形状のeditor_group参照を確認してください"
       },
       "retry": "review"
+    },
+    "MESH-S001": {
+      "code": "MESH-S001",
+      "message": {
+        "ko": "현재 실행기가 지원하지 않는 격자 영역입니다",
+        "en": "Unsupported mesh domain for this adapter",
+        "ja": "この実行アダプターでは未対応のメッシュ領域です"
+      },
+      "action": {
+        "ko": "연결된 저장고 격자에서 전체 또는 Y 대칭 절반을 선택하세요",
+        "en": "Choose full domain or a Y symmetry half in the connected warehouse mesh",
+        "ja": "接続済み倉庫メッシュで全領域またはY対称半領域を選択してください"
+      },
+      "retry": "review"
+    },
+    "MESH-S002": {
+      "code": "MESH-S002",
+      "message": {
+        "ko": "적재 형상이 대칭이 아닙니다",
+        "en": "Loading geometry is not symmetric",
+        "ja": "積載形状が対称ではありません"
+      },
+      "action": {
+        "ko": "Y 중앙면 양쪽의 형상·위치를 확인하거나 전체 영역을 선택하세요",
+        "en": "Check geometry on both sides of the Y midplane or use the full domain",
+        "ja": "Y中央面の両側の形状と位置を確認するか全領域を使用してください"
+      },
+      "retry": "review"
+    },
+    "MESH-S003": {
+      "code": "MESH-S003",
+      "message": {
+        "ko": "초기 농도 분포가 대칭이 아닙니다",
+        "en": "Initial concentration is not symmetric",
+        "ja": "初期濃度分布が対称ではありません"
+      },
+      "action": {
+        "ko": "초기 분포의 근거를 확인하거나 전체 영역을 선택하세요",
+        "en": "Review the initial-field basis or use the full domain",
+        "ja": "初期分布の根拠を確認するか全領域を使用してください"
+      },
+      "retry": "review"
+    },
+    "MESH-S004": {
+      "code": "MESH-S004",
+      "message": {
+        "ko": "대칭 경계가 초기장에 없습니다",
+        "en": "An initial field is missing its symmetry boundary",
+        "ja": "初期場に対称境界がありません"
+      },
+      "action": {
+        "ko": "생성 로그를 확인하세요 · 경계 누락을 수정하기 전 실행하지 마세요",
+        "en": "Inspect generated fields and logs before running the solver",
+        "ja": "生成された場とログを確認し、境界の欠落を修正してから実行してください"
+      },
+      "retry": "review"
     }
   }
 }

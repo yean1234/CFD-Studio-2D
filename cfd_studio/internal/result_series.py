@@ -102,6 +102,8 @@ class ResultSeries:
             metrics += [{'id': k+'.'+stat,'name':name+' · '+label,'unit':unit,'scope':scope} for stat,label in STATS.items()]
             if scope == 'global':
                 bounds = ([[0,domain['length_m']],[0,domain['width_m']],[0,domain['eaves_m']+domain['roof_rise_m']]] if domain else None) if record['kind']=='warehouse' else self.grid_bounds(root,k)
+                if record['kind']=='warehouse' and model.get('computational_domain'):
+                    bounds = model['computational_domain']['bounds_m']
                 point_metrics.append({'id':k,'name':name,'unit':unit,'bounds_m':bounds})
         result={'id':key,'name':record['name'],'axis':axis,'metrics':metrics,'point_metrics':point_metrics,'coordinate_unit':'m','coordinate_domain':domain}
         with self.lock:

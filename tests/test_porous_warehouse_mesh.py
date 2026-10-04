@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import unittest
 import numpy as np
-from tracer_transport.porous_warehouse_mesh import generate_mesh,initial_average,restrict_to_base,layout
+from tracer_transport.porous_warehouse_mesh import generate_mesh,initial_average,restrict_to_base,layout,mesh_plan
 from tracer_transport.assess_porous_convergence import gci,signature
 from tracer_transport.assess_time_refinement import time_signature
 
@@ -50,6 +50,46 @@ class PorousMeshTests(unittest.TestCase):
             elif change=='height':s['loading']['blocks'][0]['max_m'][2]=2.5
             else:s['porous_mesh']['refinement']=1.5
             with self.subTest(change=change),self.assertRaises(ValueError):layout(s)
+
+    def test_small_geometry_respects_physical_edges_including_roof(self):
+        s=copy.deepcopy(self.spec)
+        # Scale only geometry to keep a true 3 mm mesh affordable for this test.
+        for key in ('length_m','width_m','eaves_m','roof_rise_m'):
+            s['geometry_spec']['geometry'][key]*=.001
+        for block in s['loading']['blocks']:
+            for key in ('min_m','max_m'):
+                block[key]=[v*.001 for v in block[key]]
+        s['porous_mesh']['maximum_cell_edge_m']=.003
+        original=copy.deepcopy(s)
+        plan=mesh_plan(s)
+        _,data=generate_mesh(s)
+        b=data['bounds']
+        edges=np.column_stack((b[:,1]-b[:,0],
+            (b[:,3]-b[:,2])*np.sqrt(1+(b[:,6]*b[:,8])**2),
+            (b[:,6]-b[:,5])*(b[:,7]+abs(b[:,8])*(b[:,3]-b[:,2])/2)))
+        self.assertLessEqual(float(edges.max()),.003*(1+1e-12))
+        self.assertAlmostEqual(float(edges.max()),plan['maximum_cell_edge_m'])
+        self.assertEqual(len(b),plan['cells'])
+        self.assertEqual(s,original)
+
+    def test_whole_warehouse_mm_plan_rejects_allocation(self):
+        from unittest.mock import patch
+        s=copy.deepcopy(self.spec)
+        s['porous_mesh']['maximum_cell_edge_m']=.003
+        with patch('numpy.meshgrid',side_effect=AssertionError('Must not allocate cells')):
+            plan=mesh_plan(s)
+            self.assertTrue(plan['planned_edge_requirement_met'])
+            self.assertFalse(plan['within_cell_budget'])
+            self.assertGreater(plan['cells'],600_000_000_000)
+            self.assertEqual(plan['five_components_float64_bytes'],plan['cells']*40)
+            with self.assertRaisesRegex(ValueError,'No mesh allocated'):
+                generate_mesh(s)
+
+    def test_invalid_target_edges_are_rejected(self):
+        for value in (0,-1,True,float('nan'),float('inf'),'0.003'):
+            s=copy.deepcopy(self.spec)
+            s['porous_mesh']['maximum_cell_edge_m']=value
+            with self.subTest(value=value),self.assertRaises(ValueError):mesh_plan(s)
 
     def test_gci_rejects_oscillation_and_growing_error(self):
         good=gci(1.04,1.02,1.01)

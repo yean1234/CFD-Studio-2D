@@ -5,17 +5,18 @@ physical volume at every refinement. New cases only; no existing output edits.
 """
 import math
 from pathlib import Path
-import numpy as np
-from .run import header
+from .warehouse_geometry import header
+from .warehouse_symmetry import symmetry_domain, PATCH
 
 
-def layout(spec):
+def _planned_layout(spec):
     g=spec['geometry_spec']['geometry']; m=spec['porous_mesh']
     if m.get('kind')!='aligned_grain_blocks':raise ValueError('Unknown porous mesh kind')
     r=m['refinement']
     if type(r) is not int or r<1:raise ValueError('Refinement must be a positive integer')
-    spacing=np.asarray(m['base_max_spacing_m'],float)
-    if spacing.shape!=(3,) or not np.isfinite(spacing).all() or np.any(spacing<=0):raise ValueError('Invalid base spacing')
+    spacing=m['base_max_spacing_m']
+    if not isinstance(spacing,(list,tuple)) or len(spacing)!=3 or any(type(v) not in (int,float) or not math.isfinite(v) or v<=0 for v in spacing):
+        raise ValueError('Invalid base spacing')
     blocks=spec['loading']['blocks']
     if not blocks:raise ValueError('At least one grain block is required')
     lows={b['min_m'][2] for b in blocks}; highs={b['max_m'][2] for b in blocks}
@@ -24,22 +25,81 @@ def layout(spec):
     if not 0<bottom<top<g['eaves_m']:raise ValueError('Stack levels must be below the eaves')
     x=sorted({0.,g['length_m'],*(b[k][0] for b in blocks for k in ('min_m','max_m'))})
     y=sorted({0.,g['width_m']/2,g['width_m'],*(b[k][1] for b in blocks for k in ('min_m','max_m'))})
-    xc=np.ceil(np.diff(x)/spacing[0]).astype(int);yc=np.ceil(np.diff(y)/spacing[1]).astype(int)
-    zc=np.ceil(np.array([bottom,top-bottom,g['eaves_m']+g['roof_rise_m']-top])/spacing[2]).astype(int)
+    xd=[b-a for a,b in zip(x,x[1:])]
+    yd=[b-a for a,b in zip(y,y[1:])]
+    xc=[math.ceil(v/spacing[0]) for v in xd]
+    yc=[math.ceil(v/spacing[1]) for v in yd]
+    zc=[math.ceil(v/spacing[2]) for v in [bottom,top-bottom,g['eaves_m']+g['roof_rise_m']-top]]
+    target=m.get('maximum_cell_edge_m')
+    if target is not None:
+        if isinstance(target,bool) or not isinstance(target,(int,float)) or not math.isfinite(target) or target<=0:
+            raise ValueError('maximum_cell_edge_m must be finite and positive')
+        # Roof edges slope in y. Limit physical edge length, not its projection.
+        roof_factor=math.hypot(1,2*g['roof_rise_m']/g['width_m'])
+        def capped_counts(lengths,existing):
+            return [max(int(n),math.ceil(float(length)/target/r)) for length,n in zip(lengths,existing)]
+        xc=capped_counts(xd,xc)
+        yc=capped_counts([v*roof_factor for v in yd],yc)
+        zc=capped_counts([bottom,top-bottom,g['eaves_m']+g['roof_rise_m']-top],zc)
     from .local_mesh_refinement import refine_counts
     xc,yc,zc=refine_counts(spec,x,y,[0.,bottom,top],xc,yc,zc)
-    cells=int(xc.sum()*yc.sum()*zc.sum()*r**3)
-    if cells>m['maximum_cells']:raise ValueError('Aligned mesh exceeds explicit cell budget')
+    domain = symmetry_domain(spec)
+    if domain:
+        lower,upper = domain['bounds_m'][1]
+        keep = [i for i,(a,b) in enumerate(zip(y,y[1:])) if a>=lower and b<=upper]
+        yc = [yc[i] for i in keep]
+        y = [v for v in y if lower<=v<=upper]
+    # Python integers prevent overflow for a millimetre-scale whole building.
+    cells=sum(map(int,xc))*sum(map(int,yc))*sum(map(int,zc))*r**3
+    if type(m['maximum_cells']) is not int or m['maximum_cells']<1:
+        raise ValueError('maximum_cells must be a positive integer')
     return g,x,y,[0.,bottom,top],xc,yc,zc,r,cells
 
 
+def mesh_plan(spec):
+    """Estimate counts and edge bounds without allocating any per-cell arrays."""
+    g,x,y,z,xc,yc,zc,r,cells=_planned_layout(spec)
+    dx=max(float(b-a)/(int(n)*r) for a,b,n in zip(x,x[1:],xc))
+    dy=max(float(b-a)/(int(n)*r) for a,b,n in zip(y,y[1:],yc))
+    dz=max(float(h)/(int(n)*r) for h,n in zip(
+        [z[1],z[2]-z[1],g['eaves_m']+g['roof_rise_m']-z[2]],zc))
+    edge=max(dx,dy*math.hypot(1,2*g['roof_rise_m']/g['width_m']),dz)
+    target=spec['porous_mesh'].get('maximum_cell_edge_m')
+    return {
+        'cells':cells,
+        'axis_cells':[sum(map(int,v))*r for v in (xc,yc,zc)],
+        'maximum_axis_spacing_m':[dx,dy,dz],
+        'maximum_cell_edge_m':edge,
+        'requested_maximum_cell_edge_m':target,
+        'planned_edge_requirement_met':None if target is None else edge<=target*(1+1e-12),
+        'maximum_cells':spec['porous_mesh']['maximum_cells'],
+        'within_cell_budget':cells<=spec['porous_mesh']['maximum_cells'],
+        'one_scalar_float64_bytes':cells*8,
+        'five_components_float64_bytes':cells*40,
+        'memory_basis':'Five float64 components only (one vector and two scalars); excludes mesh, pressure, turbulence, matrix, temporary arrays and output. Not a solver RAM estimate.',
+        'mesh_generated':False,'cfd_executed':False,
+        'computational_domain':symmetry_domain(spec),
+    }
+
+
+def layout(spec):
+    result=_planned_layout(spec)
+    cells=result[-1];budget=spec['porous_mesh']['maximum_cells']
+    if cells>budget:
+        raise ValueError(f'Aligned mesh requires {cells:,} cells; exceeds explicit cell budget {budget:,}. No mesh allocated; do not silently coarsen the requested spacing.')
+    return result
+
+
 def generate_mesh(spec):
+    import numpy as np
     g,x,y,z,xc,yc,zc,r,cells=layout(spec)
+    domain = symmetry_domain(spec)
     ny=len(y);nx=len(x)
     def roof(yy):return g['eaves_m']+g['roof_rise_m']*(1-abs(2*yy/g['width_m']-1))
     def point(i,j,k):return k*nx*ny+j*nx+i
     vertices=[(xx,yy,z[k] if k<3 else roof(yy)) for k in range(4) for yy in y for xx in x]
     boundaries={p:[] for p in ('floor','roof','sideWalls','endWall','annexInterface')}
+    if domain:boundaries[PATCH]=[]
     foam_blocks=[];centres=[];volumes=[];bounds=[];parents=[];half_parents=[];regions=[]
     base_offset=0
     for k in range(3):
@@ -51,8 +111,8 @@ def generate_mesh(spec):
         def face(p,indices):boundaries[p].append('('+' '.join(str(ids[v]) for v in indices)+')')
         if k==0:face('floor',[0,3,2,1])
         if k==2:face('roof',[4,5,6,7])
-        if j==0:face('sideWalls',[0,1,5,4])
-        if j==ny-2:face('sideWalls',[3,7,6,2])
+        if j==0:face(PATCH if domain and domain['mode']=='symmetry_y_max' else 'sideWalls',[0,1,5,4])
+        if j==ny-2:face(PATCH if domain and domain['mode']=='symmetry_y_min' else 'sideWalls',[3,7,6,2])
         if i==0:face('endWall',[0,4,7,3])
         if i==nx-2:face('annexInterface',[1,2,6,5])
         sx,sy,sz=shape
@@ -86,7 +146,7 @@ def generate_mesh(spec):
             loaded |= np.all((xyz>=b['min_m'])&(xyz<b['max_m']),axis=1)
         regions.append(loaded)
     text=header('blockMeshDict')+'scale 1;\nvertices (\n'+'\n'.join('(%g %g %g)'%v for v in vertices)+'\n);\nblocks (\n'+'\n'.join(foam_blocks)+'\n);\nedges ();\nboundary (\n'
-    text+='\n'.join(p+' { type wall; faces ('+' '.join(faces)+'); }' for p,faces in boundaries.items())+'\n);\nmergePatchPairs ();\n'
+    text+='\n'.join(p+' { type '+('symmetryPlane' if p==PATCH else 'wall')+'; faces ('+' '.join(faces)+'); }' for p,faces in boundaries.items())+'\n);\nmergePatchPairs ();\n'
     data={'cell_centres_m':np.concatenate(centres),'cell_volumes_m3':np.concatenate(volumes),'bounds':np.concatenate(bounds),'base_parent':np.concatenate(parents),'half_parent':np.concatenate(half_parents),'loaded_region':np.concatenate(regions).astype(float)}
     assert len(data['cell_centres_m'])==cells
     return text,data
@@ -94,6 +154,7 @@ def generate_mesh(spec):
 
 def initial_average(spec,data):
     """Finite-volume Gaussian mean, analytic in x/z, 16-point Gauss in y."""
+    import numpy as np
     b=data['bounds'];s=spec['initial'];centre=s['centre_m'];sigma=s['sigma_m']
     erf=np.vectorize(math.erf,otypes=[float])
     def integral(lo,hi,axis):
@@ -111,6 +172,7 @@ def initial_average(spec,data):
 
 
 def restrict_to_base(values,volumes,parents):
+    import numpy as np
     count=int(parents.max())+1
     weights=np.bincount(parents,weights=volumes,minlength=count)
     if np.any(weights<=0):raise ValueError('Missing parent volume')
