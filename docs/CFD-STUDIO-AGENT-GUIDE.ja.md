@@ -433,3 +433,7 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 - [研究を参考にした格子遷移](APPLE-STORAGE-METHODS.ja.md)
 
 - 現在のTemplateから出力したJSONに必要時のみ `porous_mesh.max_axis_spacing_ratio` を追加 · 保存・実行の前に画面で予定セル数と範囲を確認 · 既存Caseやプリセットを自動変更しない
+
+## 開発文書
+
+- 構造・契約・検証・引継ぎは[開発案内](development/README.ja.md)を参照 · 詳細な技術文書は韓国語版で管理

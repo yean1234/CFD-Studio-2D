@@ -117,3 +117,8 @@ node --test tests/test_*.js
 ## 연구 기반 격자 전이
 
 - [선행연구·입력·구현 범위](docs/APPLE-STORAGE-METHODS.md) · 축 구간 간격비 한도 · 자동 경계층/AMR은 미지원
+
+## 개발 문서
+
+- [개발자 안내](docs/development/README.md) · [개발 참여](CONTRIBUTING.md)
+- 요구사항·구조·데이터 계약·검증·운영·설계 결정·미완료 작업을 코드와 연결

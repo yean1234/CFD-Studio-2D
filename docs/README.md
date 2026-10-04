@@ -69,3 +69,10 @@
 ## 연구 기반 격자 전이
 
 - [선행연구·입력·구현 범위](APPLE-STORAGE-METHODS.md) · 축 구간 간격비 한도 · 자동 경계층/AMR은 미지원
+
+## 개발자 안내
+
+- [개발 문서](development/README.md) · [English](development/README.en.md) · [日本語](development/README.ja.md)
+- [요구사항](development/REQUIREMENTS.md) · [구조](development/ARCHITECTURE.md) · [데이터 계약](development/DATA-CONTRACTS.md)
+- [검증](development/VERIFICATION.md) · [운영과 배포](development/OPERATIONS.md) · [개발 계획](development/BACKLOG.md)
+- [저장소 목록](development/INVENTORY.md) · [문서 관리](development/MAINTENANCE.md)

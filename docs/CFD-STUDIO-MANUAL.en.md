@@ -133,3 +133,7 @@
 - Roof Z uses maximum layer height · this does not guarantee all 3D neighbor ratios, wall layers or y+
 
 - [Research-informed mesh transitions](APPLE-STORAGE-METHODS.en.md)
+
+## Developer documentation
+
+- See the [developer entry point](development/README.en.md) for architecture, contracts, tests and handoff · detailed technical documents are maintained in Korean

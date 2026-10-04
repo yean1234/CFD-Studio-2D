@@ -123,3 +123,8 @@ wsl -l -v
 - 정렬 저장고의 셀 수 계획은 포함된 Windows Python에서 수행 · 추가 Windows NumPy 설치 불필요
 - 실제 격자 생성·솔버는 기존 WSL OpenFOAM·NumPy 환경 필요
 - [대칭 영역·셀 수 한도·메모리 산정 범위](../docs/WAREHOUSE-SYMMETRY.md)
+
+## 개발 환경 안내
+
+- [개발 문서](../docs/development/README.md): 코드 구조·계약·검사·인계
+- 문서 검사 도구는 개발용 Python과 Git 사용 · 일반 사용자 설치 절차에 추가 프로그램을 요구하지 않음

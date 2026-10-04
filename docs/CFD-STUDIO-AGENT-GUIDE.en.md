@@ -433,3 +433,7 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 - [Research-informed mesh transitions](APPLE-STORAGE-METHODS.en.md)
 
 - Add `porous_mesh.max_axis_spacing_ratio` only when needed to the JSON exported by the current Template · review the planned cells and scope on screen before the save/run workflow · do not change existing Cases or presets automatically
+
+## Developer documentation
+
+- See the [developer entry point](development/README.en.md) for architecture, contracts, tests and handoff · detailed technical documents are maintained in Korean

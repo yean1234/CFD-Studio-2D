@@ -441,3 +441,7 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 - [연구 기반 격자 전이](APPLE-STORAGE-METHODS.md)
 
 - 현재 Template에서 내보낸 JSON에 `porous_mesh.max_axis_spacing_ratio`를 필요한 경우만 추가 · 격자 계획의 셀 수·범위를 화면에서 확인한 뒤 저장/실행 절차 진행 · 기존 Case와 프리셋은 자동 변경하지 않음
+
+## 개발 문서
+
+- 개발 참여·인계는 [개발 문서](development/README.md) 참고 · 사용자 조작과 개발 계약을 구분

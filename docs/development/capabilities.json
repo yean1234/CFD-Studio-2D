@@ -1,0 +1,556 @@
+{
+  "version": 1,
+  "reviewed_on": "2026-10-05",
+  "baseline_commit": "e861572",
+  "items": [
+    {
+      "id": "REQ-001",
+      "title": "프로젝트·독립 Case·실행 스냅샷",
+      "status": "implemented",
+      "sources": [
+        "cfd_studio/internal/execution_workspace.py",
+        "cfd_studio/internal/run_management.py"
+      ],
+      "tests": [
+        "tests/test_execution_workspace.py",
+        "tests/test_run_management.py"
+      ],
+      "acceptance": "다른 Case와 프리셋 변경이 시작된 입력을 바꾸지 않음",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-002",
+      "title": "프로젝트 찾기·사용자 폴더·드라이브",
+      "status": "implemented",
+      "sources": [
+        "cfd_studio/internal/project_storage.py"
+      ],
+      "tests": [
+        "tests/test_project_storage.py",
+        "tests/test_project_folder_picker.py"
+      ],
+      "acceptance": "유효 manifest만 등록하고 오프라인/겹침/쓰기 실패 안내",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-003",
+      "title": "Template·프리셋 분리",
+      "status": "implemented",
+      "sources": [
+        "cfd_studio/internal/cfd_forms.py",
+        "cfd_studio/internal/config_presets.py"
+      ],
+      "tests": [
+        "tests/test_cfd_forms.py",
+        "tests/test_config_presets.py"
+      ],
+      "acceptance": "프리셋 저장 기본 해제·새 이름 저장·기존값 보존",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-004",
+      "title": "솔버 설문·추천·설치 확인",
+      "status": "partial",
+      "sources": [
+        "cfd_studio/internal/solver_catalog.py",
+        "cfd_studio/internal/form_wizard.py",
+        "cfd_studio/internal/solver_requirements.py"
+      ],
+      "tests": [
+        "tests/test_solver_recommendations.py",
+        "tests/test_form_wizard.py"
+      ],
+      "acceptance": "등록·설치·실행 연결을 독립 표시, 미지원 조합은 명시",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-005",
+      "title": "범용 Config·외부 JSON 왕복",
+      "status": "partial",
+      "sources": [
+        "cfd_studio/internal/form_schema.py",
+        "cfd_studio/internal/form_config_editor.js",
+        "cfd_studio/internal/config_contract.js"
+      ],
+      "tests": [
+        "tests/test_form_schema.py",
+        "tests/test_config_contract.js"
+      ],
+      "acceptance": "사용자 키·배열 양식·단위·값 보존, 계산 반영은 어댑터별",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-006",
+      "title": "3D Inspector·형상 JSON·사용자 속성",
+      "status": "partial",
+      "sources": [
+        "cfd_studio/internal/spatial_editor.js",
+        "cfd_studio/internal/primitive_geometry.py"
+      ],
+      "tests": [
+        "tests/test_spatial_editor.js",
+        "tests/test_primitive_geometry.py"
+      ],
+      "acceptance": "선택 요소 연동·기본 필드 잠금·추가 속성 이름 편집",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-007",
+      "title": "그룹 폴더·채움 공간",
+      "status": "partial",
+      "sources": [
+        "cfd_studio/internal/spatial_editor.js"
+      ],
+      "tests": [
+        "tests/test_spatial_editor.js",
+        "tests/test_mesh_components.py"
+      ],
+      "acceptance": "폴더는 표시 그룹, 채움은 지원 형상/실행기에서만 적용",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-008",
+      "title": "Case 대기열·실패 정지·재시작",
+      "status": "implemented",
+      "sources": [
+        "cfd_studio/internal/run_management.py",
+        "cfd_studio/internal/execution_adapters.py"
+      ],
+      "tests": [
+        "tests/test_run_management.py",
+        "tests/test_execution_adapters.py"
+      ],
+      "acceptance": "순서 변경·다음 실행 일시정지·실패 원인·완료 재실행 방지",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-009",
+      "title": "중단 재개·실패 재시도",
+      "status": "partial",
+      "sources": [
+        "cfd_studio/internal/run_management.py"
+      ],
+      "tests": [
+        "tests/test_case_recovery.py"
+      ],
+      "acceptance": "실행기/체크포인트 기준으로 가능 여부 안내",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-010",
+      "title": "물리시간·저장 프레임 종료",
+      "status": "partial",
+      "sources": [
+        "cfd_studio/internal/run_management.py",
+        "cfd_studio/internal/frame_policy.py"
+      ],
+      "tests": [
+        "tests/test_run_management.py"
+      ],
+      "acceptance": "지원 모델에서 하나만 선택·초기 프레임 포함 기록",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-011",
+      "title": "수렴 유지 구간 종료",
+      "status": "not_implemented",
+      "sources": [
+        "cfd_studio/internal/run_management.py"
+      ],
+      "tests": [
+        "tests/test_run_management.py"
+      ],
+      "acceptance": "잔차/목표 연속 구간과 최대 한계 도달을 별도로 판정",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-012",
+      "title": "프로젝트 공통 CFD·Viewer 흐름",
+      "status": "partial",
+      "sources": [
+        "cfd_studio/internal/execution_workspace.js",
+        "cfd_studio/internal/viewer_presentation.js"
+      ],
+      "tests": [
+        "tests/test_viewer_presentation.js",
+        "tests/test_shared_warehouse_viewer.js"
+      ],
+      "acceptance": "Case 개수·대상과 무관한 목록·선택·상태·버튼 구조",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-013",
+      "title": "3D 재생·벡터·카메라",
+      "status": "partial",
+      "sources": [
+        "cfd_studio/internal/warehouse_viewer.js",
+        "cfd_studio/internal/tracer_viewer.js",
+        "cfd_studio/internal/viewer_presentation.js"
+      ],
+      "tests": [
+        "tests/test_viewer_presentation.js",
+        "tests/test_flow_density.js"
+      ],
+      "acceptance": "시간 축·표시 밀도·회전·확대 일관성, 데이터별 연결 범위 표기",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-014",
+      "title": "그래프 평균/좌표·3변수·프로파일",
+      "status": "implemented",
+      "sources": [
+        "cfd_studio/internal/data_sheet_viewer.js",
+        "cfd_studio/internal/result_series.py"
+      ],
+      "tests": [
+        "tests/test_data_sheet_viewer.js",
+        "tests/test_result_series.py",
+        "tests/test_line_profile_warehouse.py"
+      ],
+      "acceptance": "원본 저장값·최근접 방식·좌표 범위·정확한 X/Y 표시",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-015",
+      "title": "영상·사진·그래프·전체 CSV",
+      "status": "partial",
+      "sources": [
+        "cfd_studio/internal/csv_export.py",
+        "cfd_studio/internal/execution_workspace.js"
+      ],
+      "tests": [
+        "tests/test_csv_export.py"
+      ],
+      "acceptance": "모드별 Export와 Case 전체 CSV, 지원 형식 및 실패 안내",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-016",
+      "title": "모델·단위·검증 상태 구분",
+      "status": "partial",
+      "sources": [
+        "cfd_studio/internal/warehouse_results.py",
+        "cfd_studio/internal/viewer_presentation.js"
+      ],
+      "tests": [
+        "tests/test_model_scope.py",
+        "tests/test_warehouse_results.py"
+      ],
+      "acceptance": "정규화/물성 모델과 실행/수치/실험 상태를 혼동하지 않음",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-017",
+      "title": "다국어·사용자 이름 보존",
+      "status": "partial",
+      "sources": [
+        "cfd_studio/internal/i18n.js",
+        "cfd_studio/internal/i18n_help.js"
+      ],
+      "tests": [
+        "tests/test_i18n.js"
+      ],
+      "acceptance": "공식 UI 문구 KO/EN/JA, 사용자 이름/Config 값 유지",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-018",
+      "title": "하드웨어 모니터·백그라운드 명령창",
+      "status": "partial",
+      "sources": [
+        "cfd_studio/internal/hardware_monitor.py",
+        "cfd_studio/internal/windows_gpu.py"
+      ],
+      "tests": [
+        "tests/test_hardware_monitor.py",
+        "tests/test_background_console.py"
+      ],
+      "acceptance": "장치별 실측·미지원·지연 구분, CPU/드라이브/GPU/VRAM 표시",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-019",
+      "title": "에이전트 공개 조작·JSON 입력",
+      "status": "implemented",
+      "sources": [
+        "cfd_studio/internal/agent_controls.js"
+      ],
+      "tests": [
+        "tests/test_agent_controls.js"
+      ],
+      "acceptance": "Template JSON 기반으로 현재 화면에 적용·검토 후 저장/실행",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-020",
+      "title": "에이전트 진행·사용자 중단",
+      "status": "implemented",
+      "sources": [
+        "cfd_studio/internal/agent_activity.py",
+        "cfd_studio/internal/agent_activity.js"
+      ],
+      "tests": [
+        "tests/test_agent_activity.py",
+        "tests/test_agent_delivery.py"
+      ],
+      "acceptance": "수신 확인·PAUSED 준수·중단과 솔버 종료 분리",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-021",
+      "title": "에이전트 협업·검토·인계",
+      "status": "partial",
+      "sources": [
+        "cfd_studio/internal/agent_collaboration.js"
+      ],
+      "tests": [
+        "tests/test_agent_collaboration.js"
+      ],
+      "acceptance": "소유권·revision·충돌·인계, 비용 절감 정량 주장은 별도",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-022",
+      "title": "오류 코드와 복구 안내",
+      "status": "partial",
+      "sources": [
+        "cfd_studio/internal/config_contract.js",
+        "cfd_studio/internal/agent_diagnostics.py"
+      ],
+      "tests": [
+        "tests/test_config_contract.js",
+        "tests/test_agent_diagnostics.py"
+      ],
+      "acceptance": "원인·필드·다음 행동 제공, 일반 예외도 미확인 성공 처리 금지",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-023",
+      "title": "정렬 다공성 격자·유동·온도·수송",
+      "status": "partial",
+      "sources": [
+        "tracer_transport/warehouse_coupled.py",
+        "tracer_transport/porous_warehouse_mesh.py"
+      ],
+      "tests": [
+        "tests/test_warehouse_coupled.py",
+        "tests/test_porous_warehouse_mesh.py"
+      ],
+      "acceptance": "연결 실행과 물리적 정확도 검증 구분",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-024",
+      "title": "형상별/국소 격자·중첩 규칙",
+      "status": "partial",
+      "sources": [
+        "tracer_transport/local_mesh_refinement.py",
+        "cfd_studio/internal/spatial_editor.js"
+      ],
+      "tests": [
+        "tests/test_local_refinement.py",
+        "tests/test_mesh_components.py"
+      ],
+      "acceptance": "완전 포함 내부 우선·부분 겹침 규칙·비물리 영역 구분",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-025",
+      "title": "Y 중앙면 대칭 절반",
+      "status": "partial",
+      "sources": [
+        "tracer_transport/warehouse_symmetry.py"
+      ],
+      "tests": [
+        "tests/test_warehouse_symmetry.py"
+      ],
+      "acceptance": "대칭 조건·전체 체적 대비·반대쪽 조회 차단",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-026",
+      "title": "최대 변 길이·셀 예산 사전 계획",
+      "status": "implemented",
+      "sources": [
+        "tracer_transport/porous_warehouse_mesh.py"
+      ],
+      "tests": [
+        "tests/test_warehouse_symmetry.py"
+      ],
+      "acceptance": "정렬 저장고 범위에서 생성 전 한도 확인·자동 조대화 금지",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-027",
+      "title": "격자 전이·켜기/끄기",
+      "status": "implemented",
+      "sources": [
+        "tracer_transport/mesh_transition.py",
+        "cfd_studio/internal/form_config_editor.js"
+      ],
+      "tests": [
+        "tests/test_mesh_transition.py"
+      ],
+      "acceptance": "끄면 값 보존·기존 Config 호환·축 기준 간격비 제한",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-028",
+      "title": "벽 경계층·y+·SST 연결",
+      "status": "not_implemented",
+      "sources": [
+        "tracer_transport/porous_warehouse_mesh.py",
+        "tracer_transport/warehouse_coupled.py"
+      ],
+      "tests": [
+        "tests/test_porous_warehouse_mesh.py"
+      ],
+      "acceptance": "향후: 벽별 두께·층수·모델 호환·실제 y+ 검사",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-029",
+      "title": "자동 적응 격자 AMR",
+      "status": "not_implemented",
+      "sources": [
+        "tracer_transport/coupled_solver/warehouseBuoyantFoam.C",
+        "tracer_transport/warehouse_coupled.py"
+      ],
+      "tests": [
+        "tests/test_warehouse_coupled.py"
+      ],
+      "acceptance": "향후: 동적 격자·보존 전달·프레임별 격자·재개",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-030",
+      "title": "격자·시간 수렴·정상상태·7일",
+      "status": "unverified",
+      "sources": [
+        "tracer_transport/warehouse_coupled.py"
+      ],
+      "tests": [
+        "tests/test_warehouse_coupled.py"
+      ],
+      "acceptance": "기준 미달/미완료 이력 유지, 독립된 수렴 근거 필요",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-031",
+      "title": "개별 포대·흡착·반응·부속실 공기",
+      "status": "not_implemented",
+      "sources": [
+        "tracer_transport/warehouse_coupled.py"
+      ],
+      "tests": [
+        "tests/test_model_scope.py"
+      ],
+      "acceptance": "전용 모듈 존재와 저장고 실행 연결 구분, 자료/모델 계약 선행",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-032",
+      "title": "누출·외부 가스 경계",
+      "status": "excluded",
+      "sources": [
+        "tracer_transport/warehouse_coupled.py"
+      ],
+      "tests": [
+        "tests/test_warehouse_coupled.py"
+      ],
+      "acceptance": "사용자 요청으로 밀폐 범위, 구현 누락과 구분",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-033",
+      "title": "공급조건 최적화",
+      "status": "not_implemented",
+      "sources": [
+        "study_platform/research_design.py"
+      ],
+      "tests": [
+        "tests/test_research_design.py"
+      ],
+      "acceptance": "별도 Study 기능을 검증된 제품 최적화로 표시하지 않음",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-034",
+      "title": "사일로 연결·원안 재현 구분",
+      "status": "partial",
+      "sources": [
+        "silo_reproduction/tools/build_silo_case.py"
+      ],
+      "tests": [
+        "tests/test_silo_contract.py",
+        "tests/test_silo_mesh_gate.py"
+      ],
+      "acceptance": "단순 등가 사일로 연결과 미공개 상세 덕트 원안 재현 구분",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-035",
+      "title": "독립 실험 검증",
+      "status": "unverified",
+      "sources": [
+        "tracer_transport/warehouse_coupled.py"
+      ],
+      "tests": [
+        "tests/test_model_scope.py"
+      ],
+      "acceptance": "측정 불확도·독립 조건·지표 정의 전 실험 검증 완료 금지",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    },
+    {
+      "id": "REQ-036",
+      "title": "설치·배포·데이터 제외",
+      "status": "partial",
+      "sources": [
+        "cfd_studio/internal/setup_bridge.py",
+        "cfd_studio/internal/studio_launcher.py"
+      ],
+      "tests": [
+        "tests/test_setup_bridge.py",
+        "tests/test_distribution.py"
+      ],
+      "acceptance": "지원 플랫폼·전용 빌드·프로젝트 제외·롤백 문서",
+      "document": "docs/development/REQUIREMENTS.md",
+      "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
+    }
+  ]
+}

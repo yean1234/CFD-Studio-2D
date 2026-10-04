@@ -41,3 +41,10 @@ CFD Studio is an OpenFOAM CFD interface designed to reduce the effort and contex
 - Keep interface text in the Korean/English/Japanese translation system
 - Preserve public JSON keys and execution behavior during comment-only cleanup
 - Do not reformat unrelated legacy code or edit third-party comments and license notices
+
+## Development documentation
+
+- Start development handoffs at `docs/development/README.md`
+- Map behavior changes to requirement IDs in `docs/development/capabilities.json` and keep status/evidence current
+- Update affected contracts, tests, UI guidance, backlog and ADRs in the same change
+- Run `python tools/check_development_docs.py`; regenerate the inventory after staging intended new or moved files
