@@ -7,10 +7,10 @@ import shutil
 
 if __package__:
     from .silo_contract import original_design, validate_runtime
-    from .mesh_refinement import refinement_boxes
+    from .mesh_refinement import refinement_boxes, collect_refinements
 else:
     from silo_contract import original_design, validate_runtime
-    from mesh_refinement import refinement_boxes
+    from mesh_refinement import refinement_boxes, collect_refinements
 
 
 def header(cls, location, obj):
@@ -158,12 +158,12 @@ def mesh_plan(cfg):
 
 def refine_plan(cfg, plan):
     """Keep matching O-grid faces; XY refinement propagates across all layers."""
-    mesh=cfg['mesh'];regions=mesh.get('refinement_regions',[])
+    mesh=cfg['mesh'];regions=collect_refinements(cfg,mesh)
     if not isinstance(regions,list):raise ValueError('[MESH-R003] refinement_regions must be a list')
     if not regions:return plan
     radius,height,grain=(plan[k] for k in ('radius','height','grain'))
     base=(math.pi*radius**2*height/mesh['target_cells'])**(1/3)
-    boxes=refinement_boxes({'dx_mm':base*1000,'refinement_regions':regions},
+    boxes=refinement_boxes({'dx_mm':base*1000,'refinement_regions':mesh.get('refinement_regions',[])},
                            [radius*1000,radius*1000,height*1000],cfg,
                            [-radius*1000,-radius*1000,0])
     boxes=[([v/1000 for v in lo],[v/1000 for v in hi],size/1000) for lo,hi,size in boxes]

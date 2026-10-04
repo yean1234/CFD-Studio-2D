@@ -64,10 +64,11 @@ def is_geometry_path(path):
     if 'properties' in path or 'components' in path:return False
     root=path[0] if path else ''
     key=path[1] if len(path)>1 else ''
+    if root=='_studio' and key=='geometry_groups':return True
     if root=='loading':return key=='blocks'
-    if root in ('geometry','domain','regions','geometry_spec','silo','published','probes_mm'):return True
-    if root in ('dielectric_fluid','water'):return key in ('name','role','material_state','state','_transform_reference','config_bindings','fill','interior')
-    if root in ('tank','board','coil'):return key in ('shape','unit','min','max','center','radius','height','axis','width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','material_state','state','_transform_reference','config_bindings','fill','interior')
+    if root in ('geometry','domain','regions','mesh_regions','geometry_spec','silo','published','probes_mm'):return True
+    if root in ('dielectric_fluid','water'):return key in ('name','role','material_state','state','_transform_reference','config_bindings','fill','interior','mesh_control','editor_group')
+    if root in ('tank','board','coil'):return key in ('shape','unit','min','max','center','radius','height','axis','width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','material_state','state','_transform_reference','config_bindings','fill','interior','mesh_control','editor_group')
     if root=='layers':return key in ('dielectric_mm','air_mm')
     return root=='heater' and key=='cpus'
 
@@ -193,7 +194,9 @@ def apply_initial_geometry(config,schema):
                 layout=config_from_schema({'version':1,'fields':[field]})[key]
                 _inherit_property_values(layout,target.get(key))
                 target[key]=layout
-            elif field['type']=='object' and isinstance(target.get(key),dict):visit(field['fields'],target[key],p)
+            elif field['type']=='object':
+                if p==('_studio',) and any(f['key']=='geometry_groups' for f in field['fields']):target.setdefault(key,{})
+                if isinstance(target.get(key),dict):visit(field['fields'],target[key],p)
     visit(schema['fields'],result)
     return result
 
@@ -202,6 +205,19 @@ def validate_geometry(config):
     """Check supported primitive dimensions before a project can use them."""
     from cfd_studio.primitive_geometry import validate_fill_definitions
     validate_fill_definitions(config)
+    from tmc49_full_tank.tools.mesh_refinement import collect_refinements
+    collect_refinements(config)
+    studio=config.get('_studio') or {}
+    if not isinstance(studio,dict):raise ValueError('[MESH-R009] Invalid editor metadata')
+    groups=studio.get('geometry_groups',[])
+    if not isinstance(groups,list) or len(groups)>1000:raise ValueError('[MESH-R009] Invalid geometry groups')
+    ids=set()
+    for group in groups:
+        if not isinstance(group,dict) or not isinstance(group.get('id'),str) or not group['id'] or group['id'] in ids or not isinstance(group.get('name'),str) or not group['name'].strip() or len(group['name'])>80:raise ValueError('[MESH-R009] Invalid geometry group')
+        ids.add(group['id'])
+    from tmc49_full_tank.tools.mesh_refinement import geometry_entries
+    for _,part in geometry_entries(config):
+        if part.get('editor_group') and (not isinstance(part['editor_group'],str) or part['editor_group'] not in ids):raise ValueError('[MESH-R009] Unknown geometry group')
     def number(value):return type(value) in (int,float) and math.isfinite(value)
     def vector(value):return isinstance(value,list) and len(value)==3 and all(number(v) for v in value)
     def region(value):
@@ -222,7 +238,7 @@ def validate_geometry(config):
     if isinstance(geometry,dict):
         region(geometry)
         for key in ('regions','fluid_regions','solid_regions'):collection(geometry.get(key),geometry.get('unit'))
-    region(config.get('domain'));collection(config.get('regions'))
+    region(config.get('domain'));collection(config.get('regions'));collection(config.get('mesh_regions'))
     for key in ('tank','board','coil'):region(config.get(key))
     loading=config.get('loading')
     if isinstance(loading,dict):collection(loading.get('blocks'))

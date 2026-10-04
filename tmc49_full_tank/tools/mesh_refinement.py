@@ -1,4 +1,4 @@
-"""Box refinement for the conformal tensor-product blockMesh generator.
+"""Component-owned and box refinement for conformal blockMesh generators.
 
 Refinement is projected onto each coordinate axis to keep shared faces conformal.
 Existing grids are unchanged when no refinement regions are supplied.
@@ -50,8 +50,78 @@ def geometry_box(config, path):
     return {'shape':'box','unit':part.get('unit'),'min':[v-e for v,e in zip(center,extents)],'max':[v+e for v,e in zip(center,extents)]}
 
 
+def geometry_entries(config):
+    """Yield recognized geometry paths; mesh-only regions stay outside physics collections."""
+    for key in ('tank','board','coil','dielectric_fluid','water','domain'):
+        if isinstance(config.get(key),dict):yield [key],config[key]
+    geometry=config.get('geometry',{})
+    if isinstance(geometry,dict) and geometry.get('shape'):yield ['geometry'],geometry
+    paths=[['geometry',k] for k in ('regions','fluid_regions','solid_regions')]+[['regions'],['loading','blocks'],['heater','cpus'],['mesh_regions']]
+    for path in paths:
+        part=config
+        for key in path:part=part.get(key,{}) if isinstance(part,dict) else {}
+        for key,value in enumerate(part) if isinstance(part,list) else part.items() if isinstance(part,dict) else ():
+            if isinstance(value,dict):yield path+[key],value
+
+
+def collect_refinements(config, mesh=None):
+    """Combine legacy boxes and component-owned size controls without changing Config."""
+    mesh=mesh if mesh is not None else config.get('porous_mesh',config.get('mesh',{}))
+    explicit=mesh.get('refinement_regions',[])
+    if not isinstance(explicit,list):raise ValueError('[MESH-R003] refinement_regions must be a list')
+    regions=list(explicit)
+    if 'mesh_regions' in config and not isinstance(config['mesh_regions'],list):
+        raise ValueError('[MESH-R008] mesh_regions must be a list')
+    if any(not isinstance(part,dict) for part in config.get('mesh_regions',[])):
+        raise ValueError('[MESH-R008] Each mesh-only region must be an object')
+    for path,part in geometry_entries(config):
+        mesh_only=path[0]=='mesh_regions'
+        if mesh_only:
+            allowed={'name','id','material_state','shape','unit','min','max','center','radius','height','axis','mesh_control','editor_group','_transform_reference'}
+            if part.get('material_state')!='mesh_refinement' or part.get('shape') not in ('box','sphere','cylinder') or part.get('unit') not in SCALE or set(part)-allowed or not isinstance(part.get('mesh_control'),dict):
+                raise ValueError('[MESH-R008] Mesh-only regions require mesh_control and cannot have physical properties')
+        elif part.get('material_state')=='mesh_refinement':
+            raise ValueError('[MESH-R008] Mesh-only geometry must be stored in mesh_regions')
+        if 'mesh_control' in part:
+            control=part['mesh_control']
+            if not isinstance(control,dict) or set(control)!={'cell_size'}:
+                raise ValueError('[MESH-R003] mesh_control must contain cell_size')
+            regions.append({'name':part.get('name',' / '.join(map(str,path))),'target_path':path,'cell_size':control['cell_size']})
+    if len(regions)>64:raise ValueError('[MESH-R003] At most 64 refinement definitions are supported')
+    return regions
+
+
+def validate_overlap(boxes, conformal=True):
+    """Inner bounds take precedence; ambiguous intersections never depend on input order."""
+    unique=[]
+    for box in boxes:
+        lo,hi,size=box
+        for other in unique:
+            a,b,other_size=other
+            scale=max(1.,*[abs(v) for v in lo+hi+a+b]);tol=scale*1e-10
+            if any(min(hi[i],b[i])-max(lo[i],a[i])<=tol for i in range(3)):continue
+            same=all(abs(lo[i]-a[i])<=tol and abs(hi[i]-b[i])<=tol for i in range(3))
+            equal=math.isclose(size,other_size,rel_tol=1e-10,abs_tol=1e-12)
+            if same and not equal:raise ValueError('[MESH-R006] Identical refinement bounds specify different sizes')
+            inside=all(lo[i]>=a[i]-tol and hi[i]<=b[i]+tol for i in range(3))
+            outside=all(a[i]>=lo[i]-tol and b[i]<=hi[i]+tol for i in range(3))
+            if not inside and not outside and not equal:
+                raise ValueError('[MESH-R006] Partially overlapping refinement bounds need equal sizes or full containment')
+            if conformal and not equal and ((inside and size>other_size) or (outside and other_size>size)):
+                raise ValueError('[MESH-R007] This conformal generator cannot make an inner region coarser than its parent')
+        if not any(all(math.isclose(x,y,rel_tol=1e-10,abs_tol=1e-12) for x,y in zip(lo+hi+[size],a+b+[h])) for a,b,h in unique):unique.append(box)
+    return unique
+
+
+def requested_spacing(point, boxes, base):
+    """Resolve semantic containment priority before generator-specific propagation."""
+    active=[box for box in boxes if all(a<=p<=b for p,a,b in zip(point,box[0],box[1]))]
+    if not active:return base
+    return min(active,key=lambda box:math.prod(b-a for a,b in zip(box[0],box[1])))[2]
+
+
 def refinement_boxes(mesh, bounds, config=None, origin=None):
-    regions=mesh.get('refinement_regions',[])
+    regions=collect_refinements(config or {},mesh)
     if not isinstance(regions,list) or len(regions)>64:
         raise ValueError('refinement_regions must contain at most 64 boxes')
     base=mesh.get('dx_mm')
@@ -83,7 +153,7 @@ def refinement_boxes(mesh, bounds, config=None, origin=None):
         size=value*SCALE[q['unit']]
         if not 0<size<base:raise ValueError('Refinement cell size must be smaller than the base size')
         result.append((lo,hi,size))
-    return result
+    return validate_overlap(result)
 
 
 def refined_axis(points,axis,base,boxes):

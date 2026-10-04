@@ -8,11 +8,12 @@ import numpy as np
 
 
 def refine_counts(spec,x,y,z,xc,yc,zc):
-    mesh=spec['porous_mesh'];regions=mesh.get('refinement_regions',[])
+    from tmc49_full_tank.tools.mesh_refinement import collect_refinements
+    mesh=spec['porous_mesh'];regions=collect_refinements(spec,mesh)
     if not regions:return xc,yc,zc
     from tmc49_full_tank.tools.mesh_refinement import refinement_boxes
     g=spec['geometry_spec']['geometry'];base=min(mesh['base_max_spacing_m'])
-    boxes=refinement_boxes({'dx_mm':base*1000,'refinement_regions':regions},[g['length_m']*1000,g['width_m']*1000,(g['eaves_m']+g['roof_rise_m'])*1000],spec)
+    boxes=refinement_boxes({'dx_mm':base*1000,'refinement_regions':mesh.get('refinement_regions',[])},[g['length_m']*1000,g['width_m']*1000,(g['eaves_m']+g['roof_rise_m'])*1000],spec)
     boxes=[([v*.001 for v in lo],[v*.001 for v in hi],size*.001) for lo,hi,size in boxes]
     def roof(yy):return g['eaves_m']+g['roof_rise_m']*(1-abs(2*yy/g['width_m']-1))
     for lo,hi,_ in boxes:

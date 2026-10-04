@@ -379,3 +379,12 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 
 - 実際のTemplate JSONを先に出力。既存の局所格子リストに `target_path` と `cell_size` を設定し、参照と直接座標を混在させない。JSONの配列を並べ替えた場合は参照パスも更新。計算前に細分化範囲と予想負荷を提示。形状プレビューは格子検証ではありません。
 - [Mesh refinement](MESH-REFINEMENT.md)
+
+## 個別メッシュサイズと形状フォルダー
+
+- 出力したTemplate JSONを基準に形状へ `mesh_control.cell_size` を追加
+- 非物理範囲は最上位 `mesh_regions` に `material_state: "mesh_refinement"` で定義 · 材料・壁・充填属性は禁止
+- 完全包含では内側優先 · 曖昧な交差はMESH-R006 · 粗い内側指定はMESH-R007
+- フォルダーは `_studio.geometry_groups` と形状の `editor_group` で定義 · 座標・キー・物理設定は保持
+- 下書き適用後に透明範囲・間隔・所属をユーザーへ確認案内 · 保存と計算開始の手順は別々に維持
+- [Mesh refinement](MESH-REFINEMENT.md)

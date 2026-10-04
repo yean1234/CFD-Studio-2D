@@ -379,3 +379,12 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 
 - Export the actual Template JSON first. Define `target_path` and `cell_size` under the existing mesh refinement list; do not mix a reference with explicit bounds. If arrays are reordered in JSON, update reference paths. Show the mesh scope and estimated cost before execution; a geometry preview is not mesh validation.
 - [Mesh refinement](MESH-REFINEMENT.md)
+
+## Independent mesh size and geometry folders
+
+- Start from exported Template JSON; attach `mesh_control.cell_size` to the geometry
+- Use top-level `mesh_regions` with `material_state: "mesh_refinement"` for nonphysical ranges; no material, wall or fill properties
+- Inner containment takes precedence; ambiguous sizes give MESH-R006, coarser inner requests give MESH-R007
+- Use `_studio.geometry_groups` and geometry `editor_group` for folders; preserve geometry keys, coordinates and physics
+- After applying the draft, ask the user to review transparent bounds, spacing and grouping; saving and execution remain separate
+- [Mesh refinement](MESH-REFINEMENT.md)

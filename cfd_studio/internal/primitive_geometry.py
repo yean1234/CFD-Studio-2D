@@ -81,7 +81,7 @@ def validate_fill_definitions(config):
                 fill=v['fill']
                 if not isinstance(fill,dict):raise ValueError('공간 채움 정의를 확인하세요')
                 parent=at(fill.get('container_path'))
-                if parent is v or not isinstance(parent,dict) or parent.get('fill') or parent.get('material_state',parent.get('state')) in ('liquid','gas'):
+                if parent is v or not isinstance(parent,dict) or parent.get('fill') or parent.get('material_state',parent.get('state')) in ('liquid','gas','mesh_refinement'):
                     raise ValueError('유체 영역을 채움 기준 공간으로 사용할 수 없습니다')
                 if parent.get('material_state',parent.get('state'))=='solid' and not parent.get('interior'):
                     raise ValueError('고체의 내부 공간을 먼저 정의하세요')

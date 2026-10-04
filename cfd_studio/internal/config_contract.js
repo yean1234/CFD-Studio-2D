@@ -3,6 +3,11 @@
 'use strict';
 const version=1,types=['string','number','integer','boolean','object','array','null'];
 const rows=[
+ ["MESH-R006", "국부 격자 범위가 충돌합니다", "Refinement regions conflict", "局所メッシュ範囲が競合しています", "같은 범위 또는 일부만 겹치는 범위는 같은 간격을 사용하거나 포함 관계로 수정하세요", "Use equal sizes for identical or partially overlapping bounds, or establish full containment", "同一範囲・部分交差では同じ間隔を使用するか、完全な包含関係に修正してください"],
+ ["MESH-R007", "안쪽 격자를 바깥쪽보다 거칠게 생성할 수 없습니다", "The inner region cannot be coarser with this generator", "現在の生成器では内側を外側より粗くできません", "안쪽 간격을 바깥쪽 이하로 설정하세요 · 현재 연결 격자 생성기의 제한", "Set the inner spacing no larger than the outer spacing; this is a conformal generator limit", "内側の間隔を外側以下に設定してください · 接続格子生成器の制限です"],
+ ["MESH-R008", "국소격자 정의에 물리 속성이 포함되어 있습니다", "Invalid mesh-only region definition", "局所メッシュ専用領域の定義が不正です", "mesh_regions에 형상·독립 격자 크기만 정의하고 재료·벽·채움 속성은 제거하세요", "Store geometry and mesh_control in mesh_regions; remove material, wall and fill properties", "mesh_regionsに形状とmesh_controlのみを定義し、材料・壁・充填属性を削除してください"],
+ ["MESH-R009", "형상 폴더 정의가 올바르지 않습니다", "Invalid geometry folder definition", "形状フォルダーの定義が不正です", "폴더 이름·고유 ID·형상의 editor_group 참조를 확인하세요", "Check folder names, unique IDs and geometry editor_group references", "フォルダー名・一意のID・形状のeditor_group参照を確認してください"],
+
  ["MESH-R001", "격자 대상 형상을 찾을 수 없습니다", "Refinement geometry was not found", "細分化対象の形状が見つかりません", "형상을 다시 선택하고 target_path를 확인하세요", "Select the geometry again and check target_path", "形状を再選択してtarget_pathを確認してください"],
  ["MESH-R002", "격자 대상 형상 정의가 올바르지 않습니다", "Invalid refinement geometry definition", "細分化対象の形状定義が不正です", "형상 종류·단위·좌표·치수를 확인하세요", "Check primitive type, units, coordinates and dimensions", "形状種類・単位・座標・寸法を確認してください"],
  ["MESH-R003", "국부 격자 입력 형식이 올바르지 않습니다", "Invalid refinement input format", "局所メッシュ入力形式が不正です", "형상 참조 또는 좌표 범위 중 하나로 영역 목록을 작성하세요", "Use a list of either geometry references or explicit bounds", "形状参照または座標範囲のリストを入力してください"],

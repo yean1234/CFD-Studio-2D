@@ -53,4 +53,4 @@
 - 설명서: [English](CFD-STUDIO-MANUAL.en.md) · [日本語](CFD-STUDIO-MANUAL.ja.md)
 - [에이전트 협업·참고 문헌](AGENT-COLLABORATION.md)
 
-- [형상별 격자](MESH-REFINEMENT.md): 형상 참조·국부 간격·생성기별 적용 범위
+- [형상별 격자](MESH-REFINEMENT.md): 독립 격자 크기·중첩 충돌 처리·국소격자 정의·형상 폴더

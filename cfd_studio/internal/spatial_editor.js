@@ -1,6 +1,6 @@
 /* Edit spatial JSON and preview geometry through supported shape definitions */
 (()=>{
- const keys=['dielectric_fluid','water','geometry','geometry_spec','domain','regions','tank','layers','board','coil','loading','silo','published','probes_mm','heater'];
+ const keys=['dielectric_fluid','water','geometry','geometry_spec','domain','regions','mesh_regions','tank','layers','board','coil','loading','silo','published','probes_mm','heater'];
  const clone=x=>structuredClone(x),isObject=x=>x&&typeof x==='object'&&!Array.isArray(x);
  function parse(text){
   if(text.length>1000000)throw Error('공간 JSON은 1 MB 이하로 입력하세요');
@@ -14,7 +14,7 @@
  // A spatial document groups original Config paths without inventing dimensions.
  // Mixed legacy components keep all properties so their geometry remains reproducible.
  const documentGroups={
-  geometry:['geometry','geometry_spec','domain','regions','coordinate_system','tank','layers','board','coil','heater','loading','silo','published','dielectric_fluid','water'],
+  geometry:['geometry','geometry_spec','domain','regions','mesh_regions','coordinate_system','tank','layers','board','coil','heater','loading','silo','published','dielectric_fluid','water'],
   mesh:['mesh','porous_mesh'],
   boundaries:['interfaces','boundary_conditions'],
   observations:['probes','probes_mm']
@@ -46,18 +46,19 @@
  // Only geometry is inherited; operating values in legacy components remain project inputs.
  function isGeometryPath(path){
   const [root,key]=path;
+  if(root==='_studio'&&key==='geometry_groups')return true;
   if(path.includes('properties')||path.includes('components'))return false;
-  if(['dielectric_fluid','water'].includes(root))return ['name','role','material_state','state','_transform_reference','config_bindings','fill','interior'].includes(key);
+  if(['dielectric_fluid','water'].includes(root))return ['name','role','material_state','state','_transform_reference','config_bindings','fill','interior','mesh_control','editor_group'].includes(key);
   if(root==='loading')return key==='blocks';
-  if(['geometry','domain','regions','geometry_spec','silo','published','probes_mm'].includes(root))return true;
-  if(['tank','board','coil'].includes(root))return ['shape','unit','min','max','center','radius','height','axis','width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','material_state','state','_transform_reference','config_bindings','fill','interior'].includes(key);
+  if(['geometry','domain','regions','mesh_regions','geometry_spec','silo','published','probes_mm'].includes(root))return true;
+  if(['tank','board','coil'].includes(root))return ['shape','unit','min','max','center','radius','height','axis','width_mm','depth_mm','liquid_height_mm','x0','x1','y0','y1','z0','z1','name','role','material_state','state','_transform_reference','config_bindings','fill','interior','mesh_control','editor_group'].includes(key);
   if(root==='layers')return ['dielectric_mm','air_mm'].includes(key);
   return root==='heater'&&key==='cpus';
  }
  const pathId=path=>JSON.stringify(path);
  function at(config,path){return path.reduce((obj,key)=>obj?.[key],config);}
  // Collection paths are format adapters; project names and labels never choose an editor.
- const collectionPaths=[['geometry','regions'],['geometry','fluid_regions'],['geometry','solid_regions'],['regions'],['loading','blocks'],['heater','cpus']];
+ const collectionPaths=[['geometry','regions'],['geometry','fluid_regions'],['geometry','solid_regions'],['regions'],['mesh_regions'],['loading','blocks'],['heater','cpus']];
  function elementCollections(config){return collectionPaths.filter(path=>{const value=at(config,path);return Array.isArray(value)||isObject(value);}).map(path=>[...path]);}
  function elements(config){
   const out=[];
@@ -65,7 +66,7 @@
   const collection=path=>{const value=at(config,path);if(Array.isArray(value))value.forEach((_,i)=>add([...path,i]));else if(isObject(value))Object.keys(value).forEach(k=>add([...path,k]));};
   if(config.geometry?.shape||config.geometry?.type)add(['geometry']);
   else for(const path of elementCollections(config).filter(p=>p[0]==='geometry'))collection(path);
-  if(config.domain)add(['domain']);collection(['regions']);
+  if(config.domain)add(['domain']);collection(['regions']);collection(['mesh_regions']);
   if(config.geometry_spec?.geometry)add(['geometry_spec','geometry']);
   for(const key of ['tank','board','coil'])if(config[key])add([key]);
   if(config.tank&&config.layers)for(const key of ['dielectric_fluid','water'])if(config[key])add([key]);
@@ -128,7 +129,7 @@
   const state=part.material_state||part.state;
   const shape=part.interior?{name:part.name||'interior',...clone(part.interior)}:primitiveDefinition(config,path);
   if(state==='solid'&&!part.interior)throw Error('고체의 내부 공간을 먼저 정의하세요');
-  if(part.fill||['liquid','gas'].includes(state))throw Error('유체 영역을 채움 기준 공간으로 사용할 수 없습니다');
+  if(part.fill||['liquid','gas','mesh_refinement'].includes(state))throw Error('유체 영역을 채움 기준 공간으로 사용할 수 없습니다');
   if(!shape||!['box','cylinder'].includes(shape.shape))throw Error('채움은 직육면체 또는 원기둥 공간을 지원합니다');
   validatePrimitive(shape);
   if(part.interior){const outer=primitiveDefinition(config,path);if(!outer||outer.shape!==shape.shape)throw Error('내부 공간은 외곽과 같은 기본 형상으로 정의하세요');validatePrimitive(outer);const ratio=unitScale[shape.unit]/unitScale[outer.unit];
@@ -193,20 +194,53 @@
    const ref=region.target_path;if(Array.isArray(ref)&&ref.length>=path.length&&path.slice(0,-1).every((k,i)=>ref[i]===k)&&ref[path.length-1]>path.at(-1))ref[path.length-1]--;
   }
  }
- function validateRefinements(config){
-  const mesh=config.porous_mesh||config.mesh;if(!mesh?.refinement_regions)return;
-  if(!Array.isArray(mesh.refinement_regions)||mesh.refinement_regions.length>64)throw Error('국부 격자 영역은 64개 이하로 정의하세요');
+ function geometryGroups(config){
+  const groups=config._studio?.geometry_groups||[];
+  if(!Array.isArray(groups)||groups.length>1000)throw Error('[MESH-R009] Invalid geometry groups');
+  const ids=new Set();for(const g of groups){if(!isObject(g)||typeof g.id!=='string'||!g.id||ids.has(g.id)||typeof g.name!=='string'||!g.name.trim()||g.name.length>80)throw Error('[MESH-R009] Invalid geometry group');ids.add(g.id);}
+  for(const e of elements(config))if(e.value.editor_group&&!ids.has(e.value.editor_group))throw Error('[MESH-R009] Unknown geometry group');
+  return groups;
+ }
+ function collectRefinements(config){
+  const mesh=config.porous_mesh||config.mesh||{},regions=mesh.refinement_regions??[];
+  if(!Array.isArray(regions))throw Error('[MESH-R003] refinement_regions');
+  if(config.mesh_regions!==undefined&&!Array.isArray(config.mesh_regions))throw Error('[MESH-R008] mesh_regions');
+  if(config.mesh_regions?.some(p=>!isObject(p)))throw Error('[MESH-R008] Invalid mesh region');
+  const result=clone(regions),allowed=['name','id','material_state','shape','unit','min','max','center','radius','height','axis','mesh_control','editor_group','_transform_reference'];
+  for(const e of elements(config)){
+   const p=e.value;if(e.path[0]==='mesh_regions'){
+    if(p.material_state!=='mesh_refinement'||!['box','sphere','cylinder'].includes(p.shape)||!['m','cm','mm'].includes(p.unit)||!isObject(p.mesh_control)||Object.keys(p).some(k=>!allowed.includes(k)))throw Error('[MESH-R008] '+e.label);
+   }else if(p.material_state==='mesh_refinement')throw Error('[MESH-R008] '+e.label);
+   if(Object.hasOwn(p,'mesh_control')){if(!isObject(p.mesh_control)||Object.keys(p.mesh_control).join()!=='cell_size')throw Error('[MESH-R003] '+e.label);result.push({name:e.label,target_path:e.path,cell_size:clone(p.mesh_control.cell_size)});}
+  }
+  if(result.length>64)throw Error('국부 격자 영역은 64개 이하로 정의하세요');return result;
+ }
+ function validateMeshOverlap(boxes){
+  for(let i=0;i<boxes.length;i++)for(const other of boxes.slice(0,i)){
+   const {min:lo,max:hi,size}=boxes[i],{min:a,max:b,size:h}=other,tol=Math.max(1,...lo.map(Math.abs),...hi.map(Math.abs),...a.map(Math.abs),...b.map(Math.abs))*1e-10;
+   if(lo.some((v,k)=>Math.min(hi[k],b[k])-Math.max(v,a[k])<=tol))continue;
+   const equal=Math.abs(size-h)<=Math.max(1e-12,Math.max(size,h)*1e-10),inside=lo.every((v,k)=>v>=a[k]-tol&&hi[k]<=b[k]+tol),outside=a.every((v,k)=>v>=lo[k]-tol&&b[k]<=hi[k]+tol),same=inside&&outside;
+   if(!equal&&(same||!inside&&!outside))throw Error('[MESH-R006] '+boxes[i].name+' / '+other.name);
+   if(!equal&&(inside&&size>h||outside&&h>size))throw Error('[MESH-R007] '+boxes[i].name+' / '+other.name);
+  }
+ }
+ function validateRefinements(config,{template=false}={}){
+  geometryGroups(config);const definitions=collectRefinements(config);if(!definitions.length)return;
+  const mesh=config.porous_mesh||config.mesh;if(!mesh)throw Error('[MESH-R003] Missing base mesh');
+  if(definitions.length>64)throw Error('국부 격자 영역은 64개 이하로 정의하세요');
   const silo=config._해석유형==='grain_silo'&&config.published;
   const rawBase=mesh.base_max_spacing_m?Math.min(...mesh.base_max_spacing_m):(mesh.dx_mm!==undefined?mesh.dx_mm:mesh.cell_size?.value);const base=silo?Math.cbrt(Math.PI*(silo.storage_diameter_m/2)**2*silo.total_height_m/mesh.target_cells):typeof rawBase==='number'?(mesh.base_max_spacing_m?rawBase:mesh.dx_mm!==undefined?rawBase*.001:rawBase*unitScale[mesh.cell_size?.unit]):NaN;
-  for(const input of mesh.refinement_regions){
+  const boxes=[];for(const input of definitions){
    const region=refinementBox(config,input);
    validatePrimitive({name:region.name||'refinement',shape:region.shape,unit:region.unit,min:region.min,max:region.max});
    if(region.shape!=='box')throw Error('국부 격자는 직육면체 영역을 지원합니다');
-   const size=typeof region.cell_size?.value==='number'?region.cell_size.value*unitScale[region.cell_size?.unit]:NaN;if(!Number.isFinite(size)||size<=0||!Number.isFinite(base)||base<=0||size>=base)throw Error('국부 격자 간격은 기본 격자보다 작은 양수로 입력하세요');
+   const size=typeof region.cell_size?.value==='number'?region.cell_size.value*unitScale[region.cell_size?.unit]:NaN;if(!Number.isFinite(size)||size<=0||(!template&&(!Number.isFinite(base)||base<=0))||(Number.isFinite(base)&&base>0&&size>=base))throw Error('국부 격자 간격은 기본 격자보다 작은 양수로 입력하세요');
+   boxes.push({name:region.name||'refinement',min:region.min.map(v=>v*unitScale[region.unit]),max:region.max.map(v=>v*unitScale[region.unit]),size});
    if(config.porous_mesh&&config.geometry_spec?.geometry){const g=config.geometry_spec.geometry,scale=unitScale[region.unit],lo=region.min.map(v=>v*scale),hi=region.max.map(v=>v*scale),roof=y=>g.eaves_m+g.roof_rise_m*(1-Math.abs(2*y/g.width_m-1));if(lo.some(v=>v<0)||hi[0]>g.length_m||hi[1]>g.width_m||hi[2]>Math.min(roof(lo[1]),roof(hi[1]))+1e-10)throw Error('국부 격자가 계산 영역을 벗어났습니다');}
    if(silo){const scale=unitScale[region.unit],lo=region.min.map(v=>v*scale),hi=region.max.map(v=>v*scale),r=silo.storage_diameter_m/2;if(lo[2]<0||hi[2]>silo.total_height_m||lo[0]<-r||lo[1]<-r||hi[0]>r||hi[1]>r||Math.hypot(...[0,1].map(i=>Math.max(lo[i],Math.min(0,hi[i]))))>=r)throw Error('국부 격자가 계산 영역을 벗어났습니다');}
    if(config.tank){const limit=[config.tank.width_mm,config.tank.liquid_height_mm,config.tank.depth_mm].map(v=>v*.001),scale=unitScale[region.unit];if(region.min.some(v=>v*scale<0)||region.max.some((v,i)=>v*scale>limit[i]))throw Error('국부 격자가 계산 영역을 벗어났습니다');}
   }
+  validateMeshOverlap(boxes);
  }
  function shapes(config){
   config=resolveFills(config);
@@ -247,11 +281,12 @@
   if(config.geometry){const g=config.geometry;if(g.source)notes.push('geometry.source: 외부 형상 파일은 미리보기에 포함되지 않음');if(g.shape||g.type)region(g,'geometry',g.unit,['geometry']);else for(const key of ['regions','fluid_regions','solid_regions'])if(g[key])regions(g[key],['geometry',key],g.unit);}
   if(config.domain)region(config.domain,'domain',config.domain.unit,['domain']);
   if(config.regions)regions(config.regions,['regions']);
+  if(config.mesh_regions)regions(config.mesh_regions,['mesh_regions']);
   if(config.silo||config.published)notes.push('silo·published: 외부 격자 형상은 미리보기 미지원');
   if(config.probes_mm)notes.push('probes_mm: 측정 지점은 미리보기에 포함되지 않음');
   if(items.length>1000)throw Error('미리보기 형상은 1000개 이하로 입력하세요');
   if(!items.length)notes.push('표시할 형상이 없습니다 · 치수와 형식을 확인하세요');
-  const names=new Map(elements(config).map(e=>[e.id,e.label]));for(const item of items){item.id=pathId(item.path);item.label=names.get(item.id)||item.name;}
+  const names=new Map(elements(config).map(e=>[e.id,e.label]));for(const item of items){item.id=pathId(item.path);item.label=names.get(item.id)||item.name;item.meshOnly=item.path[0]==='mesh_regions';}
   const issue=runnerGeometryIssue(config);if(issue)notes.push(issue);
   return {items,notes,up};
  }
@@ -319,12 +354,12 @@
     else if(item.kind==='sphere')geometry=new T.SphereGeometry(item.radius,24,16);
     else if(item.kind==='cylinder')geometry=new T.CylinderGeometry(item.radius,item.radius,item.height,32);
     else{const [l,w,h,r]=item.size,points=[0,0,0,l,0,0,l,w,0,0,w,0,0,0,h,l,0,h,l,w,h,0,w,h,0,w/2,h+r,l,w/2,h+r];geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(points,3));geometry.setIndex([0,2,1,0,3,2,0,1,5,0,5,4,3,7,6,3,6,2,4,5,9,4,9,8,8,9,6,8,6,7,0,4,8,0,8,7,0,7,3,1,2,6,1,6,9,1,9,5]);geometry.computeVertexNormals();}
-    const color=new T.Color().setHSL((.57+i*.12)%1,.58,.58),material=new T.MeshBasicMaterial({color,transparent:true,opacity:.15,side:T.DoubleSide,depthWrite:false});mesh=new T.Mesh(geometry,material);disposables.push(geometry,material);
+    const color=new T.Color().setHSL((.57+i*.12)%1,.58,.58),material=new T.MeshBasicMaterial({color,transparent:true,opacity:item.meshOnly?.035:.15,side:T.DoubleSide,depthWrite:false});mesh=new T.Mesh(geometry,material);disposables.push(geometry,material);
     const edgeGeometry=new T.EdgesGeometry(geometry),edgeMaterial=new T.LineBasicMaterial({color});mesh.add(new T.LineSegments(edgeGeometry,edgeMaterial));disposables.push(edgeGeometry,edgeMaterial);
     if(item.kind==='box')mesh.position.fromArray(item.min.map((v,k)=>(v+item.max[k])/2));
     else if(item.center)mesh.position.fromArray(item.center);
     if(item.kind==='cylinder'){if(item.axis==='z')mesh.rotation.x=Math.PI/2;if(item.axis==='x')mesh.rotation.z=Math.PI/2;}
-    group.add(mesh);meshes.push(mesh);mesh.userData.elementId=item.id;
+    group.add(mesh);meshes.push(mesh);mesh.userData.elementId=item.id;mesh.userData.meshOnly=item.meshOnly;
     if(onSelect){const tag=document.createElement('button');tag.type='button';tag.className='sp-tag';tag.textContent=item.label||item.name;tag.setAttribute('translate','no');tag.dataset.elementId=item.id;tag.onclick=()=>onSelect(item.id);tag.title=item.label||item.name;overlay.append(tag);
      const line=document.createElementNS(svgNS,'polyline'),dot=document.createElementNS(svgNS,'circle');line.setAttribute('fill','none');dot.setAttribute('r','2.5');const leader=document.createElementNS(svgNS,'g');leader.style.color='#'+color.getHexString();leader.append(line,dot);leaders.append(leader);tags.push({tag,mesh,leader,line,dot});}
 
@@ -372,7 +407,7 @@
    canvas.addEventListener('wheel',e=>{e.preventDefault();distance=Math.max(1,Math.min(15,distance*Math.exp(Math.max(-100,Math.min(100,e.deltaY))*.001)));draw();},{passive:false});
    canvas.ondblclick=()=>{yaw=-.6;pitch=.4;distance=2.8;draw();};draw();
    const dispose=()=>{resize.disconnect();disposables.forEach(x=>x.dispose());renderer.dispose();renderer.domElement.remove();overlay.remove();};
-   dispose.select=id=>{for(const mesh of meshes)mesh.material.opacity=mesh.userData.elementId===id ? .4 : .15;for(const {tag,leader}of tags){const active=tag.dataset.elementId===id;tag.setAttribute('aria-pressed',String(active));leader.classList.toggle('selected',active);}draw();};
+   dispose.select=id=>{for(const mesh of meshes)mesh.material.opacity=mesh.userData.meshOnly?(mesh.userData.elementId===id?.10:.035):(mesh.userData.elementId===id?.4:.15);for(const {tag,leader}of tags){const active=tag.dataset.elementId===id;tag.setAttribute('aria-pressed',String(active));leader.classList.toggle('selected',active);}draw();};
    dispose.select(selected);dispose.cameraState=()=>({yaw,pitch,distance});return dispose;
   }catch(e){overlay.remove();disposables.forEach(x=>x.dispose());renderer.dispose();renderer.domElement.remove();throw e;}
  }
@@ -398,5 +433,5 @@
   dialog.append(header,el('p',schemaOnly?'초기 형상은 Template에 저장 · 프로젝트에서 독립적으로 수정 가능':'형상 확인용 미리보기 · 격자 생성·솔버 계산은 별도','sp-note'),body,help,error,actions);
   dialog.onclose=()=>{closed=true;clear();dialog.remove();};document.body.append(dialog);dialog.showModal();return dialog;
  }
- const api={refinementBox,removeMeshTarget,elementCollections,fillInfo,fillSpace,filledPrimitive,resolveFills,applyFill,validateRefinements,runnerGeometryIssue,primitiveDefinition,validatePrimitive,applyPrimitive,transformInfo,transform,keys,parse,extract,merge,document:spatialDocument,mergeDocument,shapes,elements,partBindings,isGeometryPath,at,pathId,viewer,open};if(typeof module!=='undefined')module.exports=api;else globalThis.CFDSpatial=api;
+ const api={geometryGroups,collectRefinements,validateMeshOverlap,refinementBox,removeMeshTarget,elementCollections,fillInfo,fillSpace,filledPrimitive,resolveFills,applyFill,validateRefinements,runnerGeometryIssue,primitiveDefinition,validatePrimitive,applyPrimitive,transformInfo,transform,keys,parse,extract,merge,document:spatialDocument,mergeDocument,shapes,elements,partBindings,isGeometryPath,at,pathId,viewer,open};if(typeof module!=='undefined')module.exports=api;else globalThis.CFDSpatial=api;
 })();

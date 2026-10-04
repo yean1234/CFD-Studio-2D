@@ -387,3 +387,12 @@ cfd_studio\Setup\Python312\python.exe cfd_studio\internal\agent_diagnostics.py
 - 원본 형상 치수 변경은 참조 영역에 반영 · JSON 배열 재정렬 시 참조 경로도 갱신
 - 사일로 등가 형상은 지정 높이 구간 및 전체 수평 단면 세분화 · 원문 덕트 구현 여부 별도 확인
 - 범위·예상 셀 수 확인 후 새 Case에 반영 · 기존 결과 유지 · [지원 범위](MESH-REFINEMENT.md)
+
+## 독립 격자와 형상 폴더
+
+- Template에서 출력한 JSON을 기준으로 형상에 `mesh_control.cell_size` 추가
+- 비물리 영역은 `mesh_regions`에 `material_state: "mesh_refinement"`로 정의 · 물리 속성·벽·채움 금지
+- 중첩은 안쪽 우선 · 동일 범위·부분 겹침의 다른 간격은 MESH-R006 · 거친 안쪽 간격은 MESH-R007
+- 폴더는 `_studio.geometry_groups`와 형상의 `editor_group`으로 구성 · 키·좌표·물성 변경 금지
+- 적용 후 사용자에게 투명 범위·간격·폴더 소속 확인 안내 · 저장·실행 절차는 별도 유지
+- [Mesh refinement](MESH-REFINEMENT.md)

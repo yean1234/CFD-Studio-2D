@@ -4,6 +4,7 @@
  const original=[0,1,2].map(i=>document.getElementById('ifB'+i).innerHTML);
  original[1]+='<details><summary>에이전트 작업 진행</summary><ul><li>자료 확인·코드 수정·검사는 상태 전송 시 상단에 표시 · 파일 수정만으로 자동 표시되지 않음</li><li>중단은 다음 에이전트 작업을 위한 신호 · 실행 중 명령·CFD 계산은 유지</li><li>120초간 갱신이 없으면 연결 끊김 표시 · 화면 표시 확인과 사용자 검토는 별도</li></ul></details>';
  original[1]+='<details><summary>에이전트 연결 확인</summary><ul><li>서버 응답과 현재 탭 연결은 별도 · 해당 탭의 CFDAgent 상태와 선택한 프로젝트·Case를 대조</li><li>연결 실패 시 오류가 발생한 단계부터 확인 · 정상 서버와 실행 중인 계산 유지</li><li>별도 JSON 초안은 화면 반영·검토·Case 저장과 구분 · 복구 후 현재 편집기와 다시 대조</li><li>질문 창이 표시되지 않으면 일반 대화로 질문 · 미확정값과 필요한 확인은 생략하지 않음</li></ul></details>';
+ original[1]+='<details><summary>독립 격자와 형상 폴더</summary><ul><li>형상 선택 → 독립 격자 크기 → 사용 → 간격 입력</li><li>+ 국소격자 정의: 투명한 보조 범위 · 재료·벽·물성 생성 없음</li><li>완전히 포함된 안쪽 영역 우선 · 같은 범위·부분 겹침의 다른 간격은 충돌 표시</li><li>현재 생성기에서 안쪽을 더 거칠게 지정하면 MESH-R007 표시</li><li>+ 폴더 → 이름 → 추가 · 형상의 폴더에서 소속 지정</li><li>폴더 제목 클릭으로 접기 · 더블클릭으로 이름 변경 · ×는 폴더만 삭제</li><li>소속·접힘 상태는 Config 저장 시 유지 · 기존 계산 결과는 변경하지 않음</li></ul></details>';
  const help={
  en:[
  [['Workflow',[ 'CFD Template: solver, analysis choices, input fields, types and units', 'Preset: reusable values scoped to one Template', 'Project: folder containing independent Cases, input snapshots and results', 'Case: Config, termination, goals, logs and results; inputs are frozen when execution starts' ]],
@@ -55,6 +56,8 @@
  help.ja[1].push(['エージェント協働', ['CFDAgent.recipe(name, language)で状態取得・Config確認・引継ぎプロンプトを取得', 'Config → 変更を確認 → 確認済みで下書きを比較 · 保存・計算は別操作', '停止で担当解除と関連UI非表示 · 実行中ソルバーは継続', '担当・確認・引継ぎはページのメモリー · 再読込時にリセット']]);
  help.en[1].push(['Agent connection checks', ['Server responses and current-tab access are separate; match tab-local CFDAgent state to the selected project and Case', 'Identify the failed layer before recovery; preserve healthy servers and running calculations', 'Offline JSON drafts are not applied, reviewed or saved Cases; reconcile with the live editor after recovery', 'If a question widget is missing, ask in ordinary chat; do not skip unresolved values or required review']]);
  help.ja[1].push(['エージェント接続確認', ['サーバー応答と現在タブへの接続は別、タブ内のCFDAgent状態をプロジェクト・Caseと照合', '失敗した段階を確認して復旧し、正常なサーバーと実行中の計算を維持', '別ファイルのJSON下書きは画面反映・確認・Case保存ではない、復旧後に編集画面と再照合', '質問UIが表示されなければ通常の会話で質問し、未確定値や必要な確認を省略しない']]);
+ help.en[1].push(['Independent mesh size and geometry folders',['Select geometry → Independent mesh size → On → enter spacing','+ Mesh-only region: transparent refinement bounds without materials, walls or physical properties','Inner containment takes precedence; conflicting sizes on identical or partially overlapping bounds are rejected','The current generator rejects a coarser inner region with MESH-R007','+ Folder → name → Add; assign geometry through Folder','Click a heading to collapse, double-click to rename, × to remove only the folder','Save retains grouping and collapsed state; existing results are unchanged']]);
+ help.ja[1].push(['個別メッシュサイズと形状フォルダー',['形状選択 → 個別メッシュサイズ → 使用 → 間隔を入力','+ 局所メッシュ定義: 透明な補助範囲 · 材料・壁・物性を生成しない','完全包含は内側優先 · 同一範囲・部分交差の異なる間隔は競合表示','現在の生成器は内側を粗くする指定をMESH-R007で拒否','+ フォルダー → 名前 → 追加 · 各形状のフォルダーで所属を指定','見出しクリックで開閉 · ダブルクリックで名前変更 · ×はフォルダーのみ削除','所属と開閉状態はConfig保存時に保持 · 既存結果は変更しない']]);
  api.renderHelp=locale=>{
  for(let i=0;i<3;i++){
   const host=document.getElementById('ifB'+i);host.setAttribute('translate','no');

@@ -454,7 +454,7 @@ def _normalize_silo_config(value):
     for key in ("refinement_regions", "maximum_cells"):
         if key in mesh_in:
             out["mesh"][key] = json.loads(json.dumps(mesh_in[key]))
-    for key in ("geometry", "regions", "domain"):
+    for key in ("geometry", "regions", "domain", "mesh_regions"):
         if key in value:
             out[key] = json.loads(json.dumps(value[key]))
     if "require_external_mesh" in mesh_in:

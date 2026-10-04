@@ -448,6 +448,62 @@
         "ja": "間隔・範囲を調整してください · maximum_cellsは1〜20000000の整数"
       },
       "retry": "review"
+    },
+    "MESH-R006": {
+      "code": "MESH-R006",
+      "message": {
+        "ko": "국부 격자 범위가 충돌합니다",
+        "en": "Refinement regions conflict",
+        "ja": "局所メッシュ範囲が競合しています"
+      },
+      "action": {
+        "ko": "같은 범위 또는 일부만 겹치는 범위는 같은 간격을 사용하거나 포함 관계로 수정하세요",
+        "en": "Use equal sizes for identical or partially overlapping bounds, or establish full containment",
+        "ja": "同一範囲・部分交差では同じ間隔を使用するか、完全な包含関係に修正してください"
+      },
+      "retry": "review"
+    },
+    "MESH-R007": {
+      "code": "MESH-R007",
+      "message": {
+        "ko": "안쪽 격자를 바깥쪽보다 거칠게 생성할 수 없습니다",
+        "en": "The inner region cannot be coarser with this generator",
+        "ja": "現在の生成器では内側を外側より粗くできません"
+      },
+      "action": {
+        "ko": "안쪽 간격을 바깥쪽 이하로 설정하세요 · 현재 연결 격자 생성기의 제한",
+        "en": "Set the inner spacing no larger than the outer spacing; this is a conformal generator limit",
+        "ja": "内側の間隔を外側以下に設定してください · 接続格子生成器の制限です"
+      },
+      "retry": "review"
+    },
+    "MESH-R008": {
+      "code": "MESH-R008",
+      "message": {
+        "ko": "국소격자 정의에 물리 속성이 포함되어 있습니다",
+        "en": "Invalid mesh-only region definition",
+        "ja": "局所メッシュ専用領域の定義が不正です"
+      },
+      "action": {
+        "ko": "mesh_regions에 형상·독립 격자 크기만 정의하고 재료·벽·채움 속성은 제거하세요",
+        "en": "Store geometry and mesh_control in mesh_regions; remove material, wall and fill properties",
+        "ja": "mesh_regionsに形状とmesh_controlのみを定義し、材料・壁・充填属性を削除してください"
+      },
+      "retry": "review"
+    },
+    "MESH-R009": {
+      "code": "MESH-R009",
+      "message": {
+        "ko": "형상 폴더 정의가 올바르지 않습니다",
+        "en": "Invalid geometry folder definition",
+        "ja": "形状フォルダーの定義が不正です"
+      },
+      "action": {
+        "ko": "폴더 이름·고유 ID·형상의 editor_group 참조를 확인하세요",
+        "en": "Check folder names, unique IDs and geometry editor_group references",
+        "ja": "フォルダー名・一意のID・形状のeditor_group参照を確認してください"
+      },
+      "retry": "review"
     }
   }
 }

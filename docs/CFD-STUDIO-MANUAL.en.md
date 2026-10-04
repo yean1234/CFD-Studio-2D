@@ -87,3 +87,14 @@
 
 - **Mesh → Local refinement → Select geometry → Add from geometry**, then enter the finer cell spacing. Use **+ Region** for explicit coordinate bounds. Geometry references follow current dimensions; spheres and cylinders use bounding boxes. Immersion and aligned warehouse generators are connected. The silo surrogate refines selected height intervals and the entire horizontal cross-section to preserve conformal faces. This does not add paper duct geometry or a generic solver adapter. Existing results remain unchanged.
 - [Mesh refinement](MESH-REFINEMENT.md)
+
+## Independent mesh size and geometry folders
+
+- Select geometry → **Independent mesh size → On** → enter spacing
+- **+ Mesh-only region** adds a transparent refinement volume without materials, walls or physical properties
+- Fully contained inner bounds take precedence; conflicting sizes on identical or partially overlapping bounds are rejected
+- The current conformal generator rejects a coarser inner region with MESH-R007
+- **+ Folder** → enter name → Add; assign each geometry through **Folder**
+- Click the folder heading to collapse, double-click to rename, × to remove only the folder
+- Save preserves membership and collapsed state; existing results are unchanged
+- [Mesh refinement](MESH-REFINEMENT.md)

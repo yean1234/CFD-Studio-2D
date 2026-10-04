@@ -152,3 +152,18 @@ test('silo refinement validates physical bounds and target-cell reference spacin
  const sp=require('../cfd_studio/internal/spatial_editor.js'),c={_해석유형:'grain_silo',published:{storage_diameter_m:.8,total_height_m:1.4},mesh:{target_cells:4000,refinement_regions:[{name:'Band',shape:'box',unit:'m',min:[-.1,-.1,.4],max:[.1,.1,.6],cell_size:{value:.03,unit:'m'}}]}};
  sp.validateRefinements(c);c.mesh.refinement_regions[0].min=[.35,.35,.4];c.mesh.refinement_regions[0].max=[.39,.39,.6];assert.throws(()=>sp.validateRefinements(c));
 });
+test('component mesh controls and nonphysical regions share containment validation',()=>{
+ const sp=require('../cfd_studio/internal/spatial_editor.js');
+ const outer={name:'Outer',shape:'box',unit:'m',min:[0,0,0],max:[1,1,1],mesh_control:{cell_size:{value:.05,unit:'m'}}};
+ const inner={name:'Inspection',material_state:'mesh_refinement',shape:'box',unit:'m',min:[.2,.2,.2],max:[.8,.8,.8],mesh_control:{cell_size:{value:.02,unit:'m'}}};
+ const c={geometry:{regions:[outer]},mesh_regions:[inner],mesh:{cell_size:{value:.1,unit:'m'}}};sp.validateRefinements(c);assert.equal(sp.collectRefinements(c).length,2);assert.equal(sp.shapes(c).items.filter(x=>x.meshOnly).length,1);
+ c.mesh_regions[0].mesh_control.cell_size.value=.07;assert.throws(()=>sp.validateRefinements(c),/MESH-R007/);
+ c.mesh_regions[0].mesh_control.cell_size.value=.02;c.mesh_regions[0].max=[1.2,1.2,1.2];assert.throws(()=>sp.validateRefinements(c),/MESH-R006/);
+ c.mesh_regions[0]=structuredClone(inner);c.mesh_regions[0].properties={density:1};assert.throws(()=>sp.validateRefinements(c),/MESH-R008/);
+});
+test('geometry folders retain IDs and template geometry while rejecting orphan references',()=>{
+ const sp=require('../cfd_studio/internal/spatial_editor.js'),editor=require('../cfd_studio/internal/form_config_editor.js');
+ const c={geometry:{regions:[{name:'A',shape:'box',unit:'m',min:[0,0,0],max:[1,1,1],editor_group:'g'}]},_studio:{geometry_groups:[{id:'g',name:'Assembly',expanded:false}]}};
+ sp.validateRefinements(c);const copy=editor.toConfig(editor.blankDefinition(editor.fromConfig(c)));assert.deepEqual(copy._studio.geometry_groups,c._studio.geometry_groups);assert.equal(copy.geometry.regions[0].editor_group,'g');
+ c._studio.geometry_groups=[];assert.throws(()=>sp.validateRefinements(c),/MESH-R009/);
+});
