@@ -7,7 +7,7 @@
 
 ## 기술·사용자 문서
 
-- 108개
+- 112개
 
 - [AGENTS.md](../../AGENTS.md)
 - [CONTRIBUTING.md](../../CONTRIBUTING.md)
@@ -33,6 +33,9 @@
 - [docs/MESH-REFINEMENT.md](../../docs/MESH-REFINEMENT.md)
 - [docs/README.md](../../docs/README.md)
 - [docs/RELEASE-NOTES.md](../../docs/RELEASE-NOTES.md)
+- [docs/SECTION-2D.en.md](../../docs/SECTION-2D.en.md)
+- [docs/SECTION-2D.ja.md](../../docs/SECTION-2D.ja.md)
+- [docs/SECTION-2D.md](../../docs/SECTION-2D.md)
 - [docs/VIEWER-DATA.md](../../docs/VIEWER-DATA.md)
 - [docs/WAREHOUSE-SYMMETRY.en.md](../../docs/WAREHOUSE-SYMMETRY.en.md)
 - [docs/WAREHOUSE-SYMMETRY.ja.md](../../docs/WAREHOUSE-SYMMETRY.ja.md)
@@ -69,6 +72,7 @@
 - [docs/development/decisions/0002-template-adapters.md](../../docs/development/decisions/0002-template-adapters.md)
 - [docs/development/decisions/0003-visible-agents.md](../../docs/development/decisions/0003-visible-agents.md)
 - [docs/development/decisions/0004-mesh-scope.md](../../docs/development/decisions/0004-mesh-scope.md)
+- [docs/development/decisions/0005-section-2d.md](../../docs/development/decisions/0005-section-2d.md)
 - [docs/development/decisions/README.md](../../docs/development/decisions/README.md)
 - [docs/development/templates/HANDOFF.md](../../docs/development/templates/HANDOFF.md)
 - [docs/development/templates/RFC.md](../../docs/development/templates/RFC.md)
@@ -120,12 +124,13 @@
 
 ## 자체 소스·정의·실행 파일
 
-- 144개
+- 147개
 
 - [cfd_studio/__init__.py](../../cfd_studio/__init__.py)
 - [cfd_studio/app.py](../../cfd_studio/app.py)
 - [cfd_studio/configs/grain_silo.json](../../cfd_studio/configs/grain_silo.json)
 - [cfd_studio/configs/immersion.json](../../cfd_studio/configs/immersion.json)
+- [cfd_studio/configs/immersion_2d.json](../../cfd_studio/configs/immersion_2d.json)
 - [cfd_studio/internal/agent_activity.js](../../cfd_studio/internal/agent_activity.js)
 - [cfd_studio/internal/agent_activity.py](../../cfd_studio/internal/agent_activity.py)
 - [cfd_studio/internal/agent_collaboration.js](../../cfd_studio/internal/agent_collaboration.js)
@@ -201,8 +206,10 @@
 - [tmc49_full_tank/gpu_setup_amgx.sh](../../tmc49_full_tank/gpu_setup_amgx.sh)
 - [tmc49_full_tank/tools/apply_lee_source_baseline.py](../../tmc49_full_tank/tools/apply_lee_source_baseline.py)
 - [tmc49_full_tank/tools/build_case.py](../../tmc49_full_tank/tools/build_case.py)
+- [tmc49_full_tank/tools/build_case_2d.py](../../tmc49_full_tank/tools/build_case_2d.py)
 - [tmc49_full_tank/tools/build_silo_runtime.py](../../tmc49_full_tank/tools/build_silo_runtime.py)
 - [tmc49_full_tank/tools/export_bubbleml.py](../../tmc49_full_tank/tools/export_bubbleml.py)
+- [tmc49_full_tank/tools/export_coarse_2d.py](../../tmc49_full_tank/tools/export_coarse_2d.py)
 - [tmc49_full_tank/tools/install_gpu_only_openfoam.sh](../../tmc49_full_tank/tools/install_gpu_only_openfoam.sh)
 - [tmc49_full_tank/tools/mesh_refinement.py](../../tmc49_full_tank/tools/mesh_refinement.py)
 - [tmc49_full_tank/tools/select_pressure_solver.py](../../tmc49_full_tank/tools/select_pressure_solver.py)
@@ -269,7 +276,7 @@
 
 ## 검사 코드
 
-- 114개
+- 115개
 
 - [tests/audit_saved_results.py](../../tests/audit_saved_results.py)
 - [tests/audit_warehouse_case.py](../../tests/audit_warehouse_case.py)
@@ -357,6 +364,7 @@
 - [tests/test_result_integrity.py](../../tests/test_result_integrity.py)
 - [tests/test_result_series.py](../../tests/test_result_series.py)
 - [tests/test_run_management.py](../../tests/test_run_management.py)
+- [tests/test_section_2d.py](../../tests/test_section_2d.py)
 - [tests/test_settings_editor.js](../../tests/test_settings_editor.js)
 - [tests/test_setup_bridge.py](../../tests/test_setup_bridge.py)
 - [tests/test_shared_warehouse_viewer.js](../../tests/test_shared_warehouse_viewer.js)

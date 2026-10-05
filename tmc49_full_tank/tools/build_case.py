@@ -909,10 +909,19 @@ functions
 '''
 
 # ---------------------------------------------------------------- 메인
+def resolve_dimension(arg, c):
+    """CLI --dimension (Allrun MODE) wins over config case_dimension; default 3D."""
+    raw = arg if arg else c.get('case_dimension', '3D')
+    value = str(raw).strip().upper()
+    if value not in ('2D', '3D'):
+        sys.exit(f"[검증 실패]\n  - case_dimension 은 2D 또는 3D 여야 함 (받은 값 {raw!r})")
+    return value
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--condition', default=None)
     ap.add_argument('--check', action='store_true')
+    ap.add_argument('--dimension', default=None, help='2D 또는 3D — config.json case_dimension보다 우선')
     a = ap.parse_args()
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     c = load(root, a.condition)
@@ -952,6 +961,17 @@ def main():
         print(f"[build_case] 시간 간격: 고정 {target_dt:g} s · Courant 초과 시 자동 축소 안 함", file=sys.stderr)
     else:
         print(f"[build_case] 시간 간격: 자동 안정 · {target_dt:g} s는 상한(실제 Δt는 Courant 조건에 따라 더 작아짐)", file=sys.stderr)
+    if resolve_dimension(a.dimension, c) == '2D':
+        try:
+            from .build_case_2d import build as build_2d
+        except ImportError:
+            from build_case_2d import build as build_2d
+        build_2d(root, c, check=a.check)
+        return
+    # A 3D build must not leave a 2D grid map that exporters could mistake for this mesh
+    stale_2d = os.path.join(root, 'constant', 'section2d.json')
+    if not a.check and os.path.exists(stale_2d):
+        os.remove(stale_2d)
     bmd, cells, cpu_area, coil_area, coil_faces = build_mesh(c)
     msg = (f"[build_case] 셀 {cells:,} | CPU 면적 {cpu_area:,.0f} mm² → {c['heater']['total_W']} W ⇒ "
            f"{c['heater']['total_W']/(cpu_area*1e-6)/1000:.1f} kW/m² | 코일 면적 {coil_area:.4f} m²"

@@ -10,6 +10,7 @@
 | [ADR-002](0002-template-adapters.md) | Template 정의와 솔버 실행 연결 분리 | 현재 설계 회고 |
 | [ADR-003](0003-visible-agents.md) | 외부 에이전트와 사용자 화면 공유 | 현재 설계 회고 |
 | [ADR-004](0004-mesh-scope.md) | 정적 격자 전이와 향후 AMR 구분 | 현재 설계 회고 |
+| [ADR-005](0005-section-2d.md) | 액침 수조 2D 단면과 3D→2D 스케일링 | 제안 · 구현됨 |
 
 - 새 결정은 번호를 추가 · 기존 근거를 지우지 않고 대체 관계 연결
 - [RFC 양식](../templates/RFC.md)

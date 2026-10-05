@@ -23,6 +23,7 @@
 ## 기술 자료
 
 - [Viewer 데이터](VIEWER-DATA.md)
+- [액침 수조 2D 단면](SECTION-2D.md) · [English](SECTION-2D.en.md) · [日本語](SECTION-2D.ja.md)
 - [모델 근거](model-evidence.md)
 - [연구 실험](research-studies.md)
 - [GPU 개발 범위](gpu-research.md)

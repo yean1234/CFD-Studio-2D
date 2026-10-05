@@ -68,6 +68,23 @@
 - 저장고 정렬 블록 실행기에 연결된 계약 · 모든 솔버에 공통 적용된다고 주장하지 않음
 - `mesh_plan`은 생성/CFD 실행이 아니며 기본 배열 크기는 솔버 전체 RAM 예측이 아님
 
+## 2D 단면 계약
+
+| 키·파일 | 의미 | 호환 규칙 |
+| --- | --- | --- |
+| `case_dimension` | `2D`/`3D` 선택 | 키가 없으면 3D · `MODE` 환경변수·`--dimension`이 우선 · 그 밖의 값은 생성 전 오류 |
+| `section_2d.x_mm` | 단면 x 위치 [mm] | `null`이면 `heater.cpus[cpu_index]` x 중심 · CPU를 지나지 않으면 오류 |
+| `section_2d.heat_rule` | `local_flux`·`width_average`·`flux_and_power` | 기본 `local_flux` · 다른 값은 오류 |
+| `section_2d.represented_width_mm` | 폭당 전력 기준 폭 | `null`이면 `tank.width_mm` |
+| `section_2d.thickness_mm` | empty 방향 두께 | `null`이면 `mesh.dx_mm` · 결과는 단위 폭당 값 |
+| `section_2d.coil_UA_W_mK` | 코일 폭당 UA 직접 지정 | `null`이면 3D UA × 폭당 입열비 · 격자 상한 90% 제한 |
+| `constant/section2d.json` | 단면·스케일링·코일·유체값·셀 `(ix, iy)` 대응·히터 면 | 2D 생성 때만 작성 · 3D 생성 시 삭제 · 셀 순서는 blockMesh 블록 순서 |
+| `coarse_inputs.csv` | `case_id, coarse_cell, x_m, q_W_m2, vapor_fraction` | Cooper 게이트 열 순서 유지 · 추가 열은 `coarse_inputs_extended.csv`에만 |
+
+- 2D 결과 배열은 (프레임, y, x) · 고체 셀은 NaN과 `mask = 0` · 누락값을 0으로 치환하지 않음
+- 벽면 온도는 솔버 `cpu` 패치 값을 높이 오름차순으로 사용 · 없을 때만 전도 추정값과 `T_wall_source` 표시
+- 3D 실행의 Config·생성 파일 계약은 변경 없음
+
 ## 결과 계약
 
 - 정규화 추적자와 물성 모델의 모델명·단위·유효 영역 구분

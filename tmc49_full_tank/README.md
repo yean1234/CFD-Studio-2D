@@ -76,7 +76,7 @@ cd tmc49_full_tank
 ```
 
 - CFD Studio 코어 수 = 논리 CPU × 최대 0.8(예: 32스레드 → 25 worker). 직접 실행은 `NP=16 ./Allrun`처럼 작업자 수 지정 가능
-- 격자 옵션: `DX=2 ./Allrun` → 311만 셀(GPU 압력솔버 권장), `MODE=2D ./Allrun` → 참고용 2D(발열 없음 주의)
+- 격자 옵션: `DX=2 ./Allrun` → 311만 셀(GPU 압력솔버 권장), `MODE=2D ./Allrun` → 연구용 2D 단면(CPU 중심 y–z 단면, CPU 열유속 보존) — [2D 단면 안내](../docs/SECTION-2D.md)
 - 형상 수정: `tools/gen_blockmesh.py`의 상수(XS·YS·ZS·BOARD·COIL·CPU_C)만 바꾸고 다시 `./Allrun`
 - 예상 소요(약 94만 셀, 30 s 물리시간): **CPU 기준 1~3일 수준**. AmgX는 `p_rgh`만 가속하므로 실제 이득은 동일 구간 A/B 측정으로 판정
 - 출력 용량: 0.5 s 간격 저장 ≈ 5~10 GB — 부족하면 controlDict의 `writeInterval`을 1.0으로
@@ -166,6 +166,7 @@ GPU 번호·VRAM/클럭·Compute Capability·CUDA 위치·OpenFOAM 경로·nvcc 
 |---|---|---|---|
 | 3D DX=3 (기본) | `./Allrun` | 943,380 | 실험형 1차 — 층 온도·수지·기포 통계 |
 | 3D DX=2 | `DX=2 ./Allrun` | 생성 시 출력값 기준 | 본판 — 동일 구간 CPU/GPU A/B 검증 후 실행 |
-| 2D 축소형 | `MODE=2D ./Allrun` | 83,840 | 참고용(발열 없음 주의) |
+| 2D 단면 | `MODE=2D ./Allrun` 또는 `case_dimension: "2D"` | 6,140 | 기포장 연구용 거친 입력 — CPU 중심 y–z 단면, `tools/export_coarse_2d.py`로 내보내기 |
 
-- 0.orig의 `frontAndBack`(2D 전용)·`cpu`(3D 전용) 항목은 해당 모드에 패치가 없으면 자동 무시되므로 그대로 둔다.
+- 2D 생성기(`tools/build_case_2d.py`)는 0.orig 전체에 `frontAndBack`(empty)을 넣고 격자 대응표 `constant/section2d.json`을 쓴다. 3D로 다시 생성하면 대응표는 삭제된다.
+- 2D 스케일링 규칙(`section_2d.heat_rule`)·코일 UA 환산·검증 결과·제한은 [2D 단면 안내](../docs/SECTION-2D.md) 참고
