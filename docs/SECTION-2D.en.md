@@ -90,7 +90,9 @@ python3 tools/export_coarse_2d.py --out export_2d  # export coarse inputs after 
 - The CPU wall temperature is a boundary-model value of about 1,100–1,500 K on 3 mm cells, not a physical wall superheat
 - ΔT_sup for the bubble specification must come from Cooper inversion of q″ or a wall-function path; the 3D model uses the same cell size and boundary
 - The TMC-49 critical pressure has no Config source, so `p_critical_Pa = null`; confirm a source before computing the Cooper reduced pressure
-- Display of the 2D section in the Studio 3D Viewer is unverified; use the exported files for research analysis
+- Config editor preview: switches to **2D section** when `case_dimension` is `2D` · shows a thin slab at `section_2d.x_mm` with its thickness and only the board, coil and CPU faces that cross it · generator mesh, boundary patches and results are not shown
+- Display of 2D results in the result Viewer is unverified; use the exported files for research analysis
+- `x_mm`, `represented_width_mm`, `thickness_mm` and `coil_UA_W_mK` in `section_2d` are derived automatically when left empty · Studio save validation accepts `null` for these four keys
 - The research_preliminary status of the 3D Config (Lee coefficients, vapour transport properties, interfacial tensions) is inherited unchanged
 
 ## Sources

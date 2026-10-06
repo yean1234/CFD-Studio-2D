@@ -556,19 +556,26 @@
       "id": "REQ-037",
       "title": "연구용 2D 단면 실행·거친 입력 내보내기",
       "status": "partial",
-      "acceptance": "case_dimension 또는 MODE=2D일 때만 CPU 중심 y-z 단면 2D 케이스 생성 · 3D 생성 파일 불변 · 열유속/폭당 전력/코일 UA 스케일링과 셀 대응표를 constant/section2d.json에 기록 · coarse_inputs.csv가 Cooper 게이트 열과 일치 · Studio Viewer 2D 표시는 미검증으로 표시",
+      "acceptance": "case_dimension 또는 MODE=2D일 때만 CPU 중심 y-z 단면 2D 케이스 생성 · 3D 생성 파일 불변 · 열유속/폭당 전력/코일 UA 스케일링과 셀 대응표를 constant/section2d.json에 기록 · coarse_inputs.csv가 Cooper 게이트 열과 일치 · section_2d 자동값(null) 4개는 Studio 저장 검증 통과 · Case 저장은 제출 Config를 검증 · Config 편집 미리보기는 2D 단면 판과 단면에 걸친 부품만 표시 · 결과 Viewer 2D 표시는 미검증으로 표시",
       "sources": [
         "tmc49_full_tank/tools/build_case_2d.py",
         "tmc49_full_tank/tools/export_coarse_2d.py",
         "tmc49_full_tank/tools/build_case.py",
         "tmc49_full_tank/Allrun",
-        "cfd_studio/configs/immersion_2d.json"
+        "cfd_studio/configs/immersion_2d.json",
+        "cfd_studio/internal/execution_workspace.py",
+        "cfd_studio/internal/cfd_forms.py",
+        "cfd_studio/internal/run_management.py",
+        "cfd_studio/internal/spatial_editor.js",
+        "cfd_studio/internal/form_config_editor.js"
       ],
       "tests": [
-        "tests/test_section_2d.py"
+        "tests/test_section_2d.py",
+        "tests/test_cfd_forms.py",
+        "tests/test_spatial_editor.js"
       ],
       "document": "docs/SECTION-2D.md",
-      "evidence": "unit tests plus one OpenFOAM v2312 smoke run (blockMesh/checkMesh, 0.1 s serial, 0.05 s 4-rank Allrun, heater energy audit within 2 %) on 2026-10-05; no long run, convergence or experimental validation"
+      "evidence": "unit tests plus one OpenFOAM v2312 smoke run (blockMesh/checkMesh, 0.1 s serial, 0.05 s 4-rank Allrun, heater energy audit within 2 %) on 2026-10-05; no long run, convergence or experimental validation; Studio 2D preset save and section preview covered by unit tests only (2026-10-07)"
     }
   ]
 }

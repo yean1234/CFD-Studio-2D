@@ -263,6 +263,23 @@
    }
    notes.push('상분율·계산 격자는 표시하지 않음');
   }
+  let dimension='3D',camera=null;
+  if(config.tank&&!config.tank.shape&&String(config.case_dimension||'').toUpperCase()==='2D'){dimension='2D';camera={yaw:-.18,pitch:.12};sectionView();}
+  // Mirror build_case_2d.resolve_section: a slab at x = section_2d.x_mm (mm) keeps only crossing parts.
+  function sectionView(){
+   const s=isObject(config.section_2d)?config.section_2d:{},cpus=config.heater?.cpus||[],index=s.cpu_index??0,cpu=cpus[index];
+   const xs=s.x_mm??(cpu&&ready([cpu.x0,cpu.x1])?(cpu.x0+cpu.x1)/2:null),t=s.thickness_mm??config.mesh?.dx_mm;
+   if(typeof xs!=='number'||!Number.isFinite(xs)||typeof t!=='number'||!Number.isFinite(t)||t<=0){notes.push('2D 단면 위치 또는 두께를 확인하세요');return;}
+   const lo=(xs-t/2)*.001,hi=(xs+t/2)*.001,x=xs*.001,kept=[];
+   for(const item of items){
+    if(item.kind==='box'){if(item.min[0]<=x&&x<=item.max[0])kept.push({...item,min:[lo,...item.min.slice(1)],max:[hi,...item.max.slice(1)]});}
+    else if(item.kind==='surface'){if(Math.abs(x-item.center[0])<=item.width/2)kept.push({...item,center:[x,...item.center.slice(1)],width:t*.001});}
+   }
+   items.splice(0,items.length,...kept);
+   notes.unshift('2D 단면 미리보기: x = '+xs+' mm, 두께 '+t+' mm');
+   if(!kept.some(item=>item.kind==='surface'))notes.push('2D 단면이 CPU를 지나지 않음');
+   notes.push('2D 생성기 격자와 경계 패치는 표시하지 않음');
+  }
   for(const [i,b]of (config.loading?.blocks||[]).entries()){if(b.shape)region(b,'loading.blocks['+i+']',b.unit,['loading','blocks',i]);else box('loading.blocks['+i+']',b.min_m,b.max_m,1,{path:['loading','blocks',i]});}
   function region(r,name,inheritedUnit,path){
    if(!isObject(r)){notes.push(name+': 지원하지 않는 형식');return;}
@@ -296,7 +313,7 @@
   if(!items.length)notes.push('표시할 형상이 없습니다 · 치수와 형식을 확인하세요');
   const names=new Map(elements(config).map(e=>[e.id,e.label]));for(const item of items){item.id=pathId(item.path);item.label=item.label||names.get(item.id)||item.name;item.meshOnly=item.path[0]==='mesh_regions';}
   const issue=runnerGeometryIssue(config);if(issue)notes.push(issue);
-  return {items,notes,up};
+  return {items,notes,up,dimension,...(camera?{camera}:{})};
  }
  // Map existing solver fields to parts without copying or renaming stored inputs.
  function partBindings(config,path){
@@ -375,7 +392,7 @@
    const bounds=new T.Box3().setFromObject(group),size=bounds.getSize(new T.Vector3()),center=bounds.getCenter(new T.Vector3()),extent=Math.max(size.x,size.y,size.z);
    if(!Number.isFinite(extent)||extent<=0)throw Error('형상 크기를 확인하세요');group.position.copy(center).multiplyScalar(-1);group.scale.setScalar(1/extent);group.position.divideScalar(extent);
    camera.up.fromArray(model.up);
-   let yaw=cameraState?.yaw??-.6,pitch=cameraState?.pitch??.4,distance=cameraState?.distance??2.8,pointer=null;
+   const home={yaw:model.camera?.yaw??-.6,pitch:model.camera?.pitch??.4};let yaw=cameraState?.yaw??home.yaw,pitch=cameraState?.pitch??home.pitch,distance=cameraState?.distance??2.8,pointer=null;
    const draw=()=>{
     const width=host.clientWidth,height=host.clientHeight;if(!width||!height)return;
     const zUp=model.up[2]===1,p=[Math.cos(pitch)*Math.cos(yaw)*distance,Math.cos(pitch)*Math.sin(yaw)*distance,Math.sin(pitch)*distance];
@@ -413,7 +430,7 @@
    // Reverse yaw for Z-up models so horizontal dragging has the same visible direction
    canvas.onpointermove=e=>{if(!pointer)return;yaw+=(e.clientX-pointer.x)*.007*(model.up[2]===1?-1:1);pitch=Math.max(-1.45,Math.min(1.45,pitch+(e.clientY-pointer.y)*.007));pointer.x=e.clientX;pointer.y=e.clientY;draw();};canvas.onpointerup=e=>{if(pointer&&Math.hypot(e.clientX-pointer.startX,e.clientY-pointer.startY)<4&&onSelect){const r=canvas.getBoundingClientRect(),ray=new T.Raycaster();ray.setFromCamera(new T.Vector2(2*(e.clientX-r.left)/r.width-1,1-2*(e.clientY-r.top)/r.height),camera);const hit=ray.intersectObjects(meshes,false)[0];if(hit)onSelect(hit.object.userData.elementId);}pointer=null;};canvas.onpointercancel=()=>pointer=null;
    canvas.addEventListener('wheel',e=>{e.preventDefault();distance=Math.max(1,Math.min(15,distance*Math.exp(Math.max(-100,Math.min(100,e.deltaY))*.001)));draw();},{passive:false});
-   canvas.ondblclick=()=>{yaw=-.6;pitch=.4;distance=2.8;draw();};draw();
+   canvas.ondblclick=()=>{yaw=home.yaw;pitch=home.pitch;distance=2.8;draw();};draw();
    const dispose=()=>{resize.disconnect();disposables.forEach(x=>x.dispose());renderer.dispose();renderer.domElement.remove();overlay.remove();};
    dispose.select=id=>{for(const mesh of meshes)mesh.material.opacity=mesh.userData.meshOnly?(mesh.userData.elementId===id?.10:.035):(mesh.userData.elementId===id?.4:.15);for(const {tag,leader}of tags){const active=tag.dataset.elementId===id;tag.setAttribute('aria-pressed',String(active));leader.classList.toggle('selected',active);}draw();};
    dispose.select(selected);dispose.cameraState=()=>({yaw,pitch,distance});return dispose;

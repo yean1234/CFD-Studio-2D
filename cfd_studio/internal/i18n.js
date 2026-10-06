@@ -906,6 +906,7 @@ add("국부 간격에도 전체 세분화 배율이 적용됩니다","Global ref
 const patterns=[
  [/^온도와 물성값의 행 수를 맞추세요: (.*)$/,['Match the number of temperature and property rows: $1','温度と物性値の行数を揃えてください: $1']],
  [/^X = ([-+\d.eE]+) 회$/, ['X = $1 iterations','X = $1 回']],
+ [/^2D 단면 미리보기: x = ([-+\d.eE]+) mm, 두께 ([-+\d.eE]+) mm$/,['2D section preview: x = $1 mm, thickness $2 mm','2D断面プレビュー: x = $1 mm、厚さ $2 mm']],
  [/^(.+) 시각화 준비$/,['$1 visualization readiness','$1 可視化準備']],
  [/^(.+) 수정$/,['Edit $1','$1を編集']],
  [/^읽음 (\d+ \/ \d+) 값$/,['Read $1 values','$1 値を読込済み']],
@@ -1185,6 +1186,10 @@ add("observations.outputs에는 probes만 입력하세요","Only probes is allow
 add("roof_rise_m은 0 이상이어야 합니다","roof_rise_m must be nonnegative","roof_rise_mは0以上にしてください");
 add("발열면 최대 좌표는 최소 좌표보다 커야 합니다","Heat-source maximum coordinates must exceed the minimum coordinates","発熱面の最大座標は最小座標より大きくしてください");
 add("상분율·계산 격자는 표시하지 않음","Phase fractions and computational mesh are not displayed","体積分率・計算メッシュは表示対象外");
+add("2D 단면","2D section","2D断面");
+add("2D 단면 위치 또는 두께를 확인하세요","Check the 2D section position or thickness","2D断面の位置または厚さを確認してください");
+add("2D 단면이 CPU를 지나지 않음","The 2D section does not cross a CPU","2D断面がCPUを通りません");
+add("2D 생성기 격자와 경계 패치는 표시하지 않음","The 2D generator mesh and boundary patches are not displayed","2D生成器のメッシュと境界パッチは表示対象外");
 add("미리보기 형상은 1000개 이하로 입력하세요","Preview supports up to 1000 shapes","プレビューの形状は1000個以下にしてください");
 add("공간 3D 미리보기","Spatial 3D preview","空間3Dプレビュー");
 add("입력 형식을 확인하세요","Check the input type","入力形式を確認してください");

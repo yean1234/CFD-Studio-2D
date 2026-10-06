@@ -133,11 +133,12 @@ class CFDForms:
             raise ValueError('CFD Template에 지정된 솔버와 Config 솔버가 다릅니다')
         return form
 
-    def check_form_preset(self, form_id, preset_id):
+    def check_form_preset(self, form_id, preset_id, config=None):
         if preset_id and self.preset_form(preset_id) != form_id:
             raise ValueError('선택한 CFD Template에 속한 프리셋을 선택하세요')
         if preset_id:
-            self.check_project_config(form_id, self.template(preset_id))
+            # A project may keep the preset as its default source while using edited initial_config.
+            self.check_project_config(form_id, self.template(preset_id) if config is None else config)
 
     def check_project_config(self, form_id, config):
         from cfd_studio.execution_workspace import validate_settings

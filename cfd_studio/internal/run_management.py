@@ -205,7 +205,8 @@ class RunManagement:
             form_id = project.get('form_id')
             if form_id:
                 self.check_form_config(form_id, config)
-                self.check_form_preset(form_id, preset_id)
+                # The saved Case Config is the validation target; the preset only records its source.
+                self.check_form_preset(form_id, preset_id, config)
             source = old.get('baseline', {}) if old else self.template(preset_id) if preset_id else copy.deepcopy(project.get('initial_config') or config)
             key = case_id or 'case:'+uuid.uuid4().hex
             case = {**(old or {}), 'id': key, 'project_id': project_id, 'name': name, 'config': config,
