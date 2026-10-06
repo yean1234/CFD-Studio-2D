@@ -24,6 +24,7 @@
 | 내보내기 | test_csv_export.py, test_line_profile_warehouse.py | 범위·열·원본 대조·실패 파일 |
 | 에이전트 | test_agent_activity.py, test_agent_controls.js, test_agent_collaboration.js, test_agent_diagnostics.py | 중단·재개·현재 탭·진행 표시 |
 | 격자 전이/대칭 | test_mesh_transition.py, test_warehouse_symmetry.py, test_porous_warehouse_mesh.py | 크기 제한·셀 예산·원본 보존 |
+| 2D 단면 | test_section_2d.py, test_distribution.py | 3D 생성 파일 불변·OpenFOAM 환경에서 blockMesh/checkMesh·히터 에너지 수지 |
 | 번역·장치 | test_i18n.js, test_hardware_monitor.py, test_background_console.py | 사용자 이름 미번역·측정 지연·창 점멸 |
 
 - 표의 파일은 모두 `tests/` 아래 위치

@@ -1,5 +1,6 @@
 #!/bin/sh
 # 사용:  ./Allrun              → 3D 실험형(기본, DX=3 mm ≈ 89만 셀), CPU 자동 병렬
+#        MODE=2D ./Allrun      → 연구용 2D 단면(CPU 중심 y-z 단면, 약 6천 셀) — config의 case_dimension보다 우선
 #        미세 격자: config.json mesh.dx_mm=2 — GPU 압력솔버(AmgX) 연동 권장
 #        NP=14 ./Allrun        → 병렬 코어 수 직접 지정 (단독 실행 기본: nproc의 60%, Studio는 최대 80%)
 cd "${0%/*}" || exit 1
@@ -13,7 +14,7 @@ fi
 
 # 설정: config.json 하나 (형상·물성·발열·냉각·격자·시간 + conditions 실측 조건 배열)
 # 조건 실행 예: CONDITION=C3_T20 ./Allrun
-python3 tools/build_case.py ${CONDITION:+--condition $CONDITION} || exit 1
+python3 tools/build_case.py ${CONDITION:+--condition $CONDITION} ${MODE:+--dimension $MODE} || exit 1
 ANALYSIS=$(python3 -c 'import json; print(json.load(open("config.json")).get("_해석유형", "immersion"))')
 [ "$ANALYSIS" = grain_silo ] || python3 tools/select_pressure_solver.py || exit 1
 rm -rf 0 processor*
@@ -21,6 +22,12 @@ rm -rf 0 processor*
 NP=${NP:-$(( $(nproc) * 6 / 10 ))}
 [ "${CFD_STUDIO_COMPUTE_MODE:-cpu}" = gpu_only ] && NP=1
 [ "$NP" -lt 1 ] && NP=1
+# The 2D section has only thousands of cells; more subdomains add communication only
+if [ -f constant/section2d.json ]; then
+    NP2D_MAX=${NP2D_MAX:-4}
+    [ "$NP" -gt "$NP2D_MAX" ] && NP=$NP2D_MAX
+    echo "2D 단면 케이스: 병렬 코어 상한 $NP2D_MAX"
+fi
 # CFD Studio가 전달한 NP는 이미 논리 CPU의 최대 80%로 제한된다.
 # 여기서 물리 코어 수로 다시 줄이면 32스레드 PC의 목표 사용량에 도달하지 못하므로 재제한하지 않는다.
 foamDictionary -entry numberOfSubdomains -set "$NP" system/decomposeParDict > /dev/null || exit $?
