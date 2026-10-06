@@ -2145,6 +2145,11 @@ def win2wsl(p):
         return f"/mnt/{drive}{rest}"
     return p.replace("\\", "/")                      # 이미 POSIX 경로면 그대로
 
+# Shell line exporting the Open MPI root opt-ins only when the WSL user is root.
+_MPI_ROOT_OPT_IN = ("[ \"$(id -u)\" = 0 ] && export OMPI_ALLOW_RUN_AS_ROOT=1 "
+                    "OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1; true\n")
+
+
 def open_console(inner_bash):
     """보이는 명령 프롬프트 창에서 WSL 스크립트 실행 (실행 상황 라이브 표시).
     스크립트를 파일로 저장하고 콘솔은 그 파일만 실행 — cmd.exe가 따옴표/리다이렉트(>)를
@@ -2166,6 +2171,9 @@ def open_console(inner_bash):
                 "export OMPI_MCA_rmaps_base_oversubscribe=1\n"
                 # Windows TEMP가 /mnt/c로 전달되면 Open MPI FIFO 생성이 errno 95로 실패한다.
                 "export TMPDIR=/tmp TMP=/tmp TEMP=/tmp\n"
+                # WSL distributions without a regular user run as root; Open MPI refuses
+                # root unless both opt-ins are set. Applied only for uid 0.
+                + _MPI_ROOT_OPT_IN
                 # 사용자가 AmgX/PETSc를 설치한 PC에서는 기존 GPU 압력솔버 환경을 그대로 활성화한다.
                 # 파일이 없으면 CPU 솔버 경로에 아무 영향 없이 통과한다.
                 + ("" if solver_mode == "gpu_only" else

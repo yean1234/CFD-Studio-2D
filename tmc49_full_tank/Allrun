@@ -4,6 +4,10 @@
 #        미세 격자: config.json mesh.dx_mm=2 — GPU 압력솔버(AmgX) 연동 권장
 #        NP=14 ./Allrun        → 병렬 코어 수 직접 지정 (단독 실행 기본: nproc의 60%, Studio는 최대 80%)
 cd "${0%/*}" || exit 1
+# WSL without a regular user runs as root; Open MPI refuses root without both opt-ins.
+if [ "$(id -u)" = 0 ]; then
+    export OMPI_ALLOW_RUN_AS_ROOT=1 OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+fi
 . ${WM_PROJECT_DIR:?OpenFOAM 환경을 먼저 불러오세요}/bin/tools/RunFunctions
 
 # AmgX/PETSc가 설치된 PC의 기존 GPU 압력솔버 환경을 활성화한다.

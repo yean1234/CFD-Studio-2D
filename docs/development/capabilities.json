@@ -542,7 +542,9 @@
       "status": "partial",
       "sources": [
         "cfd_studio/internal/setup_bridge.py",
-        "cfd_studio/internal/studio_launcher.py"
+        "cfd_studio/internal/studio_launcher.py",
+        "cfd_studio/app.py",
+        "tmc49_full_tank/Allrun"
       ],
       "tests": [
         "tests/test_setup_bridge.py",

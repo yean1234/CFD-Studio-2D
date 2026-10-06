@@ -1,5 +1,13 @@
 # 릴리스 노트
 
+## 2D 단면 실행 보완
+
+- `immersion_2d` 프리셋 Case 저장 오류 수정 · 프리셋 원본이 아니라 제출한 Config를 검증
+- `section_2d`의 자동 계산 값 4개는 비워 둔 채 저장 가능
+- Config 편집 미리보기: `case_dimension`이 2D이면 단면 판과 단면에 걸친 부품만 표시
+- 일반 사용자가 없는 WSL(root 기본 사용자)에서 Open MPI 병렬 실행 허용 · root일 때만 `OMPI_ALLOW_RUN_AS_ROOT`·`OMPI_ALLOW_RUN_AS_ROOT_CONFIRM` 설정 · 일반 사용자 환경은 변경 없음
+- 확인 범위: 단위 검사와 WSL root `mpirun` 시작 확인 · 이 변경 후 CFD 계산은 아직 실행하지 않음
+
 ## 격자 전이 사용 선택
 
 - 격자 간격 전이 사용 스위치 추가 · 꺼도 입력 간격비 보존
