@@ -32,6 +32,24 @@ class AdapterTests(unittest.TestCase):
         finally:
             release.set()
 
+    def test_transient_file_lock_during_poll_does_not_fail_running_case(self):
+        calls = []
+        def status():
+            calls.append(1)
+            if len(calls) == 1:
+                raise PermissionError(13, 'Permission denied', 'meta.json')
+            return {'running': True}
+        w = SimpleNamespace()
+        install(w, {'_active_rid': lambda: 'first', 'get_status': status})
+        case = {'result_key': 'legacy:first', 'attempts': [{'id': 'lock', 'started': 0}]}
+        for _ in range(100):
+            w.legacy_poll(case)
+            if len(calls) >= 2:
+                break
+            threading.Event().wait(.01)
+        self.assertGreaterEqual(len(calls), 2, 'A locked meta.json stopped later polling')
+        self.assertEqual(w.legacy_poll(case)['status'], 'running')
+
     def test_immersion_frame_policy_uses_visual_output_interval_not_restart_interval(self):
         c=read_json(ROOT/'cfd_studio/configs/immersion.json')
         c['_studio']={'termination':{'mode':'frames','frames':101,'include_initial':True}}
@@ -63,5 +81,46 @@ class AdapterTests(unittest.TestCase):
             g['_extract_state']=lambda rid:{'busy':True}
             self.assertEqual(w.result_info(record)['result_status'],'preparing')
             self.assertFalse(w.result_info(record)['can_generate'])
+
+    def test_project_storage_waits_while_allrun_post_processing_runs(self):
+        with tempfile.TemporaryDirectory() as td:
+            path=Path(td)
+            cfg={'run':{'output_fields':['flow'],'viz_interval_s':1},'_studio':{'termination':{'mode':'time','time_s':2}}}
+            for t in range(3):(path/f'flow_{t}.bin').write_bytes(b'valid'*12)
+            busy=[True];calls=[]
+            def wsl(script,timeout=None):
+                calls.append(script)
+                if 'ALLRUN_BUSY' in script:
+                    return True,'ALLRUN_BUSY' if busy[0] else ''
+                return True,'PROJECT_SAVED'
+            g={'project_inventory':lambda p:{'flow':3,'tmax':2},'project_config':lambda rid:cfg,
+               '_read_json_file':lambda p:{'last_time':2},'_extract_state':lambda rid:{},'_extract_public':lambda rid:{},
+               '_valid_viz_output':lambda p,kind:True,'_active_rid':lambda:'r','get_status':lambda:{'running':False,'completed':True},
+               'proj_dir':lambda rid:td,'wsl':wsl,'_wsl_case_token':lambda:'~/case','win2wsl':lambda p:p,'_shq':lambda p:"'"+p+"'"}
+            w=SimpleNamespace();install(w,g)
+            case={'result_key':'legacy:r','config':cfg,'attempts':[{'id':'store','started':0,'job_path':str(path/'job.json')}]}
+            def settle():
+                for _ in range(200):
+                    result=w.legacy_poll(case)
+                    if result['status']!='running' or calls:break
+                    threading.Event().wait(.01)
+                threading.Event().wait(.05)
+                return w.legacy_poll(case)
+            self.assertEqual(settle()['status'],'running')
+            self.assertFalse(any('rsync' in c for c in calls),'Copy started while Allrun was still writing')
+            busy[0]=False;calls.clear()
+            for _ in range(200):
+                if w.legacy_poll(case)['status']=='complete':break
+                threading.Event().wait(.01)
+            self.assertEqual(w.legacy_poll(case)['status'],'complete')
+            self.assertTrue((path/'storage_complete.json').is_file())
+
+    def test_initial_frame_cell_centres_use_options_valid_for_postprocess(self):
+        # OpenFOAM v2312 postProcess rejects -withZero; only reconstructPar accepts it.
+        source=(ROOT/'cfd_studio/app.py').read_text(encoding='utf-8')
+        lines=[line for line in source.splitlines() if 'postProcess' in line and 'writeCellCentres' in line]
+        self.assertTrue(lines)
+        self.assertFalse([line for line in lines if 'withZero' in line or 'ZERO_OPT' in line])
+        self.assertIn('-withZero',' '.join(l for l in source.splitlines() if 'with_zero =' in l))
 
 if __name__=='__main__':unittest.main()

@@ -838,8 +838,18 @@ def meta_write(path, obj):
     """임시파일 → 원자 교체. 폴링 경쟁으로 meta.json이 깨져 이름이 사라지는 문제 방지"""
     with META_LK:
         tmp = path + ".tmp"
-        json.dump(obj, open(tmp, "w"))
-        os.replace(tmp, path)
+        with open(tmp, "w") as f:
+            json.dump(obj, f)
+        # Windows refuses the replace while another process (indexer, antivirus,
+        # a reader) holds meta.json open; the lock is brief, so retry for ~3 s.
+        for attempt in range(15):
+            try:
+                os.replace(tmp, path)
+                return
+            except PermissionError:
+                if attempt == 14:
+                    raise
+                time.sleep(0.2)
 
 def _save_studio_config(**changes):
     """실행 중 바꾼 PC별 설정을 원자적으로 저장한다."""
@@ -3065,8 +3075,8 @@ def _ensure_project_cell_centres(pdir, case_src, times):
         except OSError: pass
         # 임시 파일 검증 후 교체한다. Viewer가 복사 중인 C를 읽는 경쟁 상태를 막는다.
         c_after = (
-            "ZERO_OPT=; [ \"$T\" = 0 ] && ZERO_OPT=-withZero; "
-            "postProcess $ZERO_OPT -func writeCellCentres -time \"$T\" >/dev/null 2>&1 || exit 8; "
+            # postProcess has no -withZero (only reconstructPar does); -time 0 already selects 0/.
+            "postProcess -func writeCellCentres -time \"$T\" >/dev/null 2>&1 || exit 8; "
             f"cp \"$TMP/$T/C\" {_shq(wdir + '/_C_tmp')} 2>/dev/null || exit 9; "
             f"test -s {_shq(wdir + '/_C_tmp')} || exit 10"
         )
@@ -3319,8 +3329,7 @@ def _extract_worker_inner(requested_rid, S):
                 # copy those fields and use the proven Windows compressor below.
                 fast_after = (f"CACHE={_shq(fast_cache)}; ERR=\"$CACHE/compress.err\"; mkdir -p \"$CACHE\" || exit 8; "
                               "if [ ! -s \"$CACHE/C\" ]; then "
-                              "ZERO_OPT=; [ \"$T\" = 0 ] && ZERO_OPT=-withZero; "
-                              "postProcess $ZERO_OPT -func writeCellCentres -time \"$T\" >/dev/null 2>&1 || exit 8; "
+                              "postProcess -func writeCellCentres -time \"$T\" >/dev/null 2>&1 || exit 8; "
                               "cp \"$TMP/$T/C\" \"$CACHE/C.tmp\" && mv \"$CACHE/C.tmp\" \"$CACHE/C\" || exit 8; fi; "
                               f"python3 {_shq(fast_helper)} {fast_args} >/dev/null 2>\"$ERR\" || "
                               f"{{ cat \"$ERR\" >&2; {cps} }}")

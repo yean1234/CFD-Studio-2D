@@ -17,9 +17,11 @@
   function kind(c){return c?.coupled&&c?.numerics?'warehouse':c?._해석유형==='grain_silo'?'grain_silo':c?.tank&&c?.dielectric_fluid?'immersion':'unsupported';}
   function parse(text){const c=JSON.parse(text);if(!c||Array.isArray(c)||typeof c!=='object')throw Error('설정 JSON 객체가 필요합니다');
     const check=v=>{if(v&&typeof v==='object')for(const [k,x] of Object.entries(v)){if(['__proto__','prototype','constructor'].includes(k))throw Error('허용되지 않는 설정 키');check(x);}};check(c);return c;}
+  // Matches AUTO_NULL_PATHS in execution_workspace.py: null means build_case_2d derives the value.
+  const autoNull=['x_mm','represented_width_mm','thickness_mm','coil_UA_W_mK'].map(k=>'section_2d.'+k);
   function validate(c){
     if(kind(c)==='unsupported')throw Error('이 설정은 조회만 지원합니다. 실행 가능한 기본 설정을 선택하세요.');
-    const check=(v,path='')=>{if(v===null)throw Error(path+' 값을 입력하세요');if(typeof v==='number'&&!Number.isFinite(v))throw Error(path+' 숫자를 확인하세요');if(v&&typeof v==='object')for(const [k,x] of Object.entries(v)){if(isReferenceKey(k)||['unresolved','assumptions','study','solver_options','published_numerics'].includes(k))continue;check(x,path?path+'.'+k:k);}};check(c);
+    const check=(v,path='')=>{if(v===null){if(autoNull.includes(path))return;throw Error(path+' 값을 입력하세요');}if(typeof v==='number'&&!Number.isFinite(v))throw Error(path+' 숫자를 확인하세요');if(v&&typeof v==='object')for(const [k,x] of Object.entries(v)){if(isReferenceKey(k)||['unresolved','assumptions','study','solver_options','published_numerics'].includes(k))continue;check(x,path?path+'.'+k:k);}};check(c);
     const n=kind(c)==='warehouse'?c.numerics:c.run;
     const positive=(v,label)=>{if(typeof v!=='number'||!Number.isFinite(v)||v<=0)throw Error(label+'을 양수로 입력하세요');};
     if(!n)throw Error('계산 설정이 없습니다');

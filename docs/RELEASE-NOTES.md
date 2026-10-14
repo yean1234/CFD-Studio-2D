@@ -6,7 +6,12 @@
 - `section_2d`의 자동 계산 값 4개는 비워 둔 채 저장 가능
 - Config 편집 미리보기: `case_dimension`이 2D이면 단면 판과 단면에 걸친 부품만 표시
 - 일반 사용자가 없는 WSL(root 기본 사용자)에서 Open MPI 병렬 실행 허용 · root일 때만 `OMPI_ALLOW_RUN_AS_ROOT`·`OMPI_ALLOW_RUN_AS_ROOT_CONFIRM` 설정 · 일반 사용자 환경은 변경 없음
-- 확인 범위: 단위 검사와 WSL root `mpirun` 시작 확인 · 이 변경 후 CFD 계산은 아직 실행하지 않음
+- 계산 중 `meta.json`이 다른 프로세스에 잠겨 있으면 Case가 실패로 표시되던 문제 수정 · 결과 기록은 약 3초 재시도 · 결과 확인은 다음 주기에 다시 시도
+- Config 편집기 검사도 `section_2d` 자동 계산 값 4개의 빈 값을 허용 (서버 검증과 동일)
+- 초기 시각(t=0) 결과 변환 실패 수정 · OpenFOAM v2312 `postProcess`가 지원하지 않는 `-withZero` 옵션 제거 · 이전에는 t=0 하나가 빠져 결과 저장 검증이 실패
+- 원본 저장 전 Allrun 후처리 종료 대기 · 복사 중 원본이 바뀌면 해당 항목을 오류에 표시
+- Allrun: 저장 시각이 200개를 넘으면 마지막 시각만 재조립 (`RECONSTRUCT_ALL_MAX`로 조정) · 전체 재조립은 필요할 때 `reconstructPar -newTimes`
+- 확인 범위: 단위 검사, WSL root `mpirun` 시작 확인, 2D `local_flux`·`flux_and_power` 60 s 계산 실행, t=0 변환 명령 WSL 재현 · 2D·3D 결과 비교와 물리 검증은 미완료
 
 ## 격자 전이 사용 선택
 

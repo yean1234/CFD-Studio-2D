@@ -127,7 +127,7 @@
         "tests/test_run_management.py",
         "tests/test_execution_adapters.py"
       ],
-      "acceptance": "순서 변경·다음 실행 일시정지·실패 원인·완료 재실행 방지",
+      "acceptance": "순서 변경·다음 실행 일시정지·실패 원인·완료 재실행 방지 · Windows 파일 잠금(PermissionError) 같은 일시적 결과 확인 오류는 실패로 확정하지 않고 다음 주기에 재확인",
       "document": "docs/development/REQUIREMENTS.md",
       "evidence": "source_and_existing_test_mapping; tests are verification entry points, not proof that the feature is complete"
     },
@@ -569,12 +569,14 @@
         "cfd_studio/internal/cfd_forms.py",
         "cfd_studio/internal/run_management.py",
         "cfd_studio/internal/spatial_editor.js",
-        "cfd_studio/internal/form_config_editor.js"
+        "cfd_studio/internal/form_config_editor.js",
+        "cfd_studio/internal/config_editor.js"
       ],
       "tests": [
         "tests/test_section_2d.py",
         "tests/test_cfd_forms.py",
-        "tests/test_spatial_editor.js"
+        "tests/test_spatial_editor.js",
+        "tests/test_settings_editor.js"
       ],
       "document": "docs/SECTION-2D.md",
       "evidence": "unit tests plus one OpenFOAM v2312 smoke run (blockMesh/checkMesh, 0.1 s serial, 0.05 s 4-rank Allrun, heater energy audit within 2 %) on 2026-10-05; no long run, convergence or experimental validation; Studio 2D preset save and section preview covered by unit tests only (2026-10-07)"
