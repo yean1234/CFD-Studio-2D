@@ -228,7 +228,7 @@
     const modes=el('div',null,'fc-modes'),tools=el('div',null,'fc-tools');const importButton=button('JSON 가져오기',()=>upload.click());importButton.hidden=readonly;tools.append(structureButton,jsonButton,importButton,button('JSON 내보내기',()=>guarded(()=>{commitJSON();const a=el('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(schemaOnly?blankDefinition(draft):exportDocument(),null,2)],{type:'application/json'}));a.download=schemaOnly?'cfd-template.json':'cfd-config.json';a.click();render();setTimeout(()=>URL.revokeObjectURL(a.href),1000);})),upload);toolbar.append(modes,tools);
     const hint=el('p',readonly?'실행 시점의 입력 기록 · 변경하려면 이 Config로 새 Case 선택':schemaOnly?'초기 형상과 입력 양식 정의 · 물성 및 운전값은 프로젝트에서 입력':'필수 항목을 먼저 입력하세요','fc-note');
     const workspace=el('div',null,'fc-workspace'),preview=el('aside',null,'fc-preview'),previewHeader=el('div',null,'fc-preview-header'),previewHost=el('div',null,'fc-preview-host'),previewNote=el('p',null,'fc-preview-note');
-    previewHeader.append(el('strong','3D 형상'),spatial);preview.append(previewHeader,previewHost,previewNote);workspace.append(body);
+    const previewTitle=el('strong','3D 형상');previewHeader.append(previewTitle,spatial);preview.append(previewHeader,previewHost,previewNote);workspace.append(body);
     const jsonPane=el('aside',null,'fc-json-pane'),jsonHeader=el('div',null,'fc-preview-header'),jsonTitle=el('strong','JSON'),jsonActions=el('div',null,'fc-actions');
     const primitiveExample=el('select');primitiveExample.setAttribute('aria-label','기본 형상 예시');primitiveExample.hidden=true;primitiveExample.append(new Option('기본 형상 예시',''),new Option('직육면체','box'),new Option('구','sphere'),new Option('원기둥','cylinder'));
     primitiveExample.onchange=()=>{if(!primitiveExample.value)return;const old=sp.primitiveDefinition(currentConfig(),jsonPath)||{},shape=primitiveExample.value;const value={name:old.name||'region',shape,unit:old.unit||'m',...(shape==='box'?{min:[0,0,0],max:[null,null,null]}:{center:[0,0,0],radius:null,...(shape==='cylinder'?{height:null,axis:'z'}:{})})};jsonArea.value=JSON.stringify(value,null,2);jsonArea.dispatchEvent(new Event('input'));primitiveExample.value='';};
@@ -266,7 +266,7 @@
       try{
         const config=currentConfig(),model=sp.shapes(config),signature=JSON.stringify(model);
         if(signature===lastScene&&cleanPreview){cleanPreview.select(elementId);return;}
-        const generation=++previewVersion;cameraState=cleanPreview?.cameraState()||cameraState;cleanPreview?.();cleanPreview=null;previewHost.replaceChildren();lastScene=signature;
+        const generation=++previewVersion;cameraState=cleanPreview?.cameraState()||cameraState;const dimension=model.dimension||'3D';if(dimension!==previewTitle.dataset.dimension){if(previewTitle.dataset.dimension)cameraState=null;previewTitle.dataset.dimension=dimension;previewTitle.textContent=dimension==='2D'?'2D 단면':'3D 형상';}cleanPreview?.();cleanPreview=null;previewHost.replaceChildren();lastScene=signature;
         previewNote.textContent=model.notes.join(' · ');
         if(!model.items.length){previewHost.append(el('p','형상과 치수를 입력하세요','fc-empty'));return;}
         const clean=await sp.viewer(previewHost,model,{onSelect:selectElement,selected:elementId,cameraState});

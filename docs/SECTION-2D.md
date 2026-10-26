@@ -90,7 +90,9 @@ python3 tools/export_coarse_2d.py --out export_2d  # 계산 후 거친 입력 �
 - CPU 벽면 온도는 3 mm 셀에서 약 1,100~1,500 K의 벽 경계 모델 값 · 물리적 벽 과열도가 아님
 - 기포 명세서의 ΔT_sup는 q″로부터 Cooper 역산 또는 벽함수 경로로 구해야 함 · 3D도 같은 셀 크기와 경계 사용
 - TMC-49 임계압은 Config 근거가 없어 `p_critical_Pa = null` · Cooper 환산압력 계산 전 출처 확인 필요
-- Studio 3D Viewer의 2D 단면 표시는 미검증 · 연구 분석은 내보내기 파일 사용 권장
+- Config 편집 미리보기: `case_dimension`이 `2D`이면 **2D 단면**으로 전환 · `section_2d.x_mm`·두께 위치의 얇은 판과 단면에 걸친 보드·코일·CPU 면만 표시 · 생성기 격자·경계 패치·계산 결과는 표시하지 않음
+- 결과 Viewer의 2D 계산 결과 표시는 미검증 · 연구 분석은 내보내기 파일 사용 권장
+- `section_2d`의 `x_mm`·`represented_width_mm`·`thickness_mm`·`coil_UA_W_mK`는 비워 두면 자동 계산 · Studio 저장 검증도 이 네 값의 `null`을 허용
 - Lee 계수·증기 수송물성·계면장력 등 3D Config의 research_preliminary 상태를 그대로 상속
 
 ## 출처

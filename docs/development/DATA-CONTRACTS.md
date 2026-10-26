@@ -20,6 +20,9 @@
 
 - 실제 필드의 선택/필수 여부는 `project_storage.py`, `run_management.py`, `cfd_forms.py` 기준
 - 표는 새 범용 스키마를 선언한 것이 아님 · 기존 파일에 표의 키를 일괄 강제하지 않음
+- 프로젝트 생성 시 `initial_config`가 전달되면 사용자가 입력한 Config가 최종 검증·저장값이다. `default_preset`은 Template 연결과 입력 시작점으로 보존한다.
+- Case 저장도 같은 규칙 · `preset_id`는 출처 기록이며 검증 대상은 제출된 Config
+- `section_2d.x_mm`·`represented_width_mm`·`thickness_mm`·`coil_UA_W_mK`의 `null`은 "3D Config에서 자동 계산"을 뜻하며 `validate_settings`가 허용한다. 다른 `null` 값은 계속 미입력 오류다.
 
 ## 프로젝트 저장
 

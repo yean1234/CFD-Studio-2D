@@ -838,8 +838,18 @@ def meta_write(path, obj):
     """임시파일 → 원자 교체. 폴링 경쟁으로 meta.json이 깨져 이름이 사라지는 문제 방지"""
     with META_LK:
         tmp = path + ".tmp"
-        json.dump(obj, open(tmp, "w"))
-        os.replace(tmp, path)
+        with open(tmp, "w") as f:
+            json.dump(obj, f)
+        # Windows refuses the replace while another process (indexer, antivirus,
+        # a reader) holds meta.json open; the lock is brief, so retry for ~3 s.
+        for attempt in range(15):
+            try:
+                os.replace(tmp, path)
+                return
+            except PermissionError:
+                if attempt == 14:
+                    raise
+                time.sleep(0.2)
 
 def _save_studio_config(**changes):
     """실행 중 바꾼 PC별 설정을 원자적으로 저장한다."""
@@ -2145,6 +2155,11 @@ def win2wsl(p):
         return f"/mnt/{drive}{rest}"
     return p.replace("\\", "/")                      # 이미 POSIX 경로면 그대로
 
+# Shell line exporting the Open MPI root opt-ins only when the WSL user is root.
+_MPI_ROOT_OPT_IN = ("[ \"$(id -u)\" = 0 ] && export OMPI_ALLOW_RUN_AS_ROOT=1 "
+                    "OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1; true\n")
+
+
 def open_console(inner_bash):
     """보이는 명령 프롬프트 창에서 WSL 스크립트 실행 (실행 상황 라이브 표시).
     스크립트를 파일로 저장하고 콘솔은 그 파일만 실행 — cmd.exe가 따옴표/리다이렉트(>)를
@@ -2166,6 +2181,9 @@ def open_console(inner_bash):
                 "export OMPI_MCA_rmaps_base_oversubscribe=1\n"
                 # Windows TEMP가 /mnt/c로 전달되면 Open MPI FIFO 생성이 errno 95로 실패한다.
                 "export TMPDIR=/tmp TMP=/tmp TEMP=/tmp\n"
+                # WSL distributions without a regular user run as root; Open MPI refuses
+                # root unless both opt-ins are set. Applied only for uid 0.
+                + _MPI_ROOT_OPT_IN
                 # 사용자가 AmgX/PETSc를 설치한 PC에서는 기존 GPU 압력솔버 환경을 그대로 활성화한다.
                 # 파일이 없으면 CPU 솔버 경로에 아무 영향 없이 통과한다.
                 + ("" if solver_mode == "gpu_only" else
@@ -3057,8 +3075,8 @@ def _ensure_project_cell_centres(pdir, case_src, times):
         except OSError: pass
         # 임시 파일 검증 후 교체한다. Viewer가 복사 중인 C를 읽는 경쟁 상태를 막는다.
         c_after = (
-            "ZERO_OPT=; [ \"$T\" = 0 ] && ZERO_OPT=-withZero; "
-            "postProcess $ZERO_OPT -func writeCellCentres -time \"$T\" >/dev/null 2>&1 || exit 8; "
+            # postProcess has no -withZero (only reconstructPar does); -time 0 already selects 0/.
+            "postProcess -func writeCellCentres -time \"$T\" >/dev/null 2>&1 || exit 8; "
             f"cp \"$TMP/$T/C\" {_shq(wdir + '/_C_tmp')} 2>/dev/null || exit 9; "
             f"test -s {_shq(wdir + '/_C_tmp')} || exit 10"
         )
@@ -3311,8 +3329,7 @@ def _extract_worker_inner(requested_rid, S):
                 # copy those fields and use the proven Windows compressor below.
                 fast_after = (f"CACHE={_shq(fast_cache)}; ERR=\"$CACHE/compress.err\"; mkdir -p \"$CACHE\" || exit 8; "
                               "if [ ! -s \"$CACHE/C\" ]; then "
-                              "ZERO_OPT=; [ \"$T\" = 0 ] && ZERO_OPT=-withZero; "
-                              "postProcess $ZERO_OPT -func writeCellCentres -time \"$T\" >/dev/null 2>&1 || exit 8; "
+                              "postProcess -func writeCellCentres -time \"$T\" >/dev/null 2>&1 || exit 8; "
                               "cp \"$TMP/$T/C\" \"$CACHE/C.tmp\" && mv \"$CACHE/C.tmp\" \"$CACHE/C\" || exit 8; fi; "
                               f"python3 {_shq(fast_helper)} {fast_args} >/dev/null 2>\"$ERR\" || "
                               f"{{ cat \"$ERR\" >&2; {cps} }}")

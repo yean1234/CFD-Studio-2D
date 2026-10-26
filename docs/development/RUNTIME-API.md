@@ -57,6 +57,9 @@ stateDiagram-v2
 | POST `/api/executions/form-from-survey` | solver, answers | 설문 기반 양식 |
 | POST `/api/executions/form-inspect` | solver, config | 필수 요건 확인 |
 
+- 프로젝트 생성 요청에 `initial_config`가 있으면 선택한 `default_preset`은 Template 연결과 기본 출처로만 사용하고, 검증·저장 대상은 `initial_config`이다.
+- Case 저장 요청도 `preset_id`의 원본이 아니라 요청의 `config`를 검증한다.
+
 - 전체 라우트와 정확한 선택 인수는 핸들러에서 확인 · 이 표는 주요 경계 요약
 - 큐 action 이름을 추정해 직접 요청하지 않음 · 공개 화면 명령/해당 핸들러 확인
 

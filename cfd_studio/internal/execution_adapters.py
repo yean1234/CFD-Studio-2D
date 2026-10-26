@@ -164,8 +164,13 @@ def install(workspace, g):
         from cfd_studio.execution_workspace import atomic_json
         marker = Path(case['attempts'][-1]['job_path']).with_name('storage_complete.json')
         if not marker.is_file():
-            destination = g['win2wsl'](str(Path(record['path'])/'Raw_Data'/'Case_State'))
             token = g['_wsl_case_token']()
+            # Allrun post-processing (reconstructPar/foamToVTK) still writes into the case;
+            # copying now would fail the checksum pass, so wait for it to exit.
+            ok, out = g['wsl'](f'cd {token} || exit 1; for p in $(cat .cfd_studio_allrun.pid 2>/dev/null); do [ -d "/proc/$p" ] && echo ALLRUN_BUSY; done; true')
+            if ok and 'ALLRUN_BUSY' in out:
+                return {'status': 'running'}
+            destination = g['win2wsl'](str(Path(record['path'])/'Raw_Data'/'Case_State'))
             target = g['_shq'](destination)
             script = f'''set -eu
 cd {token}
@@ -177,7 +182,8 @@ done
 # A second checksum pass verifies the destination without deleting original data.
 for item in system constant 0 0.orig config.json run_overrides.json postProcessing processor[0-9]* log.* [0-9]*; do
     [ -e "$item" ] || continue
-    test -z "$(rsync -rLtcni -- "$item" {target}/)"
+    changed="$(rsync -rLtcni -- "$item" {target}/)"
+    [ -z "$changed" ] || {{ echo "원본이 복사 중 변경됨: $item" >&2; exit 3; }}
 done
 echo PROJECT_SAVED'''
             ok, out = g['wsl'](script, timeout=86400)
@@ -211,6 +217,9 @@ echo PROJECT_SAVED'''
                 def collect():
                     try:
                         value = poll(snapshot)
+                    except PermissionError:
+                        # A Windows file lock is transient; check again on the next tick.
+                        value = {'status': 'running'}
                     except Exception as error:
                         value = {'status': 'failed', 'error': str(error)}
                     with poll_lock:

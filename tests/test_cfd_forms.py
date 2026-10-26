@@ -43,6 +43,45 @@ class FormTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.w.create_project('잘못된 프로젝트', default_preset='warehouse', form_id='immersion')
 
+    def test_project_initial_config_overrides_preset_template_for_validation(self):
+        config = copy.deepcopy(self.w.template('config:immersion_2d'))
+        config['section_2d'].update({
+            'x_mm': 185,
+            'represented_width_mm': 456,
+            'thickness_mm': 3.0,
+            'coil_UA_W_mK': 235.87,
+        })
+
+        project = self.w.create_project(
+            'TMC49 2D',
+            default_preset='config:immersion_2d',
+            storage_path=str(self.base/'tmc49-2d'),
+            form_id='immersion',
+            initial_config=config,
+        )
+
+        self.assertEqual(project['default_preset'], 'config:immersion_2d')
+        self.assertEqual(project['initial_config'], config)
+
+    def test_2d_preset_auto_values_and_case_save_validate_submitted_config(self):
+        from cfd_studio.execution_workspace import validate_settings
+        preset = self.w.template('config:immersion_2d')
+        self.assertIsNone(preset['section_2d']['x_mm'])
+        self.assertEqual(validate_settings(copy.deepcopy(preset)), 'immersion')
+        broken = copy.deepcopy(preset)
+        broken['section_2d']['cpu_index'] = None
+        with self.assertRaisesRegex(ValueError, 'section_2d.cpu_index'):
+            validate_settings(broken)
+
+        project = self.w.create_project('TMC49 2D case', default_preset='config:immersion_2d',
+                                        storage_path=str(self.base/'tmc49-2d-case'), form_id='immersion')
+        config = copy.deepcopy(preset)
+        config['section_2d'].update({'x_mm': 185, 'thickness_mm': 3.0})
+        saved = self.w.save_case(project['id'], 'TMC49_2D_baseline', config, preset_id='config:immersion_2d')
+        case = self.w.queue_data()['cases'][saved['run_key']]
+        self.assertEqual(case['config']['section_2d']['x_mm'], 185)
+        self.assertEqual(case['preset_id'], 'config:immersion_2d')
+
     def test_separate_forms_of_same_engine_have_separate_presets(self):
         f = self.new_form()
         with self.assertRaises(ValueError): self.w.check_form_preset(f['id'], 'config:immersion')

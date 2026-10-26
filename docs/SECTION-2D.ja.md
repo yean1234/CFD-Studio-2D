@@ -90,7 +90,9 @@ python3 tools/export_coarse_2d.py --out export_2d  # 計算後に粗い入力を
 - CPU壁面温度は3 mmセルで約1,100~1,500 Kとなる境界モデル値であり、物理的な壁面過熱度ではない
 - 気泡仕様のΔT_supはq″からCooper逆算または壁関数経路で求める必要 · 3Dも同じセル寸法と境界を使用
 - TMC-49の臨界圧はConfigに根拠がなく`p_critical_Pa = null` · Cooper換算圧力の計算前に出典確認が必要
-- Studio 3D Viewerでの2D断面表示は未検証 · 研究解析には出力ファイルを推奨
+- Config編集プレビュー: `case_dimension`が`2D`のとき**2D断面**に切替 · `section_2d.x_mm`と厚さの薄板と、断面にかかる基板・コイル・CPU面のみ表示 · 生成器のメッシュ・境界パッチ・計算結果は表示しない
+- 結果Viewerでの2D計算結果表示は未検証 · 研究解析には出力ファイルを推奨
+- `section_2d`の`x_mm`・`represented_width_mm`・`thickness_mm`・`coil_UA_W_mK`は空欄で自動計算 · Studioの保存検証もこの4項目の`null`を許可
 - Lee係数・蒸気輸送物性・界面張力など3D Configのresearch_preliminary状態をそのまま継承
 
 ## 出典

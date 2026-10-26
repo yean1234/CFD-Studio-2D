@@ -89,3 +89,12 @@ test('termination section owns only the actual solver stop paths',()=>{
  assert.deepEqual(editor.terminationPaths({_해석유형:'grain_silo',openfoam_mapping:{solver:'simpleFoam'}}),[['run','max_iterations'],['run','stop_mode']]);
  assert.deepEqual(editor.terminationPaths({analysis:{solver:'custom'},run:{end_time_s:10}}),[]);
 });
+
+test('section_2d auto values may stay empty while other null values are rejected',()=>{
+ const settings=require('../cfd_studio/internal/config_editor.js');
+ const c=JSON.parse(require('node:fs').readFileSync(require('node:path').join(__dirname,'../cfd_studio/configs/immersion_2d.json'),'utf8'));
+ assert.equal(c.section_2d.coil_UA_W_mK,null);
+ settings.validate(c);
+ c.section_2d.cpu_index=null;
+ assert.throws(()=>settings.validate(c),/section_2d\.cpu_index/);
+});

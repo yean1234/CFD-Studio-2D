@@ -4,6 +4,10 @@
 #        미세 격자: config.json mesh.dx_mm=2 — GPU 압력솔버(AmgX) 연동 권장
 #        NP=14 ./Allrun        → 병렬 코어 수 직접 지정 (단독 실행 기본: nproc의 60%, Studio는 최대 80%)
 cd "${0%/*}" || exit 1
+# WSL without a regular user runs as root; Open MPI refuses root without both opt-ins.
+if [ "$(id -u)" = 0 ]; then
+    export OMPI_ALLOW_RUN_AS_ROOT=1 OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+fi
 . ${WM_PROJECT_DIR:?OpenFOAM 환경을 먼저 불러오세요}/bin/tools/RunFunctions
 
 # AmgX/PETSc가 설치된 PC의 기존 GPU 압력솔버 환경을 활성화한다.
@@ -62,7 +66,16 @@ if [ "$SOLVER_RC" -ne 0 ]; then
     fi
     exit "$SOLVER_RC"
 fi
-runApplication reconstructPar -newTimes
+# Visual frames can create thousands of time folders; reconstructing each one
+# takes hours and CFD Studio converts processor data itself. Keep full
+# reconstruction for short runs and reconstruct only the final state otherwise.
+NTIMES=$(ls -d processor0/[0-9]* 2>/dev/null | wc -l)
+if [ "$NTIMES" -le "${RECONSTRUCT_ALL_MAX:-200}" ]; then
+    runApplication reconstructPar -newTimes
+else
+    echo "[CFD Studio] 저장 시각 ${NTIMES}개 — 마지막 시각만 재조립 (전체: reconstructPar -newTimes)"
+    runApplication reconstructPar -latestTime
+fi
 # CFD Studio Viewer reads the native fields directly. Steady storage runs can
 # contain many iteration snapshots, so VTK duplication is opt-in for that case.
 if [ "$ANALYSIS" != grain_silo ] || [ "${CFD_STUDIO_EXPORT_VTK:-0}" = 1 ]; then

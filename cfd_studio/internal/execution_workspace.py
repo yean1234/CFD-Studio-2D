@@ -76,6 +76,10 @@ def config_kind(config):
     return 'unsupported'
 
 
+# Optional section_2d keys whose null means "derive from the 3D Config" in build_case_2d.resolve_section.
+AUTO_NULL_PATHS = frozenset('설정.section_2d.'+key for key in ('x_mm', 'represented_width_mm', 'thickness_mm', 'coil_UA_W_mK'))
+
+
 def validate_settings(config):
     json.dumps(config, allow_nan=False)
     from cfd_studio.form_schema import validate_geometry
@@ -84,6 +88,8 @@ def validate_settings(config):
     validate_runner_geometry(config)
     def check(value, path='설정'):
         if value is None:
+            if path in AUTO_NULL_PATHS:
+                return
             raise ValueError(path+' 값을 입력해 주세요')
         if isinstance(value, dict):
             for key, item in value.items():
@@ -344,11 +350,12 @@ class ExecutionWorkspace(ProjectStorage, RunManagement, CFDForms):
             if default_preset:
                 self.template(default_preset)
             if form_id:
-                self.check_form_preset(form_id, default_preset)
+                self.check_form_preset(form_id, default_preset, initial_config)
             project = {'form_id': form_id, 'id': uuid.uuid4().hex, 'name': label(name), 'description': description, 'default_preset': default_preset, 'created': time.time(), 'runs': []}
             if initial_config is not None:
                 if not form_id:raise ValueError('CFD Template을 선택하세요')
-                self.check_project_config(form_id,initial_config)
+                if not default_preset:
+                    self.check_project_config(form_id,initial_config)
                 project['initial_config']=copy.deepcopy(initial_config)
             elif form_id and self.form(form_id).get('definition_only') and not default_preset:
                 raise ValueError('프로젝트 Config를 입력하세요')

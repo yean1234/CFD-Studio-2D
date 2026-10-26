@@ -176,3 +176,16 @@ test('connected silo preview uses runner height and porous extent without invent
  assert.throws(()=>shapes({...c,published:{...c.published,grain_height_m:2}}));
  delete c.silo.geometry_model;assert.equal(shapes(c).items.length,0);
 });
+
+test('2D immersion preview keeps the section slab and parts crossing it',()=>{
+ const c=JSON.parse(readFileSync(require('node:path').join(__dirname,'../cfd_studio/configs/immersion_2d.json'),'utf8'));
+ const result=shapes(c),names=result.items.map(i=>i.name);
+ assert.equal(result.dimension,'2D');assert.ok(result.camera);
+ assert.deepEqual(names,['tank','board','coil','heater.cpus.0','dielectric_fluid','water']);
+ // Default x_mm=null resolves to the CPU0 centre (185 mm) and thickness to mesh.dx_mm (3 mm).
+ const tank=result.items[0];assert.ok(Math.abs(tank.min[0]-.1835)<1e-9&&Math.abs(tank.max[0]-.1865)<1e-9);
+ assert.ok(Math.abs(result.items[3].width-.003)<1e-9);
+ c.section_2d.x_mm=20;const off=shapes(c);
+ assert.ok(!off.items.some(i=>['board','coil'].includes(i.name)||i.kind==='surface'));assert.ok(off.notes.includes('2D 단면이 CPU를 지나지 않음'));
+ c.case_dimension='3D';const full=shapes(c);assert.equal(full.dimension,'3D');assert.equal(full.items.length,7);
+});
